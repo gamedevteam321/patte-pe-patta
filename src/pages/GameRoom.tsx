@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { Clock, Shuffle, Play, Info, Lock } from "lucide-react";
+import { useSocket } from "@/context/SocketContext";
+import { Clock, Shuffle, Play, Info, Lock, Link as LinkIcon } from "lucide-react";
 
 interface Player {
   id: string;
@@ -23,6 +25,7 @@ interface GameState {
   roomName: string;
   isPrivate: boolean;
   betAmount: number;
+  maxPlayers: number;
   gameTimer: number;
   turnTimer: number;
   players: Player[];
@@ -54,9 +57,11 @@ const getCardDisplay = (card: string | null) => {
 
 const GameRoom = () => {
   const { roomId } = useParams<{ roomId: string }>();
+  const location = useLocation();
   const { user, isAuthenticated, updateUser } = useAuth();
+  const { socket, isConnected } = useSocket();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: toastUI } = useToast();
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   
@@ -71,10 +76,11 @@ const GameRoom = () => {
   useEffect(() => {
     if (!roomId || !user) return;
     
-    // Get requested player count from URL query param or default to 4
+    // Get requested player count from URL or query param
     // In a real app, you would get this from the server
-    const playerCountParam = new URLSearchParams(window.location.search).get('players');
-    const playerCount = playerCountParam ? parseInt(playerCountParam) : 4;
+    const searchParams = new URLSearchParams(location.search);
+    const playerCountParam = searchParams.get('players');
+    const maxPlayers = playerCountParam ? parseInt(playerCountParam) : 2; // Default to 2 players if not specified
     
     // Create mock players based on requested count
     let mockPlayers: Player[] = [
@@ -89,29 +95,29 @@ const GameRoom = () => {
     ];
     
     // Add AI players based on requested count
-    if (playerCount >= 2) {
+    if (maxPlayers >= 2) {
       mockPlayers.push({
         id: 'player2',
         username: 'Player 2',
         avatar: '/avatars/avatar2.png',
         cardsCount: 13,
         isCurrentPlayer: false,
-        position: playerCount === 2 ? 'top' : 'right'
+        position: maxPlayers === 2 ? 'top' : 'right'
       });
     }
     
-    if (playerCount >= 3) {
+    if (maxPlayers >= 3) {
       mockPlayers.push({
         id: 'player3',
         username: 'Player 3',
         avatar: '/avatars/avatar3.png',
         cardsCount: 13,
         isCurrentPlayer: false,
-        position: playerCount === 3 ? 'left' : 'top'
+        position: maxPlayers === 3 ? 'left' : 'top'
       });
     }
     
-    if (playerCount >= 4) {
+    if (maxPlayers >= 4) {
       mockPlayers.push({
         id: 'player4',
         username: 'Player 4',
@@ -122,12 +128,13 @@ const GameRoom = () => {
       });
     }
     
-    // Create mock game state
+    // Create mock game state with the correct number of players
     const initialState: GameState = {
       roomId: roomId,
       roomName: "Satta Kings Arena",
       isPrivate: false,
       betAmount: 100,
+      maxPlayers: maxPlayers,
       gameTimer: 120,
       turnTimer: 10,
       players: mockPlayers,
@@ -144,7 +151,13 @@ const GameRoom = () => {
     
     setGameState(initialState);
     showMessage("Game starting! Your turn first.");
-  }, [roomId, user]);
+    
+    // Simulate connecting to room via socket
+    if (isConnected && socket) {
+      console.log(`Joining room: ${roomId}`);
+      socket.emit("joinRoom", { roomId, userId: user.id });
+    }
+  }, [roomId, user, isConnected, socket, location.search]);
   
   // Effect to handle the game timer
   useEffect(() => {
@@ -347,7 +360,7 @@ const GameRoom = () => {
     
     // Update user stats
     if (winner.id === user.id) {
-      toast({
+      toastUI({
         title: "You Won!",
         description: `You've won ${gameState.betAmount * gameState.players.length} coins!`,
         variant: "default",
@@ -359,7 +372,7 @@ const GameRoom = () => {
         wins: user.wins + 1
       });
     } else {
-      toast({
+      toastUI({
         title: "You Lost!",
         description: `${winner.username} won the game.`,
         variant: "destructive",
@@ -370,6 +383,15 @@ const GameRoom = () => {
         losses: user.losses + 1
       });
     }
+  };
+  
+  const copyRoomLink = () => {
+    if (!roomId) return;
+    
+    const maxPlayers = gameState?.maxPlayers || 2;
+    const roomLink = `${window.location.origin}/room/${roomId}?players=${maxPlayers}`;
+    navigator.clipboard.writeText(roomLink);
+    toast.success("Room link copied to clipboard! Share with friends to join.");
   };
   
   const formatTime = (seconds: number) => {
@@ -423,13 +445,25 @@ const GameRoom = () => {
             {gameState.isPrivate && (
               <Lock className="ml-2 h-4 w-4 text-game-yellow" />
             )}
+            <span className="ml-2 text-sm text-white/70">({gameState.players.length}/{gameState.maxPlayers} players)</span>
           </div>
           
           <div className="flex items-center space-x-2">
-            <Clock className="h-4 w-4 text-game-yellow" />
-            <span className={`font-mono ${gameState.gameTimer < 30 ? 'text-game-red' : 'text-game-yellow'}`}>
-              {formatTime(gameState.gameTimer)}
-            </span>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="border-game-yellow/50 text-game-yellow hover:bg-game-yellow/10"
+              onClick={copyRoomLink}
+            >
+              <LinkIcon className="h-4 w-4 mr-1" />
+              Invite
+            </Button>
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 text-game-yellow" />
+              <span className={`font-mono ${gameState.gameTimer < 30 ? 'text-game-red' : 'text-game-yellow'}`}>
+                {formatTime(gameState.gameTimer)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -474,7 +508,7 @@ const GameRoom = () => {
 
         {/* Game Board */}
         <div className="flex flex-col items-center justify-center min-h-screen py-20">
-          {/* Player UI layouts - only show the players that are in the game */}
+          {/* Only render the player slots that are actually in the game */}
           <div className="flex flex-1 w-full">
             {gameState.players.map((player) => (
               <div 

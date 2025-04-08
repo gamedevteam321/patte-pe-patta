@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { PlusCircle, Users, Coins, Lock, Globe, Filter } from "lucide-react";
+import { PlusCircle, Users, Coins, Lock, Globe, Filter, LogIn, Link as LinkIcon } from "lucide-react";
 
 interface GameRoom {
   id: string;
@@ -27,6 +30,7 @@ const Lobby = () => {
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [playerFilter, setPlayerFilter] = useState<string>("all");
+  const [roomId, setRoomId] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -88,11 +92,28 @@ const Lobby = () => {
     if (!user) return;
 
     if (user.coins < betAmount) {
-      alert("Not enough coins to join this room!");
+      toast.error("Not enough coins to join this room!");
       return;
     }
 
     navigate(`/room/${roomId}`);
+  };
+
+  const handleJoinPrivateRoom = () => {
+    if (!roomId.trim()) {
+      toast.error("Please enter a valid room ID");
+      return;
+    }
+
+    // In a real app, you would validate the room ID here first
+    navigate(`/room/${roomId}`);
+    toast.success("Joining room...");
+  };
+
+  const copyRoomLink = () => {
+    const roomLink = `${window.location.origin}/room/${roomId}`;
+    navigator.clipboard.writeText(roomLink);
+    toast.success("Room link copied to clipboard!");
   };
 
   const getStatusColor = (status: string) => {
@@ -119,7 +140,51 @@ const Lobby = () => {
         <div className="flex flex-col md:flex-row justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-game-cyan text-glow mb-4 md:mb-0">Game Lobby</h1>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  className="bg-game-magenta hover:bg-game-magenta/80 text-white"
+                >
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Join Private Room
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-panel border-white/10">
+                <DialogHeader>
+                  <DialogTitle className="text-game-cyan">Join Private Room</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="roomId">Room ID</Label>
+                    <Input
+                      id="roomId"
+                      placeholder="Enter room ID..."
+                      value={roomId}
+                      onChange={(e) => setRoomId(e.target.value)}
+                      className="border-white/10 bg-black/30"
+                    />
+                  </div>
+                  <div className="flex flex-col space-y-2">
+                    <Button
+                      className="w-full bg-game-cyan hover:bg-game-cyan/80 text-black"
+                      onClick={handleJoinPrivateRoom}
+                    >
+                      Join Room
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full border-game-yellow/50 text-game-yellow hover:bg-game-yellow/10"
+                      onClick={copyRoomLink}
+                    >
+                      <LinkIcon className="mr-2 h-4 w-4" />
+                      Copy Join Link
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            
             <Button
               className="bg-game-green hover:bg-game-green/80 text-black"
               onClick={() => navigate("/room/create")}

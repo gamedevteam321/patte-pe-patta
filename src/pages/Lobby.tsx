@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { PlusCircle, Users, Coins } from "lucide-react";
+import { PlusCircle, Users, Coins, Lock, Globe, Filter } from "lucide-react";
 
 interface GameRoom {
   id: string;
@@ -14,6 +16,7 @@ interface GameRoom {
   betAmount: number;
   playerCount: number;
   maxPlayers: number;
+  isPrivate: boolean;
   status: "waiting" | "full" | "in-progress";
   createdBy: string;
 }
@@ -23,6 +26,7 @@ const Lobby = () => {
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [playerFilter, setPlayerFilter] = useState<string>("all");
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -40,6 +44,7 @@ const Lobby = () => {
           betAmount: 500,
           playerCount: 2,
           maxPlayers: 4,
+          isPrivate: false,
           status: "waiting",
           createdBy: "player123",
         },
@@ -49,6 +54,7 @@ const Lobby = () => {
           betAmount: 50,
           playerCount: 1,
           maxPlayers: 2,
+          isPrivate: false,
           status: "waiting",
           createdBy: "newbie42",
         },
@@ -58,6 +64,7 @@ const Lobby = () => {
           betAmount: 250,
           playerCount: 3,
           maxPlayers: 3,
+          isPrivate: true,
           status: "full",
           createdBy: "speedster",
         },
@@ -67,6 +74,7 @@ const Lobby = () => {
           betAmount: 100,
           playerCount: 4,
           maxPlayers: 4,
+          isPrivate: false,
           status: "in-progress",
           createdBy: "champ99",
         },
@@ -100,6 +108,11 @@ const Lobby = () => {
     }
   };
 
+  // Filter rooms based on selected player count
+  const filteredRooms = playerFilter === "all" 
+    ? rooms.filter(room => !room.isPrivate) // Only show public rooms
+    : rooms.filter(room => room.maxPlayers === parseInt(playerFilter) && !room.isPrivate);
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -129,28 +142,63 @@ const Lobby = () => {
           </div>
         )}
 
+        {/* Player count filter */}
+        <div className="mb-6 glass-panel p-4">
+          <div className="flex items-center mb-2">
+            <Filter className="mr-2 h-4 w-4" />
+            <span className="font-semibold">Filter by player count:</span>
+          </div>
+          <RadioGroup
+            value={playerFilter}
+            onValueChange={setPlayerFilter}
+            className="flex flex-wrap gap-3"
+          >
+            <div className="flex items-center space-x-2 p-2 border border-white/20 rounded-md">
+              <RadioGroupItem value="all" id="filter-all" />
+              <Label htmlFor="filter-all">All Rooms</Label>
+            </div>
+            <div className="flex items-center space-x-2 p-2 border border-white/20 rounded-md">
+              <RadioGroupItem value="2" id="filter-2" />
+              <Label htmlFor="filter-2">2 Players</Label>
+            </div>
+            <div className="flex items-center space-x-2 p-2 border border-white/20 rounded-md">
+              <RadioGroupItem value="3" id="filter-3" />
+              <Label htmlFor="filter-3">3 Players</Label>
+            </div>
+            <div className="flex items-center space-x-2 p-2 border border-white/20 rounded-md">
+              <RadioGroupItem value="4" id="filter-4" />
+              <Label htmlFor="filter-4">4 Players</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
         <Card className="glass-panel border-white/10">
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
               <span className="text-game-magenta">Available Rooms</span>
               <Badge variant="outline" className="bg-black/30">
                 <Users className="mr-1 h-4 w-4" /> 
-                {rooms.filter(room => room.status === "waiting").length} available
+                {filteredRooms.filter(room => room.status === "waiting").length} available
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8">Loading rooms...</div>
-            ) : rooms.length > 0 ? (
+            ) : filteredRooms.length > 0 ? (
               <div className="grid gap-4">
-                {rooms.map((room) => (
+                {filteredRooms.map((room) => (
                   <div
                     key={room.id}
                     className="glass-panel p-4 flex flex-col md:flex-row justify-between items-center gap-4"
                   >
                     <div>
-                      <h3 className="font-bold text-lg">{room.name}</h3>
+                      <h3 className="font-bold text-lg">
+                        {room.name}
+                        {room.isPrivate && (
+                          <Lock className="inline-block ml-2 h-4 w-4 text-game-yellow" />
+                        )}
+                      </h3>
                       <p className="text-sm text-gray-400">Created by {room.createdBy}</p>
                     </div>
                     
@@ -165,10 +213,20 @@ const Lobby = () => {
                         {room.betAmount}
                       </Badge>
                       
-                      <Badge variant="outline" className={`${getStatusColor(room.status)}`}>
+                      <Badge variant="outline" className={getStatusColor(room.status)}>
                         {room.status === "waiting" ? "Waiting" : 
                          room.status === "full" ? "Full" : "In Progress"}
                       </Badge>
+                      
+                      {room.isPrivate ? (
+                        <Badge variant="outline" className="bg-game-yellow/20 text-game-yellow">
+                          <Lock className="mr-1 h-4 w-4" /> Private
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-game-green/20 text-game-green">
+                          <Globe className="mr-1 h-4 w-4" /> Public
+                        </Badge>
+                      )}
                     </div>
                     
                     <Button
@@ -191,7 +249,7 @@ const Lobby = () => {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-400">No rooms available. Be the first to create one!</p>
+                <p className="text-gray-400">No rooms available matching your filter. Try another filter or be the first to create one!</p>
               </div>
             )}
           </CardContent>

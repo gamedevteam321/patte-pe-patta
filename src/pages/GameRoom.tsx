@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { Clock, Shuffle, Play, Info } from "lucide-react";
+import { Clock, Shuffle, Play, Info, Lock } from "lucide-react";
 
 interface Player {
   id: string;
@@ -20,6 +20,8 @@ interface Player {
 
 interface GameState {
   roomId: string;
+  roomName: string;
+  isPrivate: boolean;
   betAmount: number;
   gameTimer: number;
   turnTimer: number;
@@ -69,8 +71,13 @@ const GameRoom = () => {
   useEffect(() => {
     if (!roomId || !user) return;
     
-    // Mock game setup
-    const mockPlayers: Player[] = [
+    // Get requested player count from URL query param or default to 4
+    // In a real app, you would get this from the server
+    const playerCountParam = new URLSearchParams(window.location.search).get('players');
+    const playerCount = playerCountParam ? parseInt(playerCountParam) : 4;
+    
+    // Create mock players based on requested count
+    let mockPlayers: Player[] = [
       {
         id: user.id,
         username: user.username,
@@ -78,36 +85,48 @@ const GameRoom = () => {
         cardsCount: 13,
         isCurrentPlayer: true,
         position: 'bottom'
-      },
-      {
+      }
+    ];
+    
+    // Add AI players based on requested count
+    if (playerCount >= 2) {
+      mockPlayers.push({
         id: 'player2',
         username: 'Player 2',
         avatar: '/avatars/avatar2.png',
         cardsCount: 13,
         isCurrentPlayer: false,
-        position: 'right'
-      },
-      {
+        position: playerCount === 2 ? 'top' : 'right'
+      });
+    }
+    
+    if (playerCount >= 3) {
+      mockPlayers.push({
         id: 'player3',
         username: 'Player 3',
         avatar: '/avatars/avatar3.png',
         cardsCount: 13,
         isCurrentPlayer: false,
-        position: 'top'
-      },
-      {
+        position: playerCount === 3 ? 'left' : 'top'
+      });
+    }
+    
+    if (playerCount >= 4) {
+      mockPlayers.push({
         id: 'player4',
         username: 'Player 4',
         avatar: '/avatars/avatar4.png',
         cardsCount: 13,
         isCurrentPlayer: false,
         position: 'left'
-      }
-    ];
+      });
+    }
     
     // Create mock game state
     const initialState: GameState = {
       roomId: roomId,
+      roomName: "Satta Kings Arena",
+      isPrivate: false,
       betAmount: 100,
       gameTimer: 120,
       turnTimer: 10,
@@ -399,7 +418,12 @@ const GameRoom = () => {
             Leave Room
           </Button>
           
-          <div className="text-xl font-bold text-game-cyan text-glow">Room #{roomId}</div>
+          <div className="text-xl font-bold text-game-cyan text-glow flex items-center">
+            {gameState.roomName} 
+            {gameState.isPrivate && (
+              <Lock className="ml-2 h-4 w-4 text-game-yellow" />
+            )}
+          </div>
           
           <div className="flex items-center space-x-2">
             <Clock className="h-4 w-4 text-game-yellow" />
@@ -450,7 +474,7 @@ const GameRoom = () => {
 
         {/* Game Board */}
         <div className="flex flex-col items-center justify-center min-h-screen py-20">
-          {/* Player UI layouts */}
+          {/* Player UI layouts - only show the players that are in the game */}
           <div className="flex flex-1 w-full">
             {gameState.players.map((player) => (
               <div 
@@ -520,7 +544,7 @@ const GameRoom = () => {
             )}
           </div>
 
-          {/* Player's cards */}
+          {/* Player's cards - now showing them face down */}
           <div className="flex-1 w-full max-w-2xl">
             <div className="glass-panel p-4">
               <div className="flex justify-between items-center mb-4">
@@ -573,20 +597,12 @@ const GameRoom = () => {
                         : ""
                     }`}
                   >
-                    {card !== '?' ? (
-                      <div className={`card-front ${getCardDisplay(card)?.color}`}>
-                        <span className="text-xl">
-                          {getCardDisplay(card)?.value}
-                          {getCardDisplay(card)?.suit}
-                        </span>
+                    {/* Show card backs instead of fronts */}
+                    <div className="card-back">
+                      <div className="absolute inset-0 flex items-center justify-center text-white font-bold">
+                        {index === 0 && gameState.isYourTurn ? "↑" : ""}
                       </div>
-                    ) : (
-                      <div className="card-back">
-                        <div className="absolute inset-0 flex items-center justify-center text-white">
-                          ?
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </button>
                 ))}
               </div>

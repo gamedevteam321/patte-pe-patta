@@ -6,9 +6,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { Users, Coins, Info } from "lucide-react";
+import { Users, Coins, Info, Lock, Globe } from "lucide-react";
 
 const RoomCreate = () => {
   const { user, isAuthenticated } = useAuth();
@@ -16,6 +17,7 @@ const RoomCreate = () => {
   const [roomName, setRoomName] = useState("");
   const [playerCount, setPlayerCount] = useState<string>("4");
   const [betAmount, setBetAmount] = useState<string>("50");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ const RoomCreate = () => {
     setIsCreating(true);
     
     // Mock room creation - would make an API call in a real app
+    // Now including the isPrivate flag in the room creation data
     setTimeout(() => {
       // Create a mock room ID - in a real app this would come from the server
       const roomId = `room_${Math.random().toString(36).substr(2, 9)}`;
@@ -103,6 +106,30 @@ const RoomCreate = () => {
                     <Label htmlFor="players-4">4 Players</Label>
                   </div>
                 </RadioGroup>
+              </div>
+
+              {/* Private/Public Room Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="room-privacy" className="flex items-center space-x-2">
+                    {isPrivate ? (
+                      <Lock className="h-4 w-4 text-game-yellow" />
+                    ) : (
+                      <Globe className="h-4 w-4 text-game-green" />
+                    )}
+                    <span>{isPrivate ? "Private Room" : "Public Room"}</span>
+                  </Label>
+                  <Switch
+                    id="room-privacy"
+                    checked={isPrivate}
+                    onCheckedChange={setIsPrivate}
+                  />
+                </div>
+                <p className="text-sm text-gray-400">
+                  {isPrivate 
+                    ? "Only players with the room link can join" 
+                    : "Anyone can find and join this room from the lobby"}
+                </p>
               </div>
 
               {/* Bet Amount */}

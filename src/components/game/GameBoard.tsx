@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Send, Shuffle, Users, RefreshCw, Star, Trophy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface GameBoardProps {
   userId: string;
@@ -267,21 +266,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       </div>
       
       {/* Add global styles for animations */}
-      <style jsx global>{`
-        @keyframes cardPulse {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
-          100% { transform: translateY(0); }
-        }
-        
-        @keyframes shuffleCard {
-          0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-          25% { transform: translate(50px, -20px) rotate(45deg); opacity: 0.8; }
-          50% { transform: translate(-50px, 20px) rotate(-90deg); opacity: 0.6; }
-          75% { transform: translate(30px, 30px) rotate(180deg); opacity: 0.8; }
-          100% { transform: translate(0, 0) rotate(360deg); opacity: 1; }
-        }
-      `}</style>
+      <style>
+        {`
+          @keyframes cardPulse {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+          }
+          
+          @keyframes shuffleCard {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+            25% { transform: translate(50px, -20px) rotate(45deg); opacity: 0.8; }
+            50% { transform: translate(-50px, 20px) rotate(-90deg); opacity: 0.6; }
+            75% { transform: translate(30px, 30px) rotate(180deg); opacity: 0.8; }
+            100% { transform: translate(0, 0) rotate(360deg); opacity: 1; }
+          }
+        `}
+      </style>
     </div>
   );
 };

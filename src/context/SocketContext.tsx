@@ -162,7 +162,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Re-fetch game state when players change
           if (currentRoom && currentRoom.id === roomId) {
             console.log("Player change detected, refreshing game state");
-            initializeGameState(roomId, currentRoom.max_players);
+            initializeGame(roomId, currentRoom.max_players);
           }
         }
       )
@@ -265,7 +265,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log("Room created:", data);
         setCurrentRoom(data as RoomData);
         joinRoomChannel(data.id);
-        initializeGameState(data.id, data.max_players);
+        initializeGame(data.id, data.max_players);
         return data.id;
       }
     } catch (error) {
@@ -428,7 +428,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       console.log("Players in room:", playersData);
       
-      initializeGameState(roomId, typedRoomData.max_players);
+      initializeGame(roomId, typedRoomData.max_players);
       
       // Notify all other players in the room that a new player has joined
       if (channel) {

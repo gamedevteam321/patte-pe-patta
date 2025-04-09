@@ -124,6 +124,47 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [isConnected]);
 
+  // Function to join a room's realtime channel
+  const joinRoomChannel = (roomId: string) => {
+    console.log("Joining room channel for room:", roomId);
+    
+    // Clean up any existing channel subscription
+    if (roomChannel) {
+      supabase.removeChannel(roomChannel);
+    }
+    
+    // Create a new channel for the specific room
+    const channel = supabase
+      .channel(`room:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_players',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          console.log('Game player change detected:', payload);
+          fetchRooms(); // Refresh room data
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'game_state' },
+        (payload) => {
+          console.log('Received game state update:', payload);
+          if (payload.payload && payload.payload.gameState) {
+            setGameState(payload.payload.gameState);
+          }
+        }
+      )
+      .subscribe();
+    
+    setRoomChannel(channel);
+    return channel;
+  };
+
   // Fetch available rooms
   const fetchRooms = useCallback(async () => {
     if (!isConnected || !user) return;

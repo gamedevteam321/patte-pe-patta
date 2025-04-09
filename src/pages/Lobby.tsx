@@ -7,9 +7,11 @@ import { useAuth } from "@/context/AuthContext";
 import { Plus, RefreshCw } from "lucide-react";
 import RoomList from "@/components/rooms/RoomList";
 import JoinByLink from "@/components/rooms/JoinByLink";
+import { useSocket } from "@/context/SocketContext";
 
 const Lobby: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { fetchRooms } = useSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,6 +19,15 @@ const Lobby: React.FC = () => {
       navigate("/login");
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    // Fetch rooms when component mounts
+    fetchRooms();
+  }, [fetchRooms]);
+
+  const handleRefresh = () => {
+    fetchRooms();
+  };
 
   return (
     <Layout>
@@ -32,7 +43,12 @@ const Lobby: React.FC = () => {
           <div className="md:col-span-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-game-cyan">Available Rooms</h2>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground"
+                onClick={handleRefresh}
+              >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>

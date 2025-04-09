@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -38,6 +39,7 @@ interface RoomData {
   playerCount: number;
   maxPlayers: number;
   isPrivate: boolean;
+  password?: string; // For room creation
   status: "waiting" | "playing" | "finished";
 }
 
@@ -47,12 +49,13 @@ type SocketContextType = {
   availableRooms: RoomData[];
   currentRoom: RoomData | null;
   gameState: GameState | null;
-  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean }) => Promise<string>;
-  joinRoom: (roomId: string) => Promise<boolean>;
+  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }) => Promise<string>;
+  joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   playCard: () => void;
   collectPile: () => void;
   shuffleDeck: () => void;
+  fetchRooms: () => void;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -67,6 +70,7 @@ const SocketContext = createContext<SocketContextType>({
   playCard: () => {},
   collectPile: () => {},
   shuffleDeck: () => {},
+  fetchRooms: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -117,39 +121,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setGameState(null);
       });
       mockSocket.on("gameState", (state: GameState) => setGameState(state));
-      
-      // Mock available rooms for development
-      setTimeout(() => {
-        setAvailableRooms([
-          {
-            id: "room_123",
-            name: "Quick Game",
-            host: "Player1",
-            playerCount: 1,
-            maxPlayers: 4,
-            isPrivate: false,
-            status: "waiting"
-          },
-          {
-            id: "room_456",
-            name: "Pro Players Only",
-            host: "CardMaster",
-            playerCount: 2,
-            maxPlayers: 2,
-            isPrivate: false,
-            status: "waiting"
-          },
-          {
-            id: "room_789",
-            name: "Practice Room",
-            host: "Beginner123",
-            playerCount: 3,
-            maxPlayers: 4,
-            isPrivate: false,
-            status: "waiting"
-          }
-        ]);
-      }, 1000);
 
       return () => {
         if (mockSocket) {
@@ -161,8 +132,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [user]);
 
+  // Fetch available rooms
+  const fetchRooms = useCallback(() => {
+    if (!socket || !user) return;
+    
+    console.log("Fetching available rooms");
+    
+    // In a real implementation, this would emit a request to the server
+    // socket.emit("getRooms");
+    
+    // For the mock implementation, let's simulate getting rooms from the server
+    setTimeout(() => {
+      const mockRooms: RoomData[] = [];
+      
+      // Don't set any mock rooms - we want to only show real rooms
+      setAvailableRooms(mockRooms);
+    }, 300);
+  }, [socket, user]);
+
   // Room management functions
-  const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean }): Promise<string> => {
+  const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
     if (!socket || !user) return "";
     
     console.log("Creating room:", roomData);
@@ -189,10 +178,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return roomId;
   };
   
-  const joinRoom = async (roomId: string): Promise<boolean> => {
+  const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {
     if (!socket || !user) return false;
     
-    console.log("Joining room:", roomId);
+    console.log("Joining room:", roomId, "with password:", password ? "provided" : "none");
     
     const room = availableRooms.find(r => r.id === roomId);
     if (!room) {
@@ -207,6 +196,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast({
         title: "Room full",
         description: "This room is already full."
+      });
+      return false;
+    }
+    
+    // In a real implementation, we would verify the password with the server
+    // This is just a mock implementation
+    if (room.isPrivate && !password) {
+      toast({
+        title: "Password required",
+        description: "This room requires a password."
       });
       return false;
     }
@@ -396,7 +395,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         leaveRoom,
         playCard,
         collectPile,
-        shuffleDeck
+        shuffleDeck,
+        fetchRooms
       }}
     >
       {children}

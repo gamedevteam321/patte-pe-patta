@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 
 const JoinByLink: React.FC = () => {
   const [roomCode, setRoomCode] = useState("");
+  const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const { joinRoom } = useSocket();
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const JoinByLink: React.FC = () => {
     setIsJoining(true);
     
     try {
-      const success = await joinRoom(roomCode.trim());
+      const success = await joinRoom(roomCode.trim(), password.trim() || undefined);
       if (success) {
         navigate(`/room/${roomCode.trim()}`);
       } else {
@@ -71,6 +72,19 @@ const JoinByLink: React.FC = () => {
               className="bg-black/50 border-white/20"
             />
           </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="roomPassword">Password (if required)</Label>
+            <Input
+              id="roomPassword"
+              type="password"
+              placeholder="Enter room password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-black/50 border-white/20"
+            />
+          </div>
+          
           <p className="text-sm text-muted-foreground">
             Enter a room code shared by another player to join their game.
           </p>

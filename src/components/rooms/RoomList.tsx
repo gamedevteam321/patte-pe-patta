@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/context/SocketContext";
 import { Lock, Users, Clock } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import JoinRoomDialog from './JoinRoomDialog';
 
 const RoomList: React.FC = () => {
@@ -21,10 +22,24 @@ const RoomList: React.FC = () => {
     return room.status === "waiting"; // Only show rooms waiting for players
   });
 
-  const handleJoinRoom = async (roomId: string) => {
-    const success = await joinRoom(roomId);
-    if (success) {
-      navigate(`/room/${roomId}`);
+  const handleJoinRoom = async (roomId: string, password?: string) => {
+    try {
+      const success = await joinRoom(roomId, password);
+      if (success) {
+        navigate(`/room/${roomId}`);
+      } else {
+        toast({
+          title: "Failed to join room",
+          description: "The room may not exist, is full, or the password is incorrect.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to join room. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

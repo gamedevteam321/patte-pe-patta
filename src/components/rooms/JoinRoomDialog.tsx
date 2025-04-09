@@ -15,7 +15,7 @@ interface JoinRoomDialogProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   roomId: string;
-  onJoin: (roomId: string) => void;
+  onJoin: (roomId: string, password?: string) => void;
 }
 
 const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({ 
@@ -25,6 +25,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
   onJoin 
 }) => {
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,9 +37,10 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
     }
     
     const roomToJoin = code.trim() || roomId;
-    onJoin(roomToJoin);
+    onJoin(roomToJoin, password.trim() || undefined);
     setIsOpen(false);
     setCode("");
+    setPassword("");
     setError("");
   };
 
@@ -65,11 +67,28 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="password">Room Password (if required)</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              className="bg-black/50 border-white/20"
+            />
+          </div>
+          
           <DialogFooter className="flex justify-between">
             <Button 
               type="button" 
               variant="ghost" 
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                setCode("");
+                setPassword("");
+                setError("");
+              }}
               className="text-gray-400"
             >
               Cancel

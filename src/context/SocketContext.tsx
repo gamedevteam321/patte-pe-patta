@@ -264,6 +264,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data) {
         console.log("Room created:", data);
         setCurrentRoom(data as RoomData);
+        
+        // Add host as the first player in the room
+        const { error: playerError } = await supabase
+          .from('game_players')
+          .insert([{
+            room_id: data.id,
+            user_id: user.id,
+            username: user.username || user.email || "Host"
+          }]);
+        
+        if (playerError) {
+          console.error("Error adding host as player:", playerError);
+          toast({
+            title: "Warning",
+            description: "Created room but failed to join as host",
+            variant: "destructive"
+          });
+        }
+        
         joinRoomChannel(data.id);
         initializeGame(data.id, data.max_players);
         return data.id;
@@ -952,7 +971,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setTimeout(() => {
         startGameTimer();
         startTurnTimer();
-      }, 1000);
+      }, 3000); // Delay to allow for card distribution animation
     } catch (error) {
       console.error("Error initializing game state:", error);
     }

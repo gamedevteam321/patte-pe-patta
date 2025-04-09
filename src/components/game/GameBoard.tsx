@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
@@ -17,6 +18,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showGameOver, setShowGameOver] = useState(false);
   const [showShuffle, setShowShuffle] = useState(false);
+  const [showDistribute, setShowDistribute] = useState(false);
 
   useEffect(() => {
     // Keep track of player count changes for user feedback
@@ -35,11 +37,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
     
     // Show shuffle animation when game starts
-    if (gameState?.gameStarted && !showShuffle) {
+    if (gameState?.gameStarted && !showShuffle && !showDistribute) {
       setShowShuffle(true);
-      setTimeout(() => setShowShuffle(false), 3000);
+      
+      // After shuffle animation completes, show distribute animation
+      setTimeout(() => {
+        setShowShuffle(false);
+        setShowDistribute(true);
+        
+        // After distribute animation completes, show the game
+        setTimeout(() => {
+          setShowDistribute(false);
+        }, 3000);
+      }, 3000);
     }
-  }, [gameState?.players.length, gameState?.isGameOver, showGameOver, gameState?.gameStarted, showShuffle]);
+  }, [gameState?.players.length, gameState?.isGameOver, showGameOver, gameState?.gameStarted, showShuffle, showDistribute]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
@@ -90,6 +102,44 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
         <div className="text-xl font-semibold text-game-cyan mt-4">Shuffling cards...</div>
         <div className="text-muted-foreground mt-2">Get ready to play!</div>
+      </div>
+    );
+  }
+  
+  if (showDistribute) {
+    const playerCount = gameState.players.length;
+    
+    return (
+      <div className="flex flex-col items-center justify-center h-64 glass-panel">
+        <div className="relative w-full h-64">
+          {/* Card distribution animation */}
+          {gameState.players.map((player, playerIndex) => (
+            <div 
+              key={player.id}
+              className="absolute"
+              style={{
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div 
+                  key={`${player.id}-${i}`} 
+                  className="absolute"
+                  style={{
+                    animation: `distributeCard${playerIndex + 1} 2s ease-out forwards ${i * 0.2 + 0.5}s`,
+                    opacity: 0,
+                  }}
+                >
+                  <PlayingCard isBack />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="text-xl font-semibold text-game-cyan mt-4">Distributing cards...</div>
+        <div className="text-muted-foreground mt-2">Game will start in a moment!</div>
       </div>
     );
   }
@@ -280,6 +330,26 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             50% { transform: translate(-50px, 20px) rotate(-90deg); opacity: 0.6; }
             75% { transform: translate(30px, 30px) rotate(180deg); opacity: 0.8; }
             100% { transform: translate(0, 0) rotate(360deg); opacity: 1; }
+          }
+          
+          @keyframes distributeCard1 {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(-200px, 150px); opacity: 1; }
+          }
+          
+          @keyframes distributeCard2 {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(200px, 150px); opacity: 1; }
+          }
+          
+          @keyframes distributeCard3 {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(-200px, -150px); opacity: 1; }
+          }
+          
+          @keyframes distributeCard4 {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(200px, -150px); opacity: 1; }
           }
         `}
       </style>

@@ -1,22 +1,43 @@
 
 import React from "react";
-import { Player } from "@/context/SocketContext";
+import { Player, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Clock } from "lucide-react";
+import { UserCircle, Clock, AlertCircle } from "lucide-react";
 
 interface PlayerDeckProps {
   player: Player;
   isCurrentPlayer: boolean;
   isUser: boolean;
+  gameState?: GameState;
 }
 
-const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser }) => {
+const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser, gameState }) => {
+  const isGameStarted = gameState?.gameStarted || false;
+  const isPlayerTurn = isCurrentPlayer && isGameStarted;
+  
+  // Calculate how much time is left for the current turn
+  let turnTimeLeftPercent = 100;
+  if (isPlayerTurn && gameState?.turnStartTime && gameState?.turnTimeLimit) {
+    const timePassed = Date.now() - gameState.turnStartTime;
+    const totalTime = gameState.turnTimeLimit * 1000;
+    turnTimeLeftPercent = Math.max(0, 100 - (timePassed / totalTime * 100));
+  }
+  
+  // Warning if player has auto-played once already
+  const hasAutoPlayed = player.autoPlayCount > 0;
+  
   return (
     <div className={`relative p-4 rounded-lg transition-all ${
-      isCurrentPlayer ? "bg-game-cyan/10 border border-game-cyan" : 
+      isPlayerTurn ? "bg-game-cyan/10 border border-game-cyan" : 
       isUser ? "bg-game-yellow/5 border border-game-yellow/30" : "glass-panel border border-green-500/30"
     }`}>
+      {/* Time bar for current player's turn */}
+      {isPlayerTurn && (
+        <div className="absolute top-0 left-0 h-1 bg-game-cyan transition-all duration-100" 
+          style={{ width: `${turnTimeLeftPercent}%` }} />
+      )}
+      
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <UserCircle className={`h-6 w-6 mr-2 ${isUser ? "text-game-yellow" : "text-green-500"}`} />
@@ -28,11 +49,19 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
               Online Player
             </Badge>
           )}
+          
+          {hasAutoPlayed && (
+            <Badge variant="outline" className="ml-2 text-xs bg-red-900/30 border-red-500/50 flex items-center">
+              <AlertCircle className="h-3 w-3 mr-1 text-red-500" />
+              Warning
+            </Badge>
+          )}
         </div>
-        <Badge variant={isCurrentPlayer ? "default" : "outline"} className={
-          isCurrentPlayer ? "bg-game-cyan text-black" : ""
+        
+        <Badge variant={isPlayerTurn ? "default" : "outline"} className={
+          isPlayerTurn ? "bg-game-cyan text-black" : ""
         }>
-          {isCurrentPlayer ? (
+          {isPlayerTurn ? (
             <span className="flex items-center">
               <Clock className="h-3 w-3 mr-1 animate-pulse" />
               Turn
@@ -50,13 +79,18 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
             {[...Array(Math.min(3, player.cards.length))].map((_, i) => (
               <div
                 key={i}
-                className="absolute"
+                className={`absolute ${isPlayerTurn ? 'animate-pulse' : ''}`}
                 style={{
                   left: `${i * 10}px`,
                   zIndex: i,
+                  transition: 'all 0.3s ease',
+                  animation: isPlayerTurn ? `cardPulse 1.5s infinite ${i * 0.2}s` : 'none',
                 }}
               >
-                <PlayingCard isBack={true} />
+                <PlayingCard 
+                  isBack={!isUser} 
+                  card={isUser ? player.cards[i] : undefined} 
+                />
               </div>
             ))}
           </div>
@@ -66,6 +100,14 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
           </div>
         )}
       </div>
+      
+      {/* Show auto-play warning */}
+      {hasAutoPlayed && (
+        <div className="mt-2 text-center text-xs text-red-400">
+          Missed {player.autoPlayCount} turn{player.autoPlayCount > 1 ? 's' : ''}. 
+          {player.autoPlayCount === 1 && " One more miss and you'll be removed from the game."}
+        </div>
+      )}
     </div>
   );
 };

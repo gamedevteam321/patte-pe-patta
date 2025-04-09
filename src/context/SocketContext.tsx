@@ -31,6 +31,11 @@ export interface GameState {
   lastMatchWinner?: string;
   isGameOver: boolean;
   winner?: Player;
+  gameStarted: boolean;
+  gameStartTime?: number;
+  gameDuration: number; // in seconds
+  turnTimeLimit: number; // in seconds
+  turnStartTime?: number;
 }
 
 // Match the types with Supabase table structure
@@ -60,6 +65,7 @@ type SocketContextType = {
   collectPile: () => void;
   shuffleDeck: () => void;
   fetchRooms: () => void;
+  initializeGame: (roomId: string, maxPlayers: number) => Promise<void>;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -74,6 +80,7 @@ const SocketContext = createContext<SocketContextType>({
   collectPile: () => {},
   shuffleDeck: () => {},
   fetchRooms: () => {},
+  initializeGame: async () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -84,6 +91,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
+  const [turnTimer, setTurnTimer] = useState<NodeJS.Timeout | null>(null);
+  const [gameTimer, setGameTimer] = useState<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
 
   // Set up a Supabase auth listener to handle auth state changes
@@ -493,8 +502,227 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const startGameTimer = () => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    // Clear any existing timer
+    if (gameTimer) {
+      clearTimeout(gameTimer);
+    }
+    
+    const duration = gameState.gameDuration * 1000; // convert to milliseconds
+    const startTime = gameState.gameStartTime || Date.now();
+    const endTime = startTime + duration;
+    const timeLeft = endTime - Date.now();
+    
+    if (timeLeft <= 0) {
+      endGame();
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      endGame();
+    }, timeLeft);
+    
+    setGameTimer(timer);
+  };
+
+  const endGame = () => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    // Find player with most cards
+    let winner = gameState.players[0];
+    for (const player of gameState.players) {
+      if (player.cards.length > winner.cards.length) {
+        winner = player;
+      }
+    }
+    
+    const updatedGameState = {
+      ...gameState,
+      isGameOver: true,
+      winner
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+    
+    // Update room status to finished
+    supabase
+      .from('game_rooms')
+      .update({ status: 'finished' })
+      .eq('id', currentRoom.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error updating room status:", error);
+        }
+      });
+  };
+
+  const startTurnTimer = () => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    // Clear any existing timer
+    if (turnTimer) {
+      clearTimeout(turnTimer);
+    }
+    
+    const turnLimit = gameState.turnTimeLimit * 1000; // convert to milliseconds
+    
+    const timer = setTimeout(() => {
+      autoPlayTurn();
+    }, turnLimit);
+    
+    setTurnTimer(timer);
+    
+    // Update game state with turn start time
+    const updatedGameState = {
+      ...gameState,
+      turnStartTime: Date.now()
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+  };
+
+  const autoPlayTurn = () => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer || !currentPlayer.cards.length) return;
+    
+    // Update auto play count for the player
+    const autoPlayCount = currentPlayer.autoPlayCount + 1;
+    
+    // Check if player should be kicked
+    if (autoPlayCount >= 2) {
+      kickPlayer(currentPlayer.id);
+      return;
+    }
+    
+    // Auto play a card
+    const card = currentPlayer.cards[0];
+    const updatedPlayers = gameState.players.map((player, idx) => 
+      idx === gameState.currentPlayerIndex 
+        ? { ...player, cards: player.cards.slice(1), autoPlayCount } 
+        : player
+    );
+    
+    const updatedPile = [...gameState.centralPile, card];
+    const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    
+    const updatedGameState = {
+      ...gameState,
+      players: updatedPlayers,
+      centralPile: updatedPile,
+      currentPlayerIndex: nextPlayerIndex
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+    
+    // Check for card match
+    checkForCardMatch(card, updatedGameState);
+    
+    // Start timer for the next player
+    startTurnTimer();
+  };
+
+  const kickPlayer = async (playerId: string) => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    try {
+      // Remove player from game state
+      const updatedPlayers = gameState.players.filter(p => p.id !== playerId);
+      
+      // If no players left, end the game
+      if (updatedPlayers.length === 0) {
+        endGame();
+        return;
+      }
+      
+      // Update current player index if needed
+      let currentPlayerIndex = gameState.currentPlayerIndex;
+      if (updatedPlayers.length <= currentPlayerIndex) {
+        currentPlayerIndex = 0;
+      }
+      
+      const updatedGameState = {
+        ...gameState,
+        players: updatedPlayers,
+        currentPlayerIndex
+      };
+      
+      roomChannel.send({
+        type: 'broadcast',
+        event: 'game_state',
+        payload: { gameState: updatedGameState }
+      });
+      
+      setGameState(updatedGameState);
+      
+      // If player is the current user, leave the room
+      if (playerId === user?.id) {
+        toast({
+          title: "You've been removed from the game",
+          description: "You missed your turn too many times",
+          variant: "destructive"
+        });
+        
+        leaveRoom();
+      } else {
+        // Remove player from database
+        const { error: removeError } = await supabase
+          .from('game_players')
+          .delete()
+          .eq('room_id', currentRoom.id)
+          .eq('user_id', playerId);
+        
+        if (removeError) {
+          console.error("Error removing kicked player:", removeError);
+        }
+        
+        // Update player count
+        const { error: updateError } = await supabase
+          .from('game_rooms')
+          .update({ player_count: Math.max(1, currentRoom.player_count - 1) })
+          .eq('id', currentRoom.id);
+        
+        if (updateError) {
+          console.error("Error updating player count after kick:", updateError);
+        }
+        
+        // Start timer for next player
+        startTurnTimer();
+      }
+    } catch (error) {
+      console.error("Error kicking player:", error);
+    }
+  };
+
   const playCard = () => {
     if (!gameState || !currentRoom || !roomChannel) return;
+    
+    // Clear the turn timer since player is manually playing
+    if (turnTimer) {
+      clearTimeout(turnTimer);
+      setTurnTimer(null);
+    }
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer || !currentPlayer.cards.length) return;
@@ -525,6 +753,53 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     
     setGameState(updatedGameState);
+    
+    // Check for card match
+    checkForCardMatch(card, updatedGameState);
+    
+    // Start timer for the next player
+    startTurnTimer();
+  };
+
+  const checkForCardMatch = (playedCard: Card, currentGameState: GameState) => {
+    if (!currentGameState.centralPile.length || currentGameState.centralPile.length < 2) return;
+    
+    const topCard = currentGameState.centralPile[currentGameState.centralPile.length - 2];
+    
+    if (topCard.rank === playedCard.rank) {
+      // We have a match! The current player wins the pile
+      const currentPlayerIndex = currentGameState.currentPlayerIndex;
+      const previousPlayerIndex = (currentPlayerIndex + currentGameState.players.length - 1) % currentGameState.players.length;
+      
+      const updatedPlayers = currentGameState.players.map((player, idx) => 
+        idx === previousPlayerIndex 
+          ? { ...player, cards: [...player.cards, ...currentGameState.centralPile] } 
+          : player
+      );
+      
+      const updatedGameState = {
+        ...currentGameState,
+        players: updatedPlayers,
+        centralPile: [],
+        lastMatchWinner: currentGameState.players[previousPlayerIndex].id
+      };
+      
+      if (roomChannel) {
+        roomChannel.send({
+          type: 'broadcast',
+          event: 'game_state',
+          payload: { gameState: updatedGameState }
+        });
+      }
+      
+      setGameState(updatedGameState);
+      
+      toast({
+        title: `Match!`,
+        description: `${currentGameState.players[previousPlayerIndex].username} won ${currentGameState.centralPile.length} cards!`,
+        variant: "default"
+      });
+    }
   };
 
   const collectPile = () => {
@@ -585,12 +860,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGameState(updatedGameState);
   };
 
-  const initializeGameState = async (roomId: string, maxPlayers: number) => {
+  const initializeGame = async (roomId: string, maxPlayers: number) => {
     if (!user) return;
     
     console.log("Initializing game state for room:", roomId);
     
     try {
+      // Update room status to playing
+      await supabase
+        .from('game_rooms')
+        .update({ status: 'playing' })
+        .eq('id', roomId);
+      
       // Get all players in the room
       const { data: playersData, error: playersError } = await supabase
         .from('game_players')
@@ -648,7 +929,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         players,
         currentPlayerIndex: 0,
         centralPile: [],
-        isGameOver: false
+        isGameOver: false,
+        gameStarted: true,
+        gameStartTime: Date.now(),
+        gameDuration: 300, // 5 minutes
+        turnTimeLimit: 15 // 15 seconds
       };
       
       console.log("Created initial game state with players:", players.length);
@@ -662,6 +947,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       setGameState(initialGameState);
+      
+      // Start game timer and turn timer
+      setTimeout(() => {
+        startGameTimer();
+        startTurnTimer();
+      }, 1000);
     } catch (error) {
       console.error("Error initializing game state:", error);
     }
@@ -672,6 +963,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fetchRooms();
     }
   }, [isConnected, fetchRooms]);
+
+  // Effect to listen for game state changes and handle timers
+  useEffect(() => {
+    if (gameState?.gameStarted && !gameTimer) {
+      startGameTimer();
+    }
+    
+    if (gameState?.gameStarted && !turnTimer && user?.id === gameState.players[gameState.currentPlayerIndex]?.id) {
+      startTurnTimer();
+    }
+  }, [gameState, gameTimer, turnTimer, user]);
 
   return (
     <SocketContext.Provider 
@@ -686,7 +988,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         playCard,
         collectPile,
         shuffleDeck,
-        fetchRooms
+        fetchRooms,
+        initializeGame
       }}
     >
       {children}

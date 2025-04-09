@@ -28,6 +28,18 @@ const RoomList: React.FC = () => {
       setIsJoining(true);
       console.log("Attempting to join room:", roomId);
       
+      // Check if room exists in available rooms
+      const room = availableRooms.find(r => r.id === roomId);
+      if (!room) {
+        toast({
+          title: "Room not found",
+          description: "The room you're trying to join doesn't exist.",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
+      
       // Force a small delay to simulate network request
       await new Promise(resolve => setTimeout(resolve, 300));
       
@@ -43,7 +55,7 @@ const RoomList: React.FC = () => {
       } else {
         toast({
           title: "Failed to join room",
-          description: "The room may not exist, is full, or the password is incorrect.",
+          description: "The room may be full or the password is incorrect.",
           variant: "destructive",
         });
       }
@@ -71,6 +83,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === null ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(null)}
+          className={filterPrivate === null ? "bg-game-cyan text-black" : ""}
         >
           All Rooms
         </Button>
@@ -78,6 +91,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === false ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(false)}
+          className={filterPrivate === false ? "bg-green-600 text-white" : ""}
         >
           Public Only
         </Button>
@@ -85,6 +99,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === true ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(true)}
+          className={filterPrivate === true ? "bg-yellow-400 text-black" : ""}
         >
           Private Only
         </Button>
@@ -122,7 +137,11 @@ const RoomList: React.FC = () => {
       {filteredRooms.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredRooms.map((room) => (
-            <Card key={room.id} className="glass-panel hover:border-game-cyan/50 transition-all">
+            <Card 
+              key={room.id} 
+              className="glass-panel hover:border-game-cyan/50 transition-all"
+              data-public-room={!room.isPrivate ? true : undefined}
+            >
               <CardContent className="p-4 flex justify-between items-center">
                 <div className="space-y-2">
                   <div className="flex items-center">
@@ -130,7 +149,7 @@ const RoomList: React.FC = () => {
                       {room.name}
                     </h3>
                     {room.isPrivate && (
-                      <Lock className="ml-2 h-4 w-4 text-game-yellow" />
+                      <Lock className="ml-2 h-4 w-4 text-yellow-400" />
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">Host: {room.host}</div>
@@ -146,7 +165,9 @@ const RoomList: React.FC = () => {
                   </div>
                 </div>
                 <Button 
-                  className="bg-game-cyan hover:bg-game-cyan/80 text-black"
+                  className={room.isPrivate 
+                    ? "bg-yellow-400 hover:bg-yellow-500 text-black" 
+                    : "bg-green-600 hover:bg-green-700 text-white"}
                   onClick={() => room.isPrivate ? openJoinDialog(room.id) : handleJoinRoom(room.id)}
                   disabled={isJoining}
                 >

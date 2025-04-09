@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { LinkIcon } from "lucide-react";
+import { LinkIcon, KeyRound } from "lucide-react";
 import { useSocket } from "@/context/SocketContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -13,7 +13,7 @@ const JoinByLink: React.FC = () => {
   const [roomCode, setRoomCode] = useState("");
   const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-  const { joinRoom } = useSocket();
+  const { joinRoom, availableRooms } = useSocket();
   const navigate = useNavigate();
 
   const handleJoinRoom = async (e: React.FormEvent) => {
@@ -33,6 +33,19 @@ const JoinByLink: React.FC = () => {
     try {
       console.log("Joining room by link with code:", roomCode.trim());
       
+      // Check if room exists
+      const roomExists = availableRooms.some(room => room.id === roomCode.trim());
+      
+      if (!roomExists) {
+        toast({
+          title: "Room not found",
+          description: "The room code you entered doesn't exist.",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
+      
       // Force a small delay to simulate network request
       await new Promise(resolve => setTimeout(resolve, 300));
       
@@ -47,7 +60,7 @@ const JoinByLink: React.FC = () => {
       } else {
         toast({
           title: "Failed to join room",
-          description: "The room may not exist, is full, or the password is incorrect.",
+          description: "The room may be full or the password is incorrect.",
           variant: "destructive",
         });
       }
@@ -64,10 +77,10 @@ const JoinByLink: React.FC = () => {
   };
 
   return (
-    <Card className="glass-panel border-white/10">
+    <Card className="glass-panel border-yellow-400/30">
       <CardHeader>
-        <CardTitle className="text-game-magenta flex items-center">
-          <LinkIcon className="mr-2 h-5 w-5" />
+        <CardTitle className="text-yellow-400 flex items-center">
+          <KeyRound className="mr-2 h-5 w-5" />
           Join by Room Code
         </CardTitle>
       </CardHeader>
@@ -103,7 +116,7 @@ const JoinByLink: React.FC = () => {
         <CardFooter>
           <Button
             type="submit"
-            className="w-full bg-game-magenta hover:bg-game-magenta/80 text-black"
+            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
             disabled={isJoining}
           >
             {isJoining ? "Joining..." : "Join Room"}

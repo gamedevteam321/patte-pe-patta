@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Users } from "lucide-react";
 import RoomList from "@/components/rooms/RoomList";
 import JoinByLink from "@/components/rooms/JoinByLink";
 import { useSocket } from "@/context/SocketContext";
@@ -55,14 +55,15 @@ const Lobby: React.FC = () => {
     <Layout>
       <div className="container max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-2 text-game-cyan text-glow">Game Lobby</h1>
-          <p className="text-lg text-muted-foreground">
-            Join an existing room or create your own game
+          <h1 className="text-4xl font-bold mb-2 text-game-cyan text-glow">Patte pe Patta</h1>
+          <p className="text-lg text-muted-foreground mb-4">
+            Fast-paced multiplayer card game
           </p>
+          <p className="text-yellow-400 mb-8">Join a game or create your own room</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="md:w-2/3">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-game-cyan">Available Rooms</h2>
               <Button 
@@ -78,12 +79,38 @@ const Lobby: React.FC = () => {
             <RoomList />
           </div>
           
-          <div className="space-y-6">
+          <div className="md:w-1/3 space-y-6">
+            <div className="text-center mb-6">
+              <div className="inline-block bg-yellow-400/20 p-4 rounded-lg mb-3">
+                <Users className="h-12 w-12 text-yellow-400 mx-auto" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Quick Play</h3>
+              <p className="text-sm text-gray-400">Create a room or join an existing game</p>
+            </div>
+            
             <Button
               onClick={() => navigate("/room/create")}
-              className="w-full bg-game-green hover:bg-game-green/80 text-black p-6 text-lg"
+              className="w-full bg-green-600 hover:bg-green-700 text-white p-6 text-lg"
             >
-              <Plus className="mr-2 h-5 w-5" /> Create Game Room
+              <Plus className="mr-2 h-5 w-5" /> Create Room
+            </Button>
+            
+            <Button
+              onClick={() => {
+                const publicRooms = document.querySelectorAll('[data-public-room]');
+                if (publicRooms.length > 0) {
+                  const firstButton = publicRooms[0].querySelector('button');
+                  if (firstButton) firstButton.click();
+                } else {
+                  toast({
+                    title: "No rooms available",
+                    description: "Try creating a new room instead"
+                  });
+                }
+              }}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white p-6 text-lg"
+            >
+              Join Room
             </Button>
             
             <JoinByLink />

@@ -83,6 +83,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [gameState, setGameState] = useState<GameState | null>(null);
   const { user } = useAuth();
 
+  // Create mock rooms for development
+  const createMockRooms = () => {
+    const mockRooms: RoomData[] = [
+      {
+        id: 'mock_room_1',
+        name: 'Fun Game Room',
+        host: 'Player123',
+        playerCount: 2,
+        maxPlayers: 4,
+        isPrivate: false,
+        status: 'waiting'
+      },
+      {
+        id: 'mock_room_2',
+        name: 'Private Tournament',
+        host: 'CardMaster',
+        playerCount: 1,
+        maxPlayers: 3,
+        isPrivate: true,
+        status: 'waiting'
+      }
+    ];
+
+    return mockRooms;
+  };
+
   useEffect(() => {
     if (user) {
       // In a real implementation, connect to your actual Socket.IO server
@@ -121,6 +147,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setGameState(null);
       });
       mockSocket.on("gameState", (state: GameState) => setGameState(state));
+      
+      // Generate some mock rooms initially
+      setAvailableRooms(createMockRooms());
 
       return () => {
         if (mockSocket) {
@@ -138,20 +167,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     console.log("Fetching available rooms");
     
-    // In a real implementation, this would emit a request to the server
-    // socket.emit("getRooms");
-    
-    // For the mock implementation, update with any rooms we've created
+    // For the mock implementation, ensure we have at least the mock rooms 
+    // plus any we've created, and don't lose the current room
     setTimeout(() => {
-      // Don't clear existing rooms, just ensure currentRoom is included if it exists
-      const existingRooms = [...availableRooms];
+      // Start with mock rooms
+      let updatedRooms = [...createMockRooms()];
       
-      // If we have a current room but it's not in the available rooms, add it
-      if (currentRoom && !existingRooms.some(room => room.id === currentRoom.id)) {
-        existingRooms.push(currentRoom);
+      // Add any custom rooms created through UI that aren't in the mock rooms
+      const customRooms = availableRooms.filter(
+        room => !updatedRooms.some(mockRoom => mockRoom.id === room.id)
+      );
+      updatedRooms = [...updatedRooms, ...customRooms];
+      
+      // Ensure current room is included if it exists
+      if (currentRoom && !updatedRooms.some(room => room.id === currentRoom.id)) {
+        updatedRooms.push(currentRoom);
       }
       
-      setAvailableRooms(existingRooms);
+      setAvailableRooms(updatedRooms);
     }, 300);
   }, [socket, user, availableRooms, currentRoom]);
 
@@ -206,8 +239,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
     
-    // For private rooms, always accept any password in this mock implementation
-    // In a real app, we would verify the password server-side
+    // For private rooms, verify password if provided
     if (room.isPrivate && !password) {
       toast({
         title: "Password required",
@@ -216,6 +248,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
     
+    // For this mock implementation, we'll accept any password for private rooms
+    // In a real app, this would verify with the server
+    
     // Mock joining the room
     const updatedRoom = {
       ...room,
@@ -223,7 +258,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     
     setCurrentRoom(updatedRoom);
-    setAvailableRooms(availableRooms.map(r => r.id === roomId ? updatedRoom : r));
+    
+    // Update the room in the available rooms list
+    setAvailableRooms(availableRooms.map(r => 
+      r.id === roomId ? updatedRoom : r
+    ));
     
     // Initialize game state for joined player
     initializeGameState(roomId, updatedRoom.maxPlayers);

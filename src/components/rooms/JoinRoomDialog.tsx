@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { KeyRound } from "lucide-react";
+import { useSocket } from "@/context/SocketContext";
 
 interface JoinRoomDialogProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const { availableRooms } = useSocket();
 
   // Set initial code when roomId changes
   useEffect(() => {
@@ -44,6 +47,19 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
     }
     
     const roomToJoin = code.trim() || roomId;
+    
+    // Check if it's a valid room
+    const room = availableRooms.find(r => r.id === roomToJoin);
+    if (!room) {
+      setError("Room not found");
+      return;
+    }
+    
+    if (room.isPrivate && !password.trim()) {
+      setError("Password is required for private rooms");
+      return;
+    }
+    
     console.log("Joining room from dialog:", roomToJoin, "with password:", password.trim() ? "provided" : "none");
     onJoin(roomToJoin, password.trim() || undefined);
   };
@@ -57,14 +73,17 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="glass-panel border-white/10">
+      <DialogContent className="glass-panel border-yellow-400/30">
         <DialogHeader>
-          <DialogTitle className="text-game-cyan">Join Private Room</DialogTitle>
+          <DialogTitle className="flex items-center text-yellow-400">
+            <KeyRound className="mr-2 h-5 w-5" />
+            Join Private Room
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="roomCode">Enter Room Code</Label>
+            <Label htmlFor="roomCode">Room Code</Label>
             <Input
               id="roomCode"
               value={code}
@@ -76,20 +95,23 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
               className="bg-black/50 border-white/20"
               readOnly={!!roomId}
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Room Password (required)</Label>
+            <Label htmlFor="password">Room Password</Label>
             <Input
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               placeholder="Enter room password"
               className="bg-black/50 border-white/20"
               autoFocus
             />
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           
           <DialogFooter className="flex justify-between">
@@ -103,7 +125,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
             </Button>
             <Button 
               type="submit"
-              className="bg-game-cyan hover:bg-game-cyan/80 text-black"
+              className="bg-yellow-400 hover:bg-yellow-500 text-black"
             >
               Join Room
             </Button>

@@ -5,9 +5,8 @@ import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle, Users, RefreshCw, Star, Trophy } from "lucide-react";
+import { Send, Shuffle, Users, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface GameBoardProps {
   userId: string;
@@ -16,9 +15,6 @@ interface GameBoardProps {
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const { gameState, playCard, shuffleDeck, joinRoom } = useSocket();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showGameOver, setShowGameOver] = useState(false);
-  const [showShuffle, setShowShuffle] = useState(false);
-  const [showDistribute, setShowDistribute] = useState(false);
 
   useEffect(() => {
     // Keep track of player count changes for user feedback
@@ -30,28 +26,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       const playerNames = gameState.players.map(p => `${p.username} (${p.id})`).join(", ");
       console.log(`Current players: ${playerNames}`);
     }
-    
-    // Show game over dialog when game ends
-    if (gameState?.isGameOver && !showGameOver) {
-      setShowGameOver(true);
-    }
-    
-    // Show shuffle animation when game starts
-    if (gameState?.gameStarted && !showShuffle && !showDistribute) {
-      setShowShuffle(true);
-      
-      // After shuffle animation completes, show distribute animation
-      setTimeout(() => {
-        setShowShuffle(false);
-        setShowDistribute(true);
-        
-        // After distribute animation completes, show the game
-        setTimeout(() => {
-          setShowDistribute(false);
-        }, 3000);
-      }, 3000);
-    }
-  }, [gameState?.players.length, gameState?.isGameOver, showGameOver, gameState?.gameStarted, showShuffle, showDistribute]);
+  }, [gameState?.players.length]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
@@ -81,68 +56,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       </div>
     );
   }
-  
-  if (showShuffle) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 glass-panel">
-        <div className="relative w-64 h-64">
-          {/* Shuffle animation */}
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div 
-              key={i} 
-              className="absolute"
-              style={{
-                animation: `shuffleCard 3s ease-in-out ${i * 0.1}s`,
-                transformOrigin: 'center',
-              }}
-            >
-              <PlayingCard isBack />
-            </div>
-          ))}
-        </div>
-        <div className="text-xl font-semibold text-game-cyan mt-4">Shuffling cards...</div>
-        <div className="text-muted-foreground mt-2">Get ready to play!</div>
-      </div>
-    );
-  }
-  
-  if (showDistribute) {
-    const playerCount = gameState.players.length;
-    
-    return (
-      <div className="flex flex-col items-center justify-center h-64 glass-panel">
-        <div className="relative w-full h-64">
-          {/* Card distribution animation */}
-          {gameState.players.map((player, playerIndex) => (
-            <div 
-              key={player.id}
-              className="absolute"
-              style={{
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div 
-                  key={`${player.id}-${i}`} 
-                  className="absolute"
-                  style={{
-                    animation: `distributeCard${playerIndex + 1} 2s ease-out forwards ${i * 0.2 + 0.5}s`,
-                    opacity: 0,
-                  }}
-                >
-                  <PlayingCard isBack />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div className="text-xl font-semibold text-game-cyan mt-4">Distributing cards...</div>
-        <div className="text-muted-foreground mt-2">Game will start in a moment!</div>
-      </div>
-    );
-  }
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isUserTurn = currentPlayer?.id === userId;
@@ -155,37 +68,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   return (
     <div className="space-y-8">
-      {/* Game Over Dialog */}
-      <Dialog open={showGameOver} onOpenChange={setShowGameOver}>
-        <DialogContent className="bg-black/90 border-game-cyan">
-          <DialogHeader>
-            <DialogTitle className="text-2xl text-game-yellow flex items-center justify-center">
-              <Trophy className="h-6 w-6 mr-2" /> Game Over!
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-6 text-center">
-            <div className="text-lg text-white mb-2">
-              {gameState.winner?.id === userId ? (
-                <span className="text-game-yellow font-bold">You won the game!</span>
-              ) : (
-                <span>{gameState.winner?.username} won the game!</span>
-              )}
-            </div>
-            <div className="flex items-center justify-center mt-8">
-              <div className="relative">
-                <Star className="absolute -top-6 -left-6 h-8 w-8 text-yellow-400 animate-pulse" />
-                <Star className="absolute -top-4 -right-6 h-6 w-6 text-yellow-500 animate-pulse" style={{ animationDelay: '0.5s' }} />
-                <div className="h-20 w-20 rounded-full bg-game-yellow/20 border-4 border-game-yellow flex items-center justify-center">
-                  <span className="text-3xl font-bold text-game-yellow">{gameState.winner?.cards.length}</span>
-                </div>
-                <Star className="absolute -bottom-4 -right-6 h-7 w-7 text-yellow-300 animate-pulse" style={{ animationDelay: '1s' }} />
-                <Star className="absolute -bottom-6 -left-6 h-5 w-5 text-yellow-400 animate-pulse" style={{ animationDelay: '1.5s' }} />
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Players counter and refresh button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center">
@@ -269,7 +151,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               });
             }
           }}
-          disabled={!isUserTurn || gameState.isGameOver}
+          disabled={!isUserTurn}
           className={isUserTurn 
             ? "bg-game-cyan hover:bg-game-cyan/80 text-black" 
             : "bg-muted text-muted-foreground"}
@@ -291,7 +173,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               });
             }
           }}
-          disabled={!isUserTurn || gameState.isGameOver}
+          disabled={!isUserTurn}
           className={isUserTurn 
             ? "bg-game-magenta hover:bg-game-magenta/80 text-black" 
             : "bg-muted text-muted-foreground"}
@@ -310,49 +192,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             player={player}
             isCurrentPlayer={player.id === currentPlayer?.id}
             isUser={player.id === userId}
-            gameState={gameState}
           />
         ))}
       </div>
-      
-      {/* Add global styles for animations */}
-      <style>
-        {`
-          @keyframes cardPulse {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-            100% { transform: translateY(0); }
-          }
-          
-          @keyframes shuffleCard {
-            0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-            25% { transform: translate(50px, -20px) rotate(45deg); opacity: 0.8; }
-            50% { transform: translate(-50px, 20px) rotate(-90deg); opacity: 0.6; }
-            75% { transform: translate(30px, 30px) rotate(180deg); opacity: 0.8; }
-            100% { transform: translate(0, 0) rotate(360deg); opacity: 1; }
-          }
-          
-          @keyframes distributeCard1 {
-            0% { transform: translate(0, 0); opacity: 1; }
-            100% { transform: translate(-200px, 150px); opacity: 1; }
-          }
-          
-          @keyframes distributeCard2 {
-            0% { transform: translate(0, 0); opacity: 1; }
-            100% { transform: translate(200px, 150px); opacity: 1; }
-          }
-          
-          @keyframes distributeCard3 {
-            0% { transform: translate(0, 0); opacity: 1; }
-            100% { transform: translate(-200px, -150px); opacity: 1; }
-          }
-          
-          @keyframes distributeCard4 {
-            0% { transform: translate(0, 0); opacity: 1; }
-            100% { transform: translate(200px, -150px); opacity: 1; }
-          }
-        `}
-      </style>
     </div>
   );
 };

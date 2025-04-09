@@ -9,10 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { useSocket } from "@/context/SocketContext";
 import { Users, Coins, Info, Lock, Globe } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
-const RoomCreate = () => {
+const RoomCreate: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
+  const { createRoom } = useSocket();
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState("");
   const [playerCount, setPlayerCount] = useState<string>("4");
@@ -26,7 +29,7 @@ const RoomCreate = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleCreateRoom = (e: React.FormEvent) => {
+  const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) return;
@@ -34,19 +37,42 @@ const RoomCreate = () => {
     const betAmountNum = parseInt(betAmount);
     
     if (user.coins < betAmountNum) {
-      alert("You don't have enough coins for this bet amount!");
+      toast({
+        title: "Insufficient Coins",
+        description: "You don't have enough coins for this bet amount!",
+        variant: "destructive"
+      });
       return;
     }
     
     setIsCreating(true);
     
-    // Mock room creation - would make an API call in a real app
-    // Now including the isPrivate flag in the room creation data
-    setTimeout(() => {
-      // Create a mock room ID - in a real app this would come from the server
-      const roomId = `room_${Math.random().toString(36).substr(2, 9)}`;
-      navigate(`/room/${roomId}`);
-    }, 1000);
+    try {
+      const roomId = await createRoom({
+        name: roomName || `${user.username || 'Player'}'s Room`,
+        playerCount: parseInt(playerCount),
+        betAmount: betAmountNum,
+        isPrivate
+      });
+      
+      if (roomId) {
+        navigate(`/room/${roomId}`);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create room. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const betOptions = [
@@ -75,8 +101,6 @@ const RoomCreate = () => {
                   placeholder="Enter a name for your room"
                   value={roomName}
                   onChange={(e) => setRoomName(e.target.value)}
-                  required
-                  minLength={3}
                   maxLength={20}
                   className="bg-black/50 border-white/20"
                 />

@@ -86,7 +86,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
   const { user } = useAuth();
 
-  // Set up real-time connection
   useEffect(() => {
     if (user) {
       console.log("Setting up Supabase real-time connection");
@@ -99,7 +98,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [user]);
 
-  // Subscribe to available rooms
   useEffect(() => {
     if (!isConnected) return;
 
@@ -124,16 +122,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [isConnected]);
 
-  // Function to join a room's realtime channel
   const joinRoomChannel = (roomId: string) => {
     console.log("Joining room channel for room:", roomId);
     
-    // Clean up any existing channel subscription
     if (roomChannel) {
       supabase.removeChannel(roomChannel);
     }
     
-    // Create a new channel for the specific room
     const channel = supabase
       .channel(`room:${roomId}`)
       .on(
@@ -146,7 +141,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         },
         (payload) => {
           console.log('Game player change detected:', payload);
-          fetchRooms(); // Refresh room data
+          fetchRooms();
         }
       )
       .on(
@@ -165,7 +160,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return channel;
   };
 
-  // Fetch available rooms
   const fetchRooms = useCallback(async () => {
     if (!isConnected || !user) return;
     
@@ -191,7 +185,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isConnected, user]);
 
-  // Room management functions
   const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
     if (!isConnected || !user) {
       toast({
@@ -205,12 +198,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log("Creating room:", roomData);
     
     try {
-      // Validate input data
+      if (!user.id || typeof user.id !== 'string' || user.id.length < 10) {
+        console.error("Invalid user ID:", user.id);
+        toast({
+          title: "Authentication Error",
+          description: "Your user ID is invalid. Please log out and log in again.",
+          variant: "destructive"
+        });
+        return "";
+      }
+
       if (!roomData.name) {
         roomData.name = `${user.username || user.email || "Player"}'s Room`;
       }
       
-      // Create the room object with explicit types
       const newRoom = {
         name: roomData.name,
         host_id: user.id,
@@ -225,7 +226,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       console.log("Sending room data to Supabase:", newRoom);
       
-      // Insert the room into the game_rooms table
       const { data, error } = await supabase
         .from('game_rooms')
         .insert([newRoom])
@@ -261,14 +261,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     return "";
   };
-  
+
   const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {
     if (!isConnected || !user) return false;
     
     console.log("Joining room:", roomId, "with password:", password ? "provided" : "none");
     
     try {
-      // First check if room exists and if it's not full
       const { data: roomData, error: roomError } = await supabase
         .from('game_rooms')
         .select('*')
@@ -294,7 +293,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      // Type cast the roomData to RoomData
       const typedRoomData = roomData as RoomData;
       
       if (typedRoomData.player_count >= typedRoomData.max_players) {
@@ -306,7 +304,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      // For private rooms, verify password
       if (typedRoomData.is_private) {
         if (!password) {
           toast({
@@ -327,7 +324,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
-      // Add player to game_players table
       const { error: playerError } = await supabase
         .from('game_players')
         .insert([{
@@ -346,7 +342,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      // Update player count in game_rooms table
       const { error: updateError } = await supabase
         .from('game_rooms')
         .update({ player_count: typedRoomData.player_count + 1 })
@@ -370,7 +365,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
   };
-  
+
   const leaveRoom = async () => {
     if (!isConnected || !user || !currentRoom) return;
     
@@ -382,7 +377,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setRoomChannel(null);
       }
       
-      // Remove player from game_players table
       const { error: removeError } = await supabase
         .from('game_players')
         .delete()
@@ -393,7 +387,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.error("Error removing player:", removeError);
       }
       
-      // If player is host, delete the room
       if (currentRoom.host_id === user.id) {
         const { error: deleteError } = await supabase
           .from('game_rooms')
@@ -404,7 +397,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.error("Error deleting room:", deleteError);
         }
       } else {
-        // Otherwise, update player count in game_rooms table
         const { error: updateError } = await supabase
           .from('game_rooms')
           .update({ player_count: Math.max(1, currentRoom.player_count - 1) })
@@ -422,7 +414,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Game actions
   const playCard = () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
@@ -431,7 +422,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     console.log("Playing card");
     
-    // Mock card play
     const card = currentPlayer.cards[0];
     const updatedPlayers = gameState.players.map((player, idx) => 
       idx === gameState.currentPlayerIndex 
@@ -449,7 +439,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       currentPlayerIndex: nextPlayerIndex
     };
     
-    // Broadcast the updated game state
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -458,13 +447,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
   };
-  
+
   const collectPile = () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Collecting pile");
     
-    // Mock pile collection
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     const updatedPlayers = gameState.players.map((player, idx) => 
       idx === gameState.currentPlayerIndex 
@@ -479,7 +467,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       lastMatchWinner: currentPlayer.id
     };
     
-    // Broadcast the updated game state
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -488,17 +475,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
   };
-  
+
   const shuffleDeck = () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Shuffling deck");
     
-    // Mock shuffle - would be handled by server in real app
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer) return;
     
-    // Simple shuffle: randomize the player's cards
     const shuffledCards = [...currentPlayer.cards].sort(() => Math.random() - 0.5);
     
     const updatedPlayers = gameState.players.map((player, idx) => 
@@ -512,7 +497,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       players: updatedPlayers
     };
     
-    // Broadcast the updated game state
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -522,11 +506,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGameState(updatedGameState);
   };
 
-  // Initialize mock game state
   const initializeGameState = (roomId: string, maxPlayers: number) => {
     if (!user) return;
     
-    // Create a standard deck of cards
     const suits: CardSuit[] = ["hearts", "diamonds", "clubs", "spades"];
     const ranks: CardRank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
     
@@ -541,17 +523,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
     
-    // Shuffle deck
     const shuffled = [...deck].sort(() => Math.random() - 0.5);
     
-    // Create mock players (1 real player + AI opponents)
     const playerCount = Math.min(maxPlayers, 4);
     const cardsPerPlayer = Math.floor(shuffled.length / playerCount);
     
     const players: Player[] = [];
     let cardIndex = 0;
     
-    // Create real player
     players.push({
       id: user.id,
       username: user.username || user.email || "You",
@@ -561,7 +540,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     cardIndex += cardsPerPlayer;
     
-    // Add AI players
     const aiNames = ["AI Player 1", "AI Player 2", "AI Player 3"];
     for (let i = 1; i < playerCount; i++) {
       players.push({
@@ -574,7 +552,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cardIndex += cardsPerPlayer;
     }
     
-    // Set initial game state
     const initialGameState = {
       players,
       currentPlayerIndex: 0,
@@ -582,7 +559,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isGameOver: false
     };
     
-    // Broadcast initial game state if we have a room channel
     if (roomChannel) {
       roomChannel.send({
         type: 'broadcast',
@@ -594,7 +570,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGameState(initialGameState);
   };
 
-  // Initial fetch of rooms when component mounts
   useEffect(() => {
     if (isConnected && user) {
       fetchRooms();

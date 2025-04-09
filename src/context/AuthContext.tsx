@@ -1,5 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from "react";
+import { v4 as uuidv4 } from 'uuid';
 
 type User = {
   id: string;
@@ -56,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Mock successful login response
       const mockUser: User = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
+        id: uuidv4(), // Using proper UUID format
         username: email.split('@')[0],
         email,
         avatar: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`,
@@ -82,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Mock successful registration
       const mockUser: User = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
+        id: uuidv4(), // Using proper UUID format
         username,
         email,
         avatar: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`,

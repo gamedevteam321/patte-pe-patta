@@ -42,6 +42,17 @@ const RoomCreate: React.FC = () => {
       return;
     }
     
+    // Validate user ID format
+    if (!user.id || typeof user.id !== 'string' || user.id.length < 10) {
+      console.error("Invalid user ID format:", user.id);
+      toast({
+        title: "Session Error",
+        description: "Your session appears to be invalid. Please log out and log in again.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const betAmountNum = parseInt(betAmount);
     
     if (user.coins < betAmountNum) {

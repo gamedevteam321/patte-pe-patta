@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 // Game-specific types
 export type CardRank = "A" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K";
@@ -35,16 +35,17 @@ export interface GameState {
 interface RoomData {
   id: string;
   name: string;
-  host: string;
-  playerCount: number;
-  maxPlayers: number;
-  isPrivate: boolean;
+  host_id: string;
+  host_name: string;
+  player_count: number;
+  max_players: number;
+  is_private: boolean;
   password?: string; // For room creation
   status: "waiting" | "playing" | "finished";
+  bet_amount: number;
 }
 
 type SocketContextType = {
-  socket: Socket | null;
   isConnected: boolean;
   availableRooms: RoomData[];
   currentRoom: RoomData | null;
@@ -59,7 +60,6 @@ type SocketContextType = {
 };
 
 const SocketContext = createContext<SocketContextType>({
-  socket: null,
   isConnected: false,
   availableRooms: [],
   currentRoom: null,
@@ -76,226 +76,330 @@ const SocketContext = createContext<SocketContextType>({
 export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<RoomData[]>([]);
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
   const { user } = useAuth();
 
-  // Create mock rooms for development
-  const createMockRooms = () => {
-    const mockRooms: RoomData[] = [
-      {
-        id: 'mock_room_1',
-        name: 'Fun Game Room',
-        host: 'Player123',
-        playerCount: 2,
-        maxPlayers: 4,
-        isPrivate: false,
-        status: 'waiting'
-      },
-      {
-        id: 'mock_room_2',
-        name: 'Private Tournament',
-        host: 'CardMaster',
-        playerCount: 1,
-        maxPlayers: 3,
-        isPrivate: true,
-        status: 'waiting'
-      }
-    ];
-
-    return mockRooms;
-  };
-
+  // Set up real-time connection
   useEffect(() => {
     if (user) {
-      // In a real implementation, connect to your actual Socket.IO server
-      // For development purposes, we're using a mock
-      console.log("Connecting to socket server...");
-      
-      // Mock socket connection - in a real app, connect to your Socket.IO server
-      // Example: const newSocket = io("https://yourgameserver.com");
-      const mockSocket = {
-        on: (event: string, callback: (...args: any[]) => void) => {
-          console.log(`Socket registered event: ${event}`);
-          return mockSocket;
-        },
-        emit: (event: string, ...args: any[]) => {
-          console.log(`Socket emitted event: ${event}`, args);
-          return mockSocket;
-        },
-        disconnect: () => {
-          console.log("Socket disconnected");
-        },
-      } as unknown as Socket;
-      
-      setSocket(mockSocket as Socket);
+      console.log("Setting up Supabase real-time connection");
       setIsConnected(true);
 
-      // Register event handlers
-      mockSocket.on("connect", () => setIsConnected(true));
-      mockSocket.on("disconnect", () => setIsConnected(false));
-      mockSocket.on("error", (error) => toast({ title: "Socket Error", description: error.message }));
-      
-      // Game-specific events
-      mockSocket.on("roomsList", (rooms: RoomData[]) => setAvailableRooms(rooms));
-      mockSocket.on("roomJoined", (room: RoomData) => setCurrentRoom(room));
-      mockSocket.on("roomLeft", () => {
-        setCurrentRoom(null);
-        setGameState(null);
-      });
-      mockSocket.on("gameState", (state: GameState) => setGameState(state));
-      
-      // Generate some mock rooms initially
-      setAvailableRooms(createMockRooms());
-
       return () => {
-        if (mockSocket) {
-          mockSocket.disconnect();
-          setSocket(null);
-          setIsConnected(false);
-        }
+        console.log("Cleaning up Supabase real-time connection");
+        setIsConnected(false);
       };
     }
   }, [user]);
 
+  // Subscribe to available rooms
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const channel = supabase
+      .channel('public:game_rooms')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_rooms'
+        },
+        () => {
+          console.log('Game rooms change detected, fetching rooms');
+          fetchRooms();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isConnected]);
+
   // Fetch available rooms
-  const fetchRooms = useCallback(() => {
-    if (!socket || !user) return;
+  const fetchRooms = useCallback(async () => {
+    if (!isConnected || !user) return;
     
-    console.log("Fetching available rooms");
+    console.log("Fetching available rooms from Supabase");
     
-    // For the mock implementation, ensure we have at least the mock rooms 
-    // plus any we've created, and don't lose the current room
-    setTimeout(() => {
-      // Start with mock rooms
-      let updatedRooms = [...createMockRooms()];
+    try {
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      // Add any custom rooms created through UI that aren't in the mock rooms
-      const customRooms = availableRooms.filter(
-        room => !updatedRooms.some(mockRoom => mockRoom.id === room.id)
-      );
-      updatedRooms = [...updatedRooms, ...customRooms];
-      
-      // Ensure current room is included if it exists
-      if (currentRoom && !updatedRooms.some(room => room.id === currentRoom.id)) {
-        updatedRooms.push(currentRoom);
+      if (error) {
+        console.error("Error fetching rooms:", error);
+        return;
       }
       
-      setAvailableRooms(updatedRooms);
-    }, 300);
-  }, [socket, user, availableRooms, currentRoom]);
+      if (data) {
+        console.log("Fetched rooms:", data);
+        setAvailableRooms(data);
+      }
+    } catch (error) {
+      console.error("Exception fetching rooms:", error);
+    }
+  }, [isConnected, user]);
 
   // Room management functions
   const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
-    if (!socket || !user) return "";
+    if (!isConnected || !user) return "";
     
     console.log("Creating room:", roomData);
     
-    // Mock room creation - would emit to server in a real app
-    const roomId = `room_${Math.random().toString(36).substr(2, 9)}`;
+    try {
+      const newRoom = {
+        name: roomData.name,
+        host_id: user.id,
+        host_name: user.username || user.email,
+        player_count: 1,
+        max_players: roomData.playerCount,
+        is_private: roomData.isPrivate,
+        password: roomData.password,
+        status: "waiting",
+        bet_amount: roomData.betAmount
+      };
+      
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .insert([newRoom])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error creating room:", error);
+        toast({
+          title: "Error",
+          description: "Failed to create room: " + error.message,
+          variant: "destructive"
+        });
+        return "";
+      }
+      
+      if (data) {
+        console.log("Room created:", data);
+        setCurrentRoom(data);
+        joinRoomChannel(data.id);
+        initializeGameState(data.id, data.max_players);
+        return data.id;
+      }
+    } catch (error) {
+      console.error("Exception creating room:", error);
+      toast({
+        title: "Error",
+        description: "Something went wrong creating the room",
+        variant: "destructive"
+      });
+    }
     
-    const newRoom: RoomData = {
-      id: roomId,
-      name: roomData.name,
-      host: user.username || user.email,
-      playerCount: 1,
-      maxPlayers: roomData.playerCount,
-      isPrivate: roomData.isPrivate,
-      status: "waiting"
-    };
-    
-    // Add to available rooms immediately
-    setAvailableRooms(prev => [...prev, newRoom]);
-    setCurrentRoom(newRoom);
-    
-    // Mock joining the room as host
-    initializeGameState(roomId, roomData.playerCount);
-    
-    return roomId;
+    return "";
   };
   
   const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {
-    if (!socket || !user) return false;
+    if (!isConnected || !user) return false;
     
     console.log("Joining room:", roomId, "with password:", password ? "provided" : "none");
     
-    const room = availableRooms.find(r => r.id === roomId);
-    if (!room) {
+    try {
+      // First check if room exists and if it's not full
+      const { data: roomData, error: roomError } = await supabase
+        .from('game_rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single();
+      
+      if (roomError) {
+        console.error("Error fetching room:", roomError);
+        toast({
+          title: "Room not found",
+          description: "The room you're trying to join doesn't exist.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      if (!roomData) {
+        toast({
+          title: "Room not found",
+          description: "The room you're trying to join doesn't exist.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      if (roomData.player_count >= roomData.max_players) {
+        toast({
+          title: "Room full",
+          description: "This room is already full.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      // For private rooms, verify password
+      if (roomData.is_private) {
+        if (!password) {
+          toast({
+            title: "Password required",
+            description: "This room requires a password.",
+            variant: "destructive"
+          });
+          return false;
+        }
+        
+        if (password !== roomData.password) {
+          toast({
+            title: "Incorrect password",
+            description: "The password you entered is incorrect.",
+            variant: "destructive"
+          });
+          return false;
+        }
+      }
+      
+      // Add player to game_players table
+      const { error: playerError } = await supabase
+        .from('game_players')
+        .insert([{
+          room_id: roomId,
+          user_id: user.id,
+          username: user.username || user.email
+        }]);
+      
+      if (playerError) {
+        console.error("Error joining room:", playerError);
+        toast({
+          title: "Error",
+          description: "Failed to join room: " + playerError.message,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      // Update player count in game_rooms table
+      const { error: updateError } = await supabase
+        .from('game_rooms')
+        .update({ player_count: roomData.player_count + 1 })
+        .eq('id', roomId);
+      
+      if (updateError) {
+        console.error("Error updating player count:", updateError);
+      }
+      
+      setCurrentRoom(roomData);
+      joinRoomChannel(roomId);
+      initializeGameState(roomId, roomData.max_players);
+      return true;
+    } catch (error) {
+      console.error("Exception joining room:", error);
       toast({
-        title: "Room not found",
-        description: "The room you're trying to join doesn't exist."
+        title: "Error",
+        description: "Something went wrong joining the room",
+        variant: "destructive"
       });
       return false;
     }
-    
-    if (room.playerCount >= room.maxPlayers) {
-      toast({
-        title: "Room full",
-        description: "This room is already full."
-      });
-      return false;
-    }
-    
-    // For private rooms, verify password if provided
-    if (room.isPrivate && !password) {
-      toast({
-        title: "Password required",
-        description: "This room requires a password."
-      });
-      return false;
-    }
-    
-    // For this mock implementation, we'll accept any password for private rooms
-    // In a real app, this would verify with the server
-    
-    // Mock joining the room
-    const updatedRoom = {
-      ...room,
-      playerCount: room.playerCount + 1
-    };
-    
-    setCurrentRoom(updatedRoom);
-    
-    // Update the room in the available rooms list
-    setAvailableRooms(availableRooms.map(r => 
-      r.id === roomId ? updatedRoom : r
-    ));
-    
-    // Initialize game state for joined player
-    initializeGameState(roomId, updatedRoom.maxPlayers);
-    
-    return true;
   };
   
-  const leaveRoom = () => {
-    if (!socket || !currentRoom) return;
+  const leaveRoom = async () => {
+    if (!isConnected || !user || !currentRoom) return;
     
     console.log("Leaving room:", currentRoom.id);
     
-    // In a real app, emit leave room event
-    // socket.emit("leaveRoom", { roomId: currentRoom.id });
-    
-    // Update available rooms
-    if (currentRoom.playerCount <= 1) {
-      // If player was last in room, remove the room
-      setAvailableRooms(availableRooms.filter(r => r.id !== currentRoom.id));
-    } else {
-      // Otherwise, decrement player count
-      setAvailableRooms(availableRooms.map(r => 
-        r.id === currentRoom.id ? { ...r, playerCount: r.playerCount - 1 } : r
-      ));
+    try {
+      if (roomChannel) {
+        await supabase.removeChannel(roomChannel);
+        setRoomChannel(null);
+      }
+      
+      // Remove player from game_players table
+      const { error: removeError } = await supabase
+        .from('game_players')
+        .delete()
+        .eq('room_id', currentRoom.id)
+        .eq('user_id', user.id);
+      
+      if (removeError) {
+        console.error("Error removing player:", removeError);
+      }
+      
+      // If player is host, delete the room
+      if (currentRoom.host_id === user.id) {
+        const { error: deleteError } = await supabase
+          .from('game_rooms')
+          .delete()
+          .eq('id', currentRoom.id);
+        
+        if (deleteError) {
+          console.error("Error deleting room:", deleteError);
+        }
+      } else {
+        // Otherwise, update player count in game_rooms table
+        const { error: updateError } = await supabase
+          .from('game_rooms')
+          .update({ player_count: Math.max(1, currentRoom.player_count - 1) })
+          .eq('id', currentRoom.id);
+        
+        if (updateError) {
+          console.error("Error updating player count:", updateError);
+        }
+      }
+      
+      setCurrentRoom(null);
+      setGameState(null);
+    } catch (error) {
+      console.error("Exception leaving room:", error);
     }
-    
-    setCurrentRoom(null);
-    setGameState(null);
   };
   
+  const joinRoomChannel = (roomId: string) => {
+    // First clean up any existing room channel subscription
+    if (roomChannel) {
+      supabase.removeChannel(roomChannel);
+    }
+    
+    // Create a new channel for the room
+    const channel = supabase
+      .channel(`room:${roomId}`)
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Presence sync for room', roomId);
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('User joined room:', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('User left room:', key, leftPresences);
+      })
+      .on('broadcast', { event: 'game_state' }, (payload) => {
+        console.log('Received game state update:', payload);
+        if (payload.gameState) {
+          setGameState(payload.gameState);
+        }
+      })
+      .subscribe(async (status) => {
+        console.log(`Room channel ${roomId} status:`, status);
+        
+        if (status === 'SUBSCRIBED' && user) {
+          // Track presence when subscribed
+          await channel.track({
+            id: user.id,
+            username: user.username || user.email
+          });
+        }
+      });
+    
+    setRoomChannel(channel);
+  };
+
   // Game actions
   const playCard = () => {
-    if (!socket || !gameState || !currentRoom) return;
+    if (!gameState || !currentRoom || !roomChannel) return;
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer || !currentPlayer.cards.length) return;
@@ -313,16 +417,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedPile = [...gameState.centralPile, card];
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
-    setGameState({
+    const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: updatedPile,
       currentPlayerIndex: nextPlayerIndex
+    };
+    
+    // Broadcast the updated game state
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
     });
+    
+    setGameState(updatedGameState);
   };
   
   const collectPile = () => {
-    if (!socket || !gameState || !currentRoom) return;
+    if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Collecting pile");
     
@@ -334,16 +447,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : player
     );
     
-    setGameState({
+    const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: [],
       lastMatchWinner: currentPlayer.id
+    };
+    
+    // Broadcast the updated game state
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
     });
+    
+    setGameState(updatedGameState);
   };
   
   const shuffleDeck = () => {
-    if (!socket || !gameState || !currentRoom) return;
+    if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Shuffling deck");
     
@@ -360,10 +482,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         : player
     );
     
-    setGameState({
+    const updatedGameState = {
       ...gameState,
       players: updatedPlayers
+    };
+    
+    // Broadcast the updated game state
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
     });
+    
+    setGameState(updatedGameState);
   };
 
   // Initialize mock game state
@@ -397,7 +528,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Create real player
     players.push({
-      id: user.id || "player1",
+      id: user.id,
       username: user.username || user.email || "You",
       cards: shuffled.slice(cardIndex, cardIndex + cardsPerPlayer),
       isActive: true,
@@ -419,18 +550,35 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     // Set initial game state
-    setGameState({
+    const initialGameState = {
       players,
       currentPlayerIndex: 0,
       centralPile: [],
       isGameOver: false
-    });
+    };
+    
+    // Broadcast initial game state if we have a room channel
+    if (roomChannel) {
+      roomChannel.send({
+        type: 'broadcast',
+        event: 'game_state',
+        payload: { gameState: initialGameState }
+      });
+    }
+    
+    setGameState(initialGameState);
   };
+
+  // Initial fetch of rooms when component mounts
+  useEffect(() => {
+    if (isConnected && user) {
+      fetchRooms();
+    }
+  }, [isConnected, user, fetchRooms]);
 
   return (
     <SocketContext.Provider 
       value={{ 
-        socket, 
         isConnected, 
         availableRooms, 
         currentRoom, 

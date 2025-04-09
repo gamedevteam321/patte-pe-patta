@@ -141,14 +141,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // In a real implementation, this would emit a request to the server
     // socket.emit("getRooms");
     
-    // For the mock implementation, let's simulate getting rooms from the server
+    // For the mock implementation, update with any rooms we've created
     setTimeout(() => {
-      const mockRooms: RoomData[] = [];
+      // Don't clear existing rooms, just ensure currentRoom is included if it exists
+      const existingRooms = [...availableRooms];
       
-      // Don't set any mock rooms - we want to only show real rooms
-      setAvailableRooms(mockRooms);
+      // If we have a current room but it's not in the available rooms, add it
+      if (currentRoom && !existingRooms.some(room => room.id === currentRoom.id)) {
+        existingRooms.push(currentRoom);
+      }
+      
+      setAvailableRooms(existingRooms);
     }, 300);
-  }, [socket, user]);
+  }, [socket, user, availableRooms, currentRoom]);
 
   // Room management functions
   const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
@@ -169,8 +174,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       status: "waiting"
     };
     
+    // Add to available rooms immediately
+    setAvailableRooms(prev => [...prev, newRoom]);
     setCurrentRoom(newRoom);
-    setAvailableRooms([...availableRooms, newRoom]);
     
     // Mock joining the room as host
     initializeGameState(roomId, roomData.playerCount);
@@ -200,8 +206,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return false;
     }
     
-    // In a real implementation, we would verify the password with the server
-    // This is just a mock implementation
+    // For private rooms, always accept any password in this mock implementation
+    // In a real app, we would verify the password server-side
     if (room.isPrivate && !password) {
       toast({
         title: "Password required",

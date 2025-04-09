@@ -32,13 +32,22 @@ const JoinByLink: React.FC = () => {
     
     try {
       console.log("Joining room by link with code:", roomCode.trim());
+      
+      // Force a small delay to simulate network request
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const success = await joinRoom(roomCode.trim(), password.trim() || undefined);
+      
       if (success) {
+        toast({
+          title: "Success!",
+          description: "You've joined the room successfully.",
+        });
         navigate(`/room/${roomCode.trim()}`);
       } else {
         toast({
           title: "Failed to join room",
-          description: "The room may not exist, is full, or the password is incorrect",
+          description: "The room may not exist, is full, or the password is incorrect.",
           variant: "destructive",
         });
       }

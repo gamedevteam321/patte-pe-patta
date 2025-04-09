@@ -44,10 +44,8 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
     }
     
     const roomToJoin = code.trim() || roomId;
-    console.log("Joining room:", roomToJoin, "with password:", password.trim() ? "provided" : "none");
+    console.log("Joining room from dialog:", roomToJoin, "with password:", password.trim() ? "provided" : "none");
     onJoin(roomToJoin, password.trim() || undefined);
-    
-    // Don't close the dialog here - we'll let the success/failure handling in the parent close it
   };
 
   const handleClose = () => {
@@ -76,19 +74,21 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
               }}
               placeholder="Enter room code"
               className="bg-black/50 border-white/20"
+              readOnly={!!roomId}
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Room Password (if required)</Label>
+            <Label htmlFor="password">Room Password (required)</Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="Enter room password"
               className="bg-black/50 border-white/20"
+              autoFocus
             />
           </div>
           

@@ -8,6 +8,7 @@ import { Plus, RefreshCw } from "lucide-react";
 import RoomList from "@/components/rooms/RoomList";
 import JoinByLink from "@/components/rooms/JoinByLink";
 import { useSocket } from "@/context/SocketContext";
+import { toast } from "@/hooks/use-toast";
 
 const Lobby: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -22,16 +23,31 @@ const Lobby: React.FC = () => {
     
     // If user is already in a room, redirect to that room
     if (currentRoom) {
+      toast({
+        title: "Rejoining room",
+        description: "You were already in a game room."
+      });
       navigate(`/room/${currentRoom.id}`);
       return;
     }
 
-    // Fetch rooms when component mounts
+    // Initial room fetch
     fetchRooms();
+    
+    // Set up interval to refresh rooms periodically
+    const intervalId = setInterval(() => {
+      fetchRooms();
+    }, 10000); // Every 10 seconds
+    
+    return () => clearInterval(intervalId);
   }, [isAuthenticated, navigate, fetchRooms, currentRoom]);
 
   const handleRefresh = () => {
-    console.log("Refreshing room list");
+    console.log("Manually refreshing room list");
+    toast({
+      title: "Refreshing rooms",
+      description: "Getting the latest available rooms"
+    });
     fetchRooms();
   };
 

@@ -28,10 +28,17 @@ const RoomList: React.FC = () => {
       setIsJoining(true);
       console.log("Attempting to join room:", roomId);
       
+      // Force a small delay to simulate network request
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const success = await joinRoom(roomId, password);
       
       if (success) {
         setIsJoinDialogOpen(false);
+        toast({
+          title: "Success!",
+          description: "You've joined the room successfully.",
+        });
         navigate(`/room/${roomId}`);
       } else {
         toast({

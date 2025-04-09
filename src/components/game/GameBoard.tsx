@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+
+import React, { useEffect, useState } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle, Users } from "lucide-react";
+import { Send, Shuffle, Users, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface GameBoardProps {
@@ -12,7 +13,8 @@ interface GameBoardProps {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
-  const { gameState, playCard, shuffleDeck } = useSocket();
+  const { gameState, playCard, shuffleDeck, joinRoom } = useSocket();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     // Keep track of player count changes for user feedback
@@ -25,6 +27,26 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       console.log(`Current players: ${playerNames}`);
     }
   }, [gameState?.players.length]);
+
+  const handleRefreshGameState = async () => {
+    if (!gameState) return;
+
+    setIsRefreshing(true);
+    toast({
+      title: "Refreshing game state",
+      description: "Syncing with other players..."
+    });
+
+    // Use the window location to get the current room ID
+    const roomId = window.location.pathname.split("/").pop();
+    if (roomId) {
+      await joinRoom(roomId);
+    }
+
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
+  };
 
   if (!gameState) {
     return (
@@ -46,7 +68,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   return (
     <div className="space-y-8">
-      {/* Players counter */}
+      {/* Players counter and refresh button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <Users className="h-5 w-5 mr-2 text-game-yellow" />
@@ -54,12 +76,25 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             {players.length} Player{players.length !== 1 ? 's' : ''}
           </span>
         </div>
-        {hasMultiplePlayers && (
-          <Badge className="bg-green-600 text-black">Multiplayer Mode</Badge>
-        )}
-        {players.length === 1 && (
-          <Badge className="bg-yellow-600 text-black">Waiting for players to join</Badge>
-        )}
+        
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshGameState}
+            disabled={isRefreshing}
+            className="border-green-500 hover:bg-green-900/20"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Syncing..." : "Refresh Players"}
+          </Button>
+
+          {hasMultiplePlayers ? (
+            <Badge className="bg-green-600 text-black">Multiplayer Active</Badge>
+          ) : (
+            <Badge className="bg-yellow-600 text-black">Waiting for players</Badge>
+          )}
+        </div>
       </div>
 
       {/* Central Card Pile */}

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -12,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 const GameRoom: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const { isAuthenticated, user } = useAuth();
-  const { currentRoom, joinRoom, leaveRoom, gameState } = useSocket();
+  const { currentRoom, joinRoom, leaveRoom, gameState, fetchRooms } = useSocket();
   const navigate = useNavigate();
   const [isJoining, setIsJoining] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -25,6 +26,7 @@ const GameRoom: React.FC = () => {
     }
 
     if (!currentRoom && roomId && !isJoining) {
+      console.log("Attempting to join room:", roomId);
       setIsJoining(true);
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
@@ -41,10 +43,12 @@ const GameRoom: React.FC = () => {
             description: "You have joined the game room successfully",
           });
           setLastSyncTime(new Date());
+          // Refresh room list to get latest player counts
+          fetchRooms();
         }
       });
     }
-  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining]);
+  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms]);
 
   useEffect(() => {
     if (gameState && roomId) {
@@ -76,6 +80,8 @@ const GameRoom: React.FC = () => {
             description: "Successfully refreshed game data"
           });
           setLastSyncTime(new Date());
+          // Also refresh the rooms list to update player counts
+          fetchRooms();
         } else {
           toast({
             title: "Sync failed",

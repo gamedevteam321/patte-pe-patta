@@ -149,6 +149,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (payload) => {
           console.log('Game player change detected:', payload);
           fetchRooms();
+          
+          // Re-fetch game state when players change
+          if (currentRoom && currentRoom.id === roomId) {
+            console.log("Player change detected, refreshing game state");
+            initializeGameState(roomId, currentRoom.max_players);
+          }
         }
       )
       .on(
@@ -363,36 +369,70 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
-      const { error: playerError } = await supabase
+      // Check if player already exists in this room
+      const { data: existingPlayer } = await supabase
         .from('game_players')
-        .insert([{
-          room_id: roomId,
-          user_id: user.id,
-          username: user.username || user.email
-        }]);
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .single();
       
-      if (playerError) {
-        console.error("Error joining room:", playerError);
-        toast({
-          title: "Error",
-          description: "Failed to join room: " + playerError.message,
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      const { error: updateError } = await supabase
-        .from('game_rooms')
-        .update({ player_count: typedRoomData.player_count + 1 })
-        .eq('id', roomId);
-      
-      if (updateError) {
-        console.error("Error updating player count:", updateError);
+      if (!existingPlayer) {
+        // Player doesn't exist in this room, add them
+        const { error: playerError } = await supabase
+          .from('game_players')
+          .insert([{
+            room_id: roomId,
+            user_id: user.id,
+            username: user.username || user.email
+          }]);
+        
+        if (playerError) {
+          console.error("Error joining room:", playerError);
+          toast({
+            title: "Error",
+            description: "Failed to join room: " + playerError.message,
+            variant: "destructive"
+          });
+          return false;
+        }
+        
+        // Update player count
+        const { error: updateError } = await supabase
+          .from('game_rooms')
+          .update({ player_count: typedRoomData.player_count + 1 })
+          .eq('id', roomId);
+        
+        if (updateError) {
+          console.error("Error updating player count:", updateError);
+        }
       }
       
       setCurrentRoom(typedRoomData);
-      joinRoomChannel(roomId);
+      const channel = joinRoomChannel(roomId);
+      
+      // Get all players in the room to sync game state
+      const { data: playersData } = await supabase
+        .from('game_players')
+        .select('*')
+        .eq('room_id', roomId);
+      
+      console.log("Players in room:", playersData);
+      
       initializeGameState(roomId, typedRoomData.max_players);
+      
+      // Notify all other players in the room that a new player has joined
+      if (channel) {
+        channel.send({
+          type: 'broadcast',
+          event: 'player_joined',
+          payload: { 
+            userId: user.id,
+            username: user.username || user.email
+          }
+        });
+      }
+      
       return true;
     } catch (error) {
       console.error("Exception joining room:", error);
@@ -545,51 +585,86 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGameState(updatedGameState);
   };
 
-  const initializeGameState = (roomId: string, maxPlayers: number) => {
+  const initializeGameState = async (roomId: string, maxPlayers: number) => {
     if (!user) return;
     
-    const suits: CardSuit[] = ["hearts", "diamonds", "clubs", "spades"];
-    const ranks: CardRank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    console.log("Initializing game state for room:", roomId);
     
-    const deck: Card[] = [];
-    suits.forEach(suit => {
-      ranks.forEach(rank => {
-        deck.push({
-          suit,
-          rank,
-          id: `${rank}_${suit}`
+    try {
+      // Get all players in the room
+      const { data: playersData, error: playersError } = await supabase
+        .from('game_players')
+        .select('*')
+        .eq('room_id', roomId);
+      
+      if (playersError) {
+        console.error("Error fetching players:", playersError);
+        return;
+      }
+      
+      if (!playersData || playersData.length === 0) {
+        console.error("No players found in room");
+        return;
+      }
+      
+      console.log("Found players in room:", playersData);
+      
+      const suits: CardSuit[] = ["hearts", "diamonds", "clubs", "spades"];
+      const ranks: CardRank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+      
+      const deck: Card[] = [];
+      suits.forEach(suit => {
+        ranks.forEach(rank => {
+          deck.push({
+            suit,
+            rank,
+            id: `${rank}_${suit}`
+          });
         });
       });
-    });
-    
-    const shuffled = [...deck].sort(() => Math.random() - 0.5);
-    
-    const players: Player[] = [];
-    
-    players.push({
-      id: user.id,
-      username: user.username || user.email || "You",
-      cards: shuffled.slice(0, 52),
-      isActive: true,
-      autoPlayCount: 0
-    });
-    
-    const initialGameState = {
-      players,
-      currentPlayerIndex: 0,
-      centralPile: [],
-      isGameOver: false
-    };
-    
-    if (roomChannel) {
-      roomChannel.send({
-        type: 'broadcast',
-        event: 'game_state',
-        payload: { gameState: initialGameState }
+      
+      const shuffled = [...deck].sort(() => Math.random() - 0.5);
+      const cardsPerPlayer = Math.floor(shuffled.length / playersData.length);
+      
+      const players: Player[] = [];
+      
+      // Create players based on players in database
+      playersData.forEach((playerData, index) => {
+        const startIdx = index * cardsPerPlayer;
+        const endIdx = index === playersData.length - 1 
+          ? shuffled.length 
+          : (index + 1) * cardsPerPlayer;
+        
+        players.push({
+          id: playerData.user_id,
+          username: playerData.username,
+          cards: shuffled.slice(startIdx, endIdx),
+          isActive: true,
+          autoPlayCount: 0
+        });
       });
+      
+      const initialGameState = {
+        players,
+        currentPlayerIndex: 0,
+        centralPile: [],
+        isGameOver: false
+      };
+      
+      console.log("Created initial game state with players:", players.length);
+      
+      if (roomChannel) {
+        roomChannel.send({
+          type: 'broadcast',
+          event: 'game_state',
+          payload: { gameState: initialGameState }
+        });
+      }
+      
+      setGameState(initialGameState);
+    } catch (error) {
+      console.error("Error initializing game state:", error);
     }
-    
-    setGameState(initialGameState);
   };
 
   useEffect(() => {

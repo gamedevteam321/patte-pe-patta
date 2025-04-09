@@ -1,11 +1,11 @@
-
-import React from "react";
+import React, { useEffect } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle } from "lucide-react";
+import { Send, Shuffle, Users } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface GameBoardProps {
   userId: string;
@@ -13,6 +13,14 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const { gameState, playCard, shuffleDeck } = useSocket();
+
+  useEffect(() => {
+    // Keep track of player count changes for user feedback
+    if (gameState && gameState.players.length > 1) {
+      // When another player joins
+      console.log(`Game has ${gameState.players.length} players`);
+    }
+  }, [gameState?.players.length]);
 
   if (!gameState) {
     return (
@@ -25,9 +33,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isUserTurn = currentPlayer?.id === userId;
+  const otherPlayers = gameState.players.filter(p => p.id !== userId);
 
   return (
     <div className="space-y-8">
+      {/* Players counter */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <Users className="h-5 w-5 mr-2 text-game-yellow" />
+          <span className="text-sm font-medium text-game-yellow">
+            {gameState.players.length} Player{gameState.players.length !== 1 ? 's' : ''} in Game
+          </span>
+        </div>
+        {gameState.players.length === 1 && (
+          <Badge className="bg-yellow-600 text-black">Waiting for players to join</Badge>
+        )}
+      </div>
+
       {/* Central Card Pile */}
       <div className="glass-panel p-6 relative">
         <h3 className="text-lg font-semibold text-game-cyan mb-4">Central Pile</h3>
@@ -71,7 +93,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       {/* Game Controls */}
       <div className="flex justify-center space-x-4">
         <Button
-          onClick={playCard}
+          onClick={() => {
+            playCard();
+            if (!isUserTurn) {
+              toast({
+                title: "Not your turn",
+                description: "Please wait for your turn to play",
+                variant: "destructive"
+              });
+            }
+          }}
           disabled={!isUserTurn}
           className={isUserTurn 
             ? "bg-game-cyan hover:bg-game-cyan/80 text-black" 
@@ -83,7 +114,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </Button>
         
         <Button
-          onClick={shuffleDeck}
+          onClick={() => {
+            shuffleDeck();
+            if (!isUserTurn) {
+              toast({
+                title: "Not your turn",
+                description: "Please wait for your turn to shuffle",
+                variant: "destructive"
+              });
+            }
+          }}
           disabled={!isUserTurn}
           className={isUserTurn 
             ? "bg-game-magenta hover:bg-game-magenta/80 text-black" 

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -7,14 +7,17 @@ import { useSocket } from "@/context/SocketContext";
 import GameBoard from "@/components/game/GameBoard";
 import GameInfo from "@/components/game/GameInfo";
 import { Button } from "@/components/ui/button";
-import { DoorOpen } from "lucide-react";
+import { DoorOpen, Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const GameRoom: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const { isAuthenticated, user } = useAuth();
-  const { currentRoom, joinRoom, leaveRoom } = useSocket();
+  const { currentRoom, joinRoom, leaveRoom, gameState } = useSocket();
   const navigate = useNavigate();
+  const [isJoining, setIsJoining] = useState(false);
 
+  // Effect for authentication and room joining
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
@@ -22,10 +25,35 @@ const GameRoom: React.FC = () => {
     }
 
     // If we don't have a current room, try to join the room
-    if (!currentRoom && roomId) {
-      joinRoom(roomId);
+    if (!currentRoom && roomId && !isJoining) {
+      setIsJoining(true);
+      joinRoom(roomId).then((success) => {
+        setIsJoining(false);
+        if (!success) {
+          toast({
+            title: "Failed to join room",
+            description: "Could not join the game room",
+            variant: "destructive"
+          });
+          navigate("/lobby");
+        } else {
+          toast({
+            title: "Joined room",
+            description: "You have joined the game room successfully",
+          });
+        }
+      });
     }
-  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom]);
+  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining]);
+
+  // Effect to monitor game state updates
+  useEffect(() => {
+    if (gameState && roomId) {
+      console.log("Game state updated:", gameState);
+      // Log connected players for debugging
+      console.log("Current players:", gameState.players.map(p => p.username));
+    }
+  }, [gameState, roomId]);
 
   const handleLeaveRoom = () => {
     leaveRoom();
@@ -34,6 +62,20 @@ const GameRoom: React.FC = () => {
 
   if (!roomId || !user) {
     return null;
+  }
+
+  // Show loading state while joining
+  if (isJoining) {
+    return (
+      <Layout>
+        <div className="container max-w-6xl mx-auto px-4 py-8">
+          <div className="flex flex-col items-center justify-center h-64">
+            <Loader2 className="h-10 w-10 text-game-cyan animate-spin mb-4" />
+            <h2 className="text-xl font-semibold text-game-cyan">Joining game room...</h2>
+          </div>
+        </div>
+      </Layout>
+    );
   }
 
   return (

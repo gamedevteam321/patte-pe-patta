@@ -27,8 +27,8 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
             {player.username} {isUser && "(You)"}
           </span>
           {isRealPlayer && !isUser && (
-            <Badge variant="outline" className="ml-2 text-xs bg-green-800/30">
-              Online
+            <Badge variant="outline" className="ml-2 text-xs bg-green-800/30 border-green-500/50">
+              Online Player
             </Badge>
           )}
         </div>

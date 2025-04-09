@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
@@ -19,6 +20,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (gameState && gameState.players.length > 1) {
       // When another player joins
       console.log(`Game has ${gameState.players.length} players`);
+      
+      // Log all player names for debugging
+      const playerNames = gameState.players.map(p => `${p.username} (${p.id})`).join(", ");
+      console.log(`Current players: ${playerNames}`);
     }
   }, [gameState?.players.length]);
 
@@ -33,7 +38,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isUserTurn = currentPlayer?.id === userId;
-  const otherPlayers = gameState.players.filter(p => p.id !== userId);
+  
+  // Separate real players from AI players for display purposes
+  const realPlayers = gameState.players.filter(p => !p.id.startsWith('ai_player_'));
+  const aiPlayers = gameState.players.filter(p => p.id.startsWith('ai_player_'));
+  
+  // Check if we have multiple human players
+  const hasMultiplePlayers = realPlayers.length > 1;
 
   return (
     <div className="space-y-8">
@@ -42,10 +53,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         <div className="flex items-center">
           <Users className="h-5 w-5 mr-2 text-game-yellow" />
           <span className="text-sm font-medium text-game-yellow">
-            {gameState.players.length} Player{gameState.players.length !== 1 ? 's' : ''} in Game
+            {realPlayers.length} Human Player{realPlayers.length !== 1 ? 's' : ''} + {aiPlayers.length} AI
           </span>
         </div>
-        {gameState.players.length === 1 && (
+        {hasMultiplePlayers && (
+          <Badge className="bg-green-600 text-black">Multiplayer Mode</Badge>
+        )}
+        {realPlayers.length === 1 && (
           <Badge className="bg-yellow-600 text-black">Waiting for players to join</Badge>
         )}
       </div>
@@ -94,8 +108,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       <div className="flex justify-center space-x-4">
         <Button
           onClick={() => {
-            playCard();
-            if (!isUserTurn) {
+            if (isUserTurn) {
+              playCard();
+            } else {
               toast({
                 title: "Not your turn",
                 description: "Please wait for your turn to play",
@@ -115,8 +130,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         <Button
           onClick={() => {
-            shuffleDeck();
-            if (!isUserTurn) {
+            if (isUserTurn) {
+              shuffleDeck();
+            } else {
               toast({
                 title: "Not your turn",
                 description: "Please wait for your turn to shuffle",
@@ -135,14 +151,25 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </Button>
       </div>
       
-      {/* Player Decks */}
+      {/* Player Decks - Human players first */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {gameState.players.map((player) => (
+        {/* Human players first for better visibility */}
+        {realPlayers.map((player) => (
           <PlayerDeck
             key={player.id}
             player={player}
             isCurrentPlayer={player.id === currentPlayer?.id}
             isUser={player.id === userId}
+          />
+        ))}
+        
+        {/* AI players */}
+        {aiPlayers.map((player) => (
+          <PlayerDeck
+            key={player.id}
+            player={player}
+            isCurrentPlayer={player.id === currentPlayer?.id}
+            isUser={false}
           />
         ))}
       </div>

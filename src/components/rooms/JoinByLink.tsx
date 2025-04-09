@@ -31,17 +31,19 @@ const JoinByLink: React.FC = () => {
     setIsJoining(true);
     
     try {
+      console.log("Joining room by link with code:", roomCode.trim());
       const success = await joinRoom(roomCode.trim(), password.trim() || undefined);
       if (success) {
         navigate(`/room/${roomCode.trim()}`);
       } else {
         toast({
           title: "Failed to join room",
-          description: "The room may not exist or is full",
+          description: "The room may not exist, is full, or the password is incorrect",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error("Error joining room:", error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",

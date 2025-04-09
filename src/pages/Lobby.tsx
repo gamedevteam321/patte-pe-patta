@@ -11,21 +11,27 @@ import { useSocket } from "@/context/SocketContext";
 
 const Lobby: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const { fetchRooms } = useSocket();
+  const { fetchRooms, currentRoom } = useSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
+      return;
     }
-  }, [isAuthenticated, navigate]);
+    
+    // If user is already in a room, redirect to that room
+    if (currentRoom) {
+      navigate(`/room/${currentRoom.id}`);
+      return;
+    }
 
-  useEffect(() => {
     // Fetch rooms when component mounts
     fetchRooms();
-  }, [fetchRooms]);
+  }, [isAuthenticated, navigate, fetchRooms, currentRoom]);
 
   const handleRefresh = () => {
+    console.log("Refreshing room list");
     fetchRooms();
   };
 

@@ -15,6 +15,7 @@ const RoomList: React.FC = () => {
   const navigate = useNavigate();
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
 
   const filteredRooms = availableRooms.filter(room => {
     if (filterPrivate !== null && room.isPrivate !== filterPrivate) return false;
@@ -24,8 +25,13 @@ const RoomList: React.FC = () => {
 
   const handleJoinRoom = async (roomId: string, password?: string) => {
     try {
+      setIsJoining(true);
+      console.log("Attempting to join room:", roomId);
+      
       const success = await joinRoom(roomId, password);
+      
       if (success) {
+        setIsJoinDialogOpen(false);
         navigate(`/room/${roomId}`);
       } else {
         toast({
@@ -35,11 +41,14 @@ const RoomList: React.FC = () => {
         });
       }
     } catch (error) {
+      console.error("Error joining room:", error);
       toast({
         title: "Error",
         description: "Failed to join room. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -132,6 +141,7 @@ const RoomList: React.FC = () => {
                 <Button 
                   className="bg-game-cyan hover:bg-game-cyan/80 text-black"
                   onClick={() => room.isPrivate ? openJoinDialog(room.id) : handleJoinRoom(room.id)}
+                  disabled={isJoining}
                 >
                   {room.isPrivate ? "Enter Code" : "Join"}
                 </Button>

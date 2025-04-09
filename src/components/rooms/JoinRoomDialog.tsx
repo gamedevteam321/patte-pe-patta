@@ -55,7 +55,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
       return;
     }
     
-    if (room.isPrivate && !password.trim()) {
+    if (room.is_private && !password.trim()) {
       setError("Password is required for private rooms");
       return;
     }

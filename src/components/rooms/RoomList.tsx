@@ -18,8 +18,8 @@ const RoomList: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
 
   const filteredRooms = availableRooms.filter(room => {
-    if (filterPrivate !== null && room.isPrivate !== filterPrivate) return false;
-    if (filterPlayers !== null && room.maxPlayers !== filterPlayers) return false;
+    if (filterPrivate !== null && room.is_private !== filterPrivate) return false;
+    if (filterPlayers !== null && room.max_players !== filterPlayers) return false;
     return room.status === "waiting"; // Only show rooms waiting for players
   });
 
@@ -140,7 +140,7 @@ const RoomList: React.FC = () => {
             <Card 
               key={room.id} 
               className="glass-panel hover:border-game-cyan/50 transition-all"
-              data-public-room={!room.isPrivate ? true : undefined}
+              data-public-room={!room.is_private ? true : undefined}
             >
               <CardContent className="p-4 flex justify-between items-center">
                 <div className="space-y-2">
@@ -148,15 +148,15 @@ const RoomList: React.FC = () => {
                     <h3 className="text-lg font-semibold text-game-cyan">
                       {room.name}
                     </h3>
-                    {room.isPrivate && (
+                    {room.is_private && (
                       <Lock className="ml-2 h-4 w-4 text-yellow-400" />
                     )}
                   </div>
-                  <div className="text-sm text-muted-foreground">Host: {room.host}</div>
+                  <div className="text-sm text-muted-foreground">Host: {room.host_name}</div>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="flex items-center">
                       <Users className="h-4 w-4 mr-1" />
-                      {room.playerCount}/{room.maxPlayers} Players
+                      {room.player_count}/{room.max_players} Players
                     </span>
                     <span className="flex items-center">
                       <Clock className="h-4 w-4 mr-1" />
@@ -165,13 +165,13 @@ const RoomList: React.FC = () => {
                   </div>
                 </div>
                 <Button 
-                  className={room.isPrivate 
+                  className={room.is_private 
                     ? "bg-yellow-400 hover:bg-yellow-500 text-black" 
                     : "bg-green-600 hover:bg-green-700 text-white"}
-                  onClick={() => room.isPrivate ? openJoinDialog(room.id) : handleJoinRoom(room.id)}
+                  onClick={() => room.is_private ? openJoinDialog(room.id) : handleJoinRoom(room.id)}
                   disabled={isJoining}
                 >
-                  {room.isPrivate ? "Enter Code" : "Join"}
+                  {room.is_private ? "Enter Code" : "Join"}
                 </Button>
               </CardContent>
             </Card>

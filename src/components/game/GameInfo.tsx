@@ -33,7 +33,7 @@ const GameInfo: React.FC<GameInfoProps> = ({ roomId }) => {
         <div className="flex flex-wrap gap-3">
           <Badge variant="outline" className="flex items-center gap-1">
             <Users className="h-3 w-3" />
-            {currentRoom.playerCount}/{currentRoom.maxPlayers} Players
+            {currentRoom.player_count}/{currentRoom.max_players} Players
           </Badge>
           
           <Badge variant="outline" className="flex items-center gap-1">
@@ -41,7 +41,7 @@ const GameInfo: React.FC<GameInfoProps> = ({ roomId }) => {
             {currentRoom.status}
           </Badge>
           
-          {currentRoom.isPrivate && (
+          {currentRoom.is_private && (
             <Badge className="bg-game-yellow text-black">Private</Badge>
           )}
         </div>

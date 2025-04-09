@@ -3,6 +3,7 @@ import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { Database } from "@/integrations/supabase/types";
 
 // Game-specific types
 export type CardRank = "A" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K";
@@ -32,7 +33,8 @@ export interface GameState {
   winner?: Player;
 }
 
-interface RoomData {
+// Match the types with Supabase table structure
+export interface RoomData {
   id: string;
   name: string;
   host_id: string;
@@ -43,6 +45,7 @@ interface RoomData {
   password?: string; // For room creation
   status: "waiting" | "playing" | "finished";
   bet_amount: number;
+  created_at: string;
 }
 
 type SocketContextType = {
@@ -140,7 +143,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (data) {
         console.log("Fetched rooms:", data);
-        setAvailableRooms(data);
+        setAvailableRooms(data as RoomData[]);
       }
     } catch (error) {
       console.error("Exception fetching rooms:", error);
@@ -184,7 +187,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (data) {
         console.log("Room created:", data);
-        setCurrentRoom(data);
+        setCurrentRoom(data as RoomData);
         joinRoomChannel(data.id);
         initializeGameState(data.id, data.max_players);
         return data.id;
@@ -233,7 +236,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      if (roomData.player_count >= roomData.max_players) {
+      // Type cast the roomData to RoomData
+      const typedRoomData = roomData as RoomData;
+      
+      if (typedRoomData.player_count >= typedRoomData.max_players) {
         toast({
           title: "Room full",
           description: "This room is already full.",
@@ -243,7 +249,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       // For private rooms, verify password
-      if (roomData.is_private) {
+      if (typedRoomData.is_private) {
         if (!password) {
           toast({
             title: "Password required",
@@ -253,7 +259,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return false;
         }
         
-        if (password !== roomData.password) {
+        if (password !== typedRoomData.password) {
           toast({
             title: "Incorrect password",
             description: "The password you entered is incorrect.",
@@ -285,16 +291,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Update player count in game_rooms table
       const { error: updateError } = await supabase
         .from('game_rooms')
-        .update({ player_count: roomData.player_count + 1 })
+        .update({ player_count: typedRoomData.player_count + 1 })
         .eq('id', roomId);
       
       if (updateError) {
         console.error("Error updating player count:", updateError);
       }
       
-      setCurrentRoom(roomData);
+      setCurrentRoom(typedRoomData);
       joinRoomChannel(roomId);
-      initializeGameState(roomId, roomData.max_players);
+      initializeGameState(roomId, typedRoomData.max_players);
       return true;
     } catch (error) {
       console.error("Exception joining room:", error);
@@ -356,45 +362,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error("Exception leaving room:", error);
     }
-  };
-  
-  const joinRoomChannel = (roomId: string) => {
-    // First clean up any existing room channel subscription
-    if (roomChannel) {
-      supabase.removeChannel(roomChannel);
-    }
-    
-    // Create a new channel for the room
-    const channel = supabase
-      .channel(`room:${roomId}`)
-      .on('presence', { event: 'sync' }, () => {
-        console.log('Presence sync for room', roomId);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined room:', key, newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left room:', key, leftPresences);
-      })
-      .on('broadcast', { event: 'game_state' }, (payload) => {
-        console.log('Received game state update:', payload);
-        if (payload.gameState) {
-          setGameState(payload.gameState);
-        }
-      })
-      .subscribe(async (status) => {
-        console.log(`Room channel ${roomId} status:`, status);
-        
-        if (status === 'SUBSCRIBED' && user) {
-          // Track presence when subscribed
-          await channel.track({
-            id: user.id,
-            username: user.username || user.email
-          });
-        }
-      });
-    
-    setRoomChannel(channel);
   };
 
   // Game actions

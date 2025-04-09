@@ -4,6 +4,7 @@ import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Send, Shuffle } from "lucide-react";
 
 interface GameBoardProps {

@@ -564,32 +564,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     const shuffled = [...deck].sort(() => Math.random() - 0.5);
     
-    const playerCount = Math.min(maxPlayers, 4);
-    const cardsPerPlayer = Math.floor(shuffled.length / playerCount);
-    
     const players: Player[] = [];
-    let cardIndex = 0;
     
     players.push({
       id: user.id,
       username: user.username || user.email || "You",
-      cards: shuffled.slice(cardIndex, cardIndex + cardsPerPlayer),
+      cards: shuffled.slice(0, 52),
       isActive: true,
       autoPlayCount: 0
     });
-    cardIndex += cardsPerPlayer;
-    
-    const aiNames = ["AI Player 1", "AI Player 2", "AI Player 3"];
-    for (let i = 1; i < playerCount; i++) {
-      players.push({
-        id: `ai_player_${i}`,
-        username: aiNames[i-1],
-        cards: shuffled.slice(cardIndex, cardIndex + cardsPerPlayer),
-        isActive: true,
-        autoPlayCount: 0
-      });
-      cardIndex += cardsPerPlayer;
-    }
     
     const initialGameState = {
       players,

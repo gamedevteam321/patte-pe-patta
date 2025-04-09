@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
@@ -39,12 +38,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isUserTurn = currentPlayer?.id === userId;
   
-  // Separate real players from AI players for display purposes
-  const realPlayers = gameState.players.filter(p => !p.id.startsWith('ai_player_'));
-  const aiPlayers = gameState.players.filter(p => p.id.startsWith('ai_player_'));
+  // Only show real players, no AI players
+  const players = gameState.players;
   
   // Check if we have multiple human players
-  const hasMultiplePlayers = realPlayers.length > 1;
+  const hasMultiplePlayers = players.length > 1;
 
   return (
     <div className="space-y-8">
@@ -53,13 +51,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         <div className="flex items-center">
           <Users className="h-5 w-5 mr-2 text-game-yellow" />
           <span className="text-sm font-medium text-game-yellow">
-            {realPlayers.length} Human Player{realPlayers.length !== 1 ? 's' : ''} + {aiPlayers.length} AI
+            {players.length} Player{players.length !== 1 ? 's' : ''}
           </span>
         </div>
         {hasMultiplePlayers && (
           <Badge className="bg-green-600 text-black">Multiplayer Mode</Badge>
         )}
-        {realPlayers.length === 1 && (
+        {players.length === 1 && (
           <Badge className="bg-yellow-600 text-black">Waiting for players to join</Badge>
         )}
       </div>
@@ -151,25 +149,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </Button>
       </div>
       
-      {/* Player Decks - Human players first */}
+      {/* Player Decks */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Human players first for better visibility */}
-        {realPlayers.map((player) => (
+        {players.map((player) => (
           <PlayerDeck
             key={player.id}
             player={player}
             isCurrentPlayer={player.id === currentPlayer?.id}
             isUser={player.id === userId}
-          />
-        ))}
-        
-        {/* AI players */}
-        {aiPlayers.map((player) => (
-          <PlayerDeck
-            key={player.id}
-            player={player}
-            isCurrentPlayer={player.id === currentPlayer?.id}
-            isUser={false}
           />
         ))}
       </div>

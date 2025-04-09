@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -19,14 +18,12 @@ const GameRoom: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
-  // Effect for authentication and room joining
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
       return;
     }
 
-    // If we don't have a current room, try to join the room
     if (!currentRoom && roomId && !isJoining) {
       setIsJoining(true);
       joinRoom(roomId).then((success) => {
@@ -49,13 +46,11 @@ const GameRoom: React.FC = () => {
     }
   }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining]);
 
-  // Effect to monitor game state updates
   useEffect(() => {
     if (gameState && roomId) {
       console.log("Game state updated:", gameState);
       setLastSyncTime(new Date());
       
-      // Log connected players for debugging
       if (gameState.players.length > 0) {
         const playerNames = gameState.players.map(p => `${p.username} (${p.id})`);
         console.log("Current players:", playerNames);
@@ -63,7 +58,6 @@ const GameRoom: React.FC = () => {
     }
   }, [gameState, roomId]);
 
-  // Add a function to handle manual refresh/resync
   const handleResync = () => {
     if (roomId) {
       setRetryCount(prev => prev + 1);
@@ -74,7 +68,6 @@ const GameRoom: React.FC = () => {
         description: "Attempting to refresh player data..."
       });
       
-      // Rejoin the room to force a refresh of game state
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
         if (success) {
@@ -103,7 +96,6 @@ const GameRoom: React.FC = () => {
     return null;
   }
 
-  // Show loading state while joining
   if (isJoining) {
     return (
       <Layout>
@@ -124,7 +116,7 @@ const GameRoom: React.FC = () => {
     );
   }
 
-  const hasMultipleRealPlayers = gameState?.players.filter(p => !p.id.startsWith('ai_player_')).length > 1;
+  const hasMultiplePlayers = gameState?.players.length > 1;
 
   return (
     <Layout>
@@ -161,27 +153,25 @@ const GameRoom: React.FC = () => {
           </div>
         </div>
 
-        {hasMultipleRealPlayers ? (
+        {hasMultiplePlayers ? (
           <div className="w-full mb-4 p-2 bg-green-600/20 border border-green-500/30 rounded-md text-center">
             <p className="text-sm text-green-400">
               Multiplayer mode active! Other players have joined the game.
             </p>
           </div>
-        ) : gameState && gameState.players.length > 1 ? (
+        ) : (
           <div className="w-full mb-4 p-2 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
             <p className="text-sm text-yellow-400">
-              Currently playing with AI. Share the room code to invite friends!
+              Waiting for other players to join. Share the room code to invite friends!
             </p>
           </div>
-        ) : null}
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Game Board - Main Content */}
           <div className="lg:col-span-3">
             <GameBoard userId={user.id || ""} />
           </div>
           
-          {/* Side Panel - Game Info */}
           <div className="space-y-4">
             <GameInfo roomId={roomId} />
           </div>

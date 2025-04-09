@@ -12,9 +12,6 @@ interface PlayerDeckProps {
 }
 
 const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser }) => {
-  // Highlight online real players vs AI players
-  const isRealPlayer = !player.id.startsWith('ai_player_');
-  
   return (
     <div className={`relative p-4 rounded-lg transition-all ${
       isCurrentPlayer ? "bg-game-cyan/10 border border-game-cyan" : 
@@ -22,11 +19,11 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
     }`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <UserCircle className={`h-6 w-6 mr-2 ${isRealPlayer ? "text-game-cyan" : "text-gray-500"}`} />
-          <span className={`font-semibold ${isUser ? "text-game-yellow" : isRealPlayer ? "text-white" : "text-gray-400"}`}>
+          <UserCircle className="h-6 w-6 mr-2 text-game-cyan" />
+          <span className={`font-semibold ${isUser ? "text-game-yellow" : "text-white"}`}>
             {player.username} {isUser && "(You)"}
           </span>
-          {isRealPlayer && !isUser && (
+          {!isUser && (
             <Badge variant="outline" className="ml-2 text-xs bg-green-800/30 border-green-500/50">
               Online Player
             </Badge>

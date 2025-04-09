@@ -86,17 +86,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
   const { user } = useAuth();
 
+  // Set up a Supabase auth listener to handle auth state changes
   useEffect(() => {
-    if (user) {
-      console.log("Setting up Supabase real-time connection");
-      setIsConnected(true);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session ? "User logged in" : "No session");
+      setIsConnected(!!session);
+    });
 
-      return () => {
-        console.log("Cleaning up Supabase real-time connection");
-        setIsConnected(false);
-      };
-    }
-  }, [user]);
+    // Check current session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Current session:", session ? "Active" : "None");
+      setIsConnected(!!session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -161,8 +168,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const fetchRooms = useCallback(async () => {
-    if (!isConnected || !user) return;
-    
     console.log("Fetching available rooms from Supabase");
     
     try {
@@ -183,26 +188,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error("Exception fetching rooms:", error);
     }
-  }, [isConnected, user]);
+  }, []);
 
   const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
-    if (!isConnected || !user) {
-      toast({
-        title: "Not connected",
-        description: "You must be logged in to create a room",
-        variant: "destructive"
-      });
-      return "";
-    }
-    
     console.log("Creating room:", roomData);
     
     try {
-      if (!user.id || typeof user.id !== 'string' || user.id.length < 10) {
-        console.error("Invalid user ID:", user.id);
+      // Check if user is authenticated before proceeding
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session || !user) {
+        // Sign in with mock user credentials for demo purposes
+        await signInDemoUser();
+      }
+
+      if (!user || !user.id) {
+        console.error("Cannot create room: User not authenticated");
         toast({
-          title: "Authentication Error",
-          description: "Your user ID is invalid. Please log out and log in again.",
+          title: "Authentication required",
+          description: "You must be logged in to create a room",
           variant: "destructive"
         });
         return "";
@@ -260,6 +264,41 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     return "";
+  };
+
+  // Sign in with a demo user for testing purposes
+  const signInDemoUser = async () => {
+    try {
+      // Create a demo anonymous session - helpful for testing without full auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: 'demo@example.com',
+        password: 'demopassword'
+      });
+
+      if (error) {
+        console.error("Demo signin failed, trying to sign up:", error);
+        
+        // Try to sign up the demo user if sign-in fails
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: 'demo@example.com',
+          password: 'demopassword'
+        });
+
+        if (signUpError) {
+          console.error("Demo signup also failed:", signUpError);
+          throw signUpError;
+        }
+      }
+
+      console.log("Demo auth session created", data);
+    } catch (error) {
+      console.error("Could not create demo session:", error);
+      toast({
+        title: "Authentication Error",
+        description: "Could not create a demo session. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {
@@ -571,10 +610,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   useEffect(() => {
-    if (isConnected && user) {
+    if (isConnected) {
       fetchRooms();
     }
-  }, [isConnected, user, fetchRooms]);
+  }, [isConnected, fetchRooms]);
 
   return (
     <SocketContext.Provider 

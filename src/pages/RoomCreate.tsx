@@ -48,6 +48,13 @@ const RoomCreate: React.FC = () => {
     setIsCreating(true);
     
     try {
+      console.log("Creating room with:", {
+        name: roomName || `${user.username || 'Player'}'s Room`,
+        playerCount: parseInt(playerCount),
+        betAmount: betAmountNum,
+        isPrivate
+      });
+
       const roomId = await createRoom({
         name: roomName || `${user.username || 'Player'}'s Room`,
         playerCount: parseInt(playerCount),
@@ -56,6 +63,10 @@ const RoomCreate: React.FC = () => {
       });
       
       if (roomId) {
+        toast({
+          title: "Success",
+          description: "Room created successfully!"
+        });
         navigate(`/room/${roomId}`);
       } else {
         toast({
@@ -65,6 +76,7 @@ const RoomCreate: React.FC = () => {
         });
       }
     } catch (error) {
+      console.error("Error in handleCreateRoom:", error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",

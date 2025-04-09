@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -198,10 +199,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log("Creating room:", roomData);
     
     try {
+      // Make sure we have valid data
+      if (!roomData.name) {
+        roomData.name = `${user.username || user.email || "Player"}'s Room`;
+      }
+      
       const newRoom = {
         name: roomData.name,
         host_id: user.id,
-        host_name: user.username || user.email,
+        host_name: user.username || user.email || "Player",
         player_count: 1,
         max_players: roomData.playerCount,
         is_private: roomData.isPrivate,
@@ -209,6 +215,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         status: "waiting",
         bet_amount: roomData.betAmount
       };
+      
+      console.log("Sending room data to Supabase:", newRoom);
       
       const { data, error } = await supabase
         .from('game_rooms')

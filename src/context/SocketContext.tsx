@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -194,16 +193,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Room management functions
   const createRoom = async (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }): Promise<string> => {
-    if (!isConnected || !user) return "";
+    if (!isConnected || !user) {
+      toast({
+        title: "Not connected",
+        description: "You must be logged in to create a room",
+        variant: "destructive"
+      });
+      return "";
+    }
     
     console.log("Creating room:", roomData);
     
     try {
-      // Make sure we have valid data
+      // Validate input data
       if (!roomData.name) {
         roomData.name = `${user.username || user.email || "Player"}'s Room`;
       }
       
+      // Create the room object with explicit types
       const newRoom = {
         name: roomData.name,
         host_id: user.id,
@@ -211,13 +218,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         player_count: 1,
         max_players: roomData.playerCount,
         is_private: roomData.isPrivate,
-        password: roomData.password,
+        password: roomData.password || null,
         status: "waiting",
         bet_amount: roomData.betAmount
       };
       
       console.log("Sending room data to Supabase:", newRoom);
       
+      // Insert the room into the game_rooms table
       const { data, error } = await supabase
         .from('game_rooms')
         .insert([newRoom])
@@ -228,7 +236,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.error("Error creating room:", error);
         toast({
           title: "Error",
-          description: "Failed to create room: " + error.message,
+          description: `Failed to create room: ${error.message}`,
           variant: "destructive"
         });
         return "";
@@ -242,10 +250,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return data.id;
       }
     } catch (error) {
-      console.error("Exception creating room:", error);
+      const err = error as Error;
+      console.error("Exception creating room:", err);
       toast({
         title: "Error",
-        description: "Something went wrong creating the room",
+        description: `Something went wrong creating the room: ${err.message}`,
         variant: "destructive"
       });
     }

@@ -32,7 +32,15 @@ const RoomCreate: React.FC = () => {
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to create a room",
+        variant: "destructive"
+      });
+      navigate("/login");
+      return;
+    }
     
     const betAmountNum = parseInt(betAmount);
     
@@ -48,19 +56,16 @@ const RoomCreate: React.FC = () => {
     setIsCreating(true);
     
     try {
-      console.log("Creating room with:", {
-        name: roomName || `${user.username || 'Player'}'s Room`,
+      const roomConfig = {
+        name: roomName.trim() || `${user.username || 'Player'}'s Room`,
         playerCount: parseInt(playerCount),
         betAmount: betAmountNum,
         isPrivate
-      });
+      };
+      
+      console.log("Creating room with:", roomConfig);
 
-      const roomId = await createRoom({
-        name: roomName || `${user.username || 'Player'}'s Room`,
-        playerCount: parseInt(playerCount),
-        betAmount: betAmountNum,
-        isPrivate
-      });
+      const roomId = await createRoom(roomConfig);
       
       if (roomId) {
         toast({

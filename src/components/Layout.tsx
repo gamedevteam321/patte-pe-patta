@@ -28,15 +28,15 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-game-background">
       {showNav && (
-        <header className="glass-panel m-2 p-4">
+        <header className="glass-panel m-2 p-4 bg-game-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {isMobile ? (
                 <Button 
                   variant="ghost" 
-                  className="p-2 text-game-cyan hover:bg-game-cyan/10"
+                  className="p-2 text-game-green hover:bg-game-green/10"
                   onClick={toggleMenu}
                 >
                   <Menu className="h-5 w-5" />
@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               ) : (
                 <Button 
                   variant="ghost" 
-                  className="p-2 text-game-cyan hover:bg-game-cyan/10"
+                  className="p-2 text-game-green hover:bg-game-green/10"
                   onClick={() => navigate("/")}
                 >
                   <Home className="h-5 w-5 mr-2" />
@@ -53,7 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               )}
             </div>
             
-            <h1 className="text-xl md:text-2xl font-bold text-game-cyan text-glow">Patte pe Patta</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-game-yellow">Patte pe Patta</h1>
 
             {user ? (
               <div className="flex items-center gap-2 md:gap-4">
@@ -68,7 +68,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                 {isMobile ? (
                   <Button 
                     variant="ghost" 
-                    className="p-2 text-game-cyan hover:bg-game-cyan/10"
+                    className="p-2 text-game-blue hover:bg-game-blue/10"
                     onClick={() => navigate("/profile")}
                   >
                     <User className="h-5 w-5" />
@@ -77,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                   <>
                     <Button 
                       variant="ghost" 
-                      className="p-2 text-game-cyan hover:bg-game-cyan/10"
+                      className="p-2 text-game-blue hover:bg-game-blue/10"
                       onClick={() => navigate("/profile")}
                     >
                       <User className="h-5 w-5 mr-2" />
@@ -86,7 +86,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                     
                     <Button 
                       variant="ghost" 
-                      className="p-2 text-game-magenta hover:bg-game-magenta/10"
+                      className="p-2 text-game-green hover:bg-game-green/10"
                       onClick={handleLogout}
                     >
                       <LogOut className="h-5 w-5 mr-2" />
@@ -99,13 +99,13 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               <div className="flex items-center gap-2">
                 <Button 
                   onClick={() => navigate("/login")}
-                  className="bg-game-cyan text-white hover:bg-game-cyan/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
+                  className="bg-game-blue text-white hover:bg-game-blue/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
                 >
                   Login
                 </Button>
                 <Button 
                   onClick={() => navigate("/register")}
-                  className="bg-game-magenta text-white hover:bg-game-magenta/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
+                  className="bg-game-green text-white hover:bg-game-green/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
                 >
                   Register
                 </Button>
@@ -122,7 +122,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                 </span>
                 <Button 
                   variant="ghost" 
-                  className="p-2 text-game-magenta hover:bg-game-magenta/10"
+                  className="p-2 text-game-green hover:bg-game-green/10"
                   onClick={handleLogout}
                 >
                   <LogOut className="h-5 w-5 mr-2" />
@@ -131,7 +131,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               </div>
               <Button 
                 variant="ghost"
-                className="w-full justify-start text-game-cyan hover:bg-game-cyan/10"
+                className="w-full justify-start text-game-green hover:bg-game-green/10"
                 onClick={() => navigate("/")}
               >
                 <Home className="h-5 w-5 mr-2" />
@@ -139,14 +139,14 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               </Button>
               <Button 
                 variant="ghost"
-                className="w-full justify-start text-game-cyan hover:bg-game-cyan/10"
+                className="w-full justify-start text-game-green hover:bg-game-green/10"
                 onClick={() => navigate("/lobby")}
               >
                 Play Game
               </Button>
               <Button 
                 variant="ghost"
-                className="w-full justify-start text-game-cyan hover:bg-game-cyan/10"
+                className="w-full justify-start text-game-blue hover:bg-game-blue/10"
                 onClick={() => navigate("/profile")}
               >
                 <User className="h-5 w-5 mr-2" />
@@ -161,7 +161,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
         {children}
       </main>
 
-      <footer className="glass-panel m-2 p-4 text-center text-sm text-muted-foreground">
+      <footer className="glass-panel m-2 p-4 text-center text-sm text-white/60 bg-game-card">
         © 2025 Patte pe Patta
       </footer>
     </div>

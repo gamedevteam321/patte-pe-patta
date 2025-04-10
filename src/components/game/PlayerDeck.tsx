@@ -14,23 +14,23 @@ interface PlayerDeckProps {
 const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser }) => {
   return (
     <div className={`relative p-3 md:p-4 rounded-lg transition-all ${
-      isCurrentPlayer ? "bg-accent/30 border border-accent" : 
-      isUser ? "bg-accent/20 border border-accent/30" : "bg-black/30 border border-accent/50"
+      isCurrentPlayer ? "bg-game-green/30 border border-game-green" : 
+      isUser ? "bg-game-blue/20 border border-game-blue/50" : "bg-game-card border border-white/10"
     }`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <UserCircle className={`h-5 w-5 md:h-6 md:w-6 mr-2 ${isUser ? "text-accent" : "text-accent/80"}`} />
-          <span className={`font-semibold text-sm md:text-base ${isUser ? "text-accent" : "text-white"}`}>
+          <UserCircle className={`h-5 w-5 md:h-6 md:w-6 mr-2 ${isUser ? "text-game-blue" : "text-white/80"}`} />
+          <span className={`font-semibold text-sm md:text-base ${isUser ? "text-game-blue" : "text-white"}`}>
             {player.username} {isUser && "(You)"}
           </span>
           {!isUser && (
-            <Badge variant="outline" className="ml-2 text-xs bg-black/50 border-accent/50 text-accent/90">
+            <Badge variant="outline" className="ml-2 text-xs bg-black/20 border-white/20 text-white/90">
               Online
             </Badge>
           )}
         </div>
         <Badge variant={isCurrentPlayer ? "default" : "outline"} className={
-          isCurrentPlayer ? "bg-accent text-white text-xs md:text-sm" : "text-accent/90 text-xs md:text-sm"
+          isCurrentPlayer ? "bg-game-green text-white text-xs md:text-sm" : "text-white/90 text-xs md:text-sm border-white/20"
         }>
           {isCurrentPlayer ? (
             <span className="flex items-center">
@@ -61,7 +61,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
             ))}
           </div>
         ) : (
-          <div className="h-24 flex items-center justify-center text-accent/80">
+          <div className="h-24 flex items-center justify-center text-white/60">
             No cards left
           </div>
         )}

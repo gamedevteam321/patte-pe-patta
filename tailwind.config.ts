@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -54,14 +53,13 @@ export default {
           foreground: "hsl(var(--card-foreground))"
         },
         game: {
-          background: "#000000",
-          card: "#121212",
-          cyan: "#007BFF",
-          magenta: "#3399FF",
-          green: "#10b981",
-          yellow: "#f59e0b",
-          red: "#ef4444",
-          blue: "#007BFF"
+          background: "#1a2e3b",
+          card: "#142836",
+          green: "#25d366",
+          blue: "#0088cc",
+          yellow: "#ffd700",
+          red: "#ff3b30",
+          cyan: "#0088cc"
         }
       },
       borderRadius: {
@@ -98,10 +96,6 @@ export default {
           "75%": { transform: "rotate(-5deg)" },
           "100%": { transform: "rotate(0deg)" }
         },
-        "pulse-neon": {
-          "0%, 100%": { boxShadow: "0 0 5px theme('colors.game.blue'), 0 0 10px theme('colors.game.blue')" },
-          "50%": { boxShadow: "0 0 15px theme('colors.game.blue'), 0 0 20px theme('colors.game.blue')" }
-        },
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" }
@@ -114,12 +108,10 @@ export default {
         "card-distribute": "card-distribute 0.5s ease-out forwards",
         "card-play": "card-play 0.3s ease-out",
         "shuffle": "shuffle 0.5s ease-in-out",
-        "pulse-neon": "pulse-neon 2s infinite",
         "float": "float 3s ease-in-out infinite",
       },
       backgroundImage: {
-        'gradient-game': 'linear-gradient(135deg, #000000, #121212)',
-        'neon-border': 'linear-gradient(90deg, #007BFF, #3399FF, #007BFF)',
+        'gradient-game': 'linear-gradient(180deg, #1a2e3b, #142836)',
       }
     }
   },

@@ -77,9 +77,9 @@ const JoinByLink: React.FC = () => {
   };
 
   return (
-    <Card className="glass-panel border-accent/30">
+    <Card className="glass-panel border-game-green/30 bg-game-card">
       <CardHeader>
-        <CardTitle className="text-accent flex items-center text-lg">
+        <CardTitle className="text-game-green flex items-center text-lg">
           <KeyRound className="mr-2 h-5 w-5" />
           Join by Room Code
         </CardTitle>
@@ -93,7 +93,7 @@ const JoinByLink: React.FC = () => {
               placeholder="Enter room code"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
-              className="bg-black/50 border-white/20"
+              className="input-field"
             />
           </div>
           
@@ -105,18 +105,18 @@ const JoinByLink: React.FC = () => {
               placeholder="Enter room password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-black/50 border-white/20"
+              className="input-field"
             />
           </div>
           
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/70">
             Enter a room code shared by another player to join their game.
           </p>
         </CardContent>
         <CardFooter>
           <Button
             type="submit"
-            className="w-full bg-accent hover:bg-accent/80 text-white"
+            className="w-full bg-game-green hover:bg-game-green/80 text-white"
             disabled={isJoining}
           >
             {isJoining ? "Joining..." : "Join Room"}

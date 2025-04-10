@@ -14,7 +14,7 @@ const PlayingCard: React.FC<PlayingCardProps> = ({ card, isBack = false, classNa
     return (
       <div className={`card-back ${className}`}>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-10 h-10 rounded-full bg-accent/30 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-[#0088cc]/30 flex items-center justify-center">
             <span className="text-xl font-bold text-white">♠</span>
           </div>
         </div>

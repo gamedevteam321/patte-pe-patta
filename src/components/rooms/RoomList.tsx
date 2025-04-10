@@ -83,7 +83,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === null ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(null)}
-          className={filterPrivate === null ? "bg-game-cyan text-black" : ""}
+          className={filterPrivate === null ? "bg-game-blue text-white" : "border-white/20 text-white"}
         >
           All Rooms
         </Button>
@@ -91,7 +91,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === false ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(false)}
-          className={filterPrivate === false ? "bg-green-600 text-white" : ""}
+          className={filterPrivate === false ? "bg-game-green text-white" : "border-white/20 text-white"}
         >
           Public Only
         </Button>
@@ -99,7 +99,7 @@ const RoomList: React.FC = () => {
           variant={filterPrivate === true ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPrivate(true)}
-          className={filterPrivate === true ? "bg-yellow-400 text-black" : ""}
+          className={filterPrivate === true ? "bg-game-yellow text-black" : "border-white/20 text-white"}
         >
           Private Only
         </Button>
@@ -108,6 +108,7 @@ const RoomList: React.FC = () => {
           variant={filterPlayers === null ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPlayers(null)}
+          className={filterPlayers === null ? "bg-game-blue text-white" : "border-white/20 text-white"}
         >
           Any Size
         </Button>
@@ -115,6 +116,7 @@ const RoomList: React.FC = () => {
           variant={filterPlayers === 2 ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPlayers(2)}
+          className={filterPlayers === 2 ? "bg-game-blue text-white" : "border-white/20 text-white"}
         >
           2 Players
         </Button>
@@ -122,6 +124,7 @@ const RoomList: React.FC = () => {
           variant={filterPlayers === 3 ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPlayers(3)}
+          className={filterPlayers === 3 ? "bg-game-blue text-white" : "border-white/20 text-white"}
         >
           3 Players
         </Button>
@@ -129,6 +132,7 @@ const RoomList: React.FC = () => {
           variant={filterPlayers === 4 ? "default" : "outline"}
           size="sm"
           onClick={() => setFilterPlayers(4)}
+          className={filterPlayers === 4 ? "bg-game-blue text-white" : "border-white/20 text-white"}
         >
           4 Players
         </Button>
@@ -139,21 +143,21 @@ const RoomList: React.FC = () => {
           {filteredRooms.map((room) => (
             <Card 
               key={room.id} 
-              className="glass-panel hover:border-game-cyan/50 transition-all"
+              className="glass-panel bg-game-card hover:border-game-green/50 transition-all"
               data-public-room={!room.is_private ? true : undefined}
             >
               <CardContent className="p-4 flex justify-between items-center">
                 <div className="space-y-2">
                   <div className="flex items-center">
-                    <h3 className="text-lg font-semibold text-game-cyan">
+                    <h3 className="text-lg font-semibold text-game-green">
                       {room.name}
                     </h3>
                     {room.is_private && (
-                      <Lock className="ml-2 h-4 w-4 text-yellow-400" />
+                      <Lock className="ml-2 h-4 w-4 text-game-yellow" />
                     )}
                   </div>
-                  <div className="text-sm text-muted-foreground">Host: {room.host_name}</div>
-                  <div className="flex items-center gap-4 text-sm">
+                  <div className="text-sm text-white/70">Host: {room.host_name}</div>
+                  <div className="flex items-center gap-4 text-sm text-white/80">
                     <span className="flex items-center">
                       <Users className="h-4 w-4 mr-1" />
                       {room.player_count}/{room.max_players} Players
@@ -166,8 +170,8 @@ const RoomList: React.FC = () => {
                 </div>
                 <Button 
                   className={room.is_private 
-                    ? "bg-yellow-400 hover:bg-yellow-500 text-black" 
-                    : "bg-green-600 hover:bg-green-700 text-white"}
+                    ? "bg-game-yellow hover:bg-game-yellow/80 text-black" 
+                    : "bg-game-green hover:bg-game-green/80 text-white"}
                   onClick={() => room.is_private ? openJoinDialog(room.id) : handleJoinRoom(room.id)}
                   disabled={isJoining}
                 >
@@ -178,9 +182,9 @@ const RoomList: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 glass-panel">
-          <p className="text-lg text-muted-foreground">No active rooms found</p>
-          <p className="text-sm text-muted-foreground">Create a new room to start playing!</p>
+        <div className="text-center py-8 glass-panel bg-game-card">
+          <p className="text-lg text-white/80">No active rooms found</p>
+          <p className="text-sm text-white/60">Create a new room to start playing!</p>
         </div>
       )}
 

@@ -73,9 +73,9 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="glass-panel border-accent/30">
+      <DialogContent className="glass-panel border-game-green/30 bg-game-card">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-accent">
+          <DialogTitle className="flex items-center text-game-green">
             <KeyRound className="mr-2 h-5 w-5" />
             Join Private Room
           </DialogTitle>
@@ -92,7 +92,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
                 setError("");
               }}
               placeholder="Enter room code"
-              className="bg-black/50 border-white/20"
+              className="input-field"
               readOnly={!!roomId}
             />
           </div>
@@ -108,7 +108,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
                 setError("");
               }}
               placeholder="Enter room password"
-              className="bg-black/50 border-white/20"
+              className="input-field"
               autoFocus
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -119,13 +119,13 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
               type="button" 
               variant="ghost" 
               onClick={handleClose}
-              className="text-gray-400"
+              className="text-gray-400 hover:text-white hover:bg-white/10"
             >
               Cancel
             </Button>
             <Button 
               type="submit"
-              className="bg-accent hover:bg-accent/80 text-white"
+              className="bg-game-green hover:bg-game-green/80 text-white"
             >
               Join Room
             </Button>

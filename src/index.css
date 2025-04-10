@@ -56,15 +56,7 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-black/30 backdrop-blur-md border border-accent/20 rounded-lg shadow-lg;
-  }
-  
-  .neon-border {
-    @apply relative rounded-lg p-[1px] overflow-hidden before:content-[''] before:absolute before:inset-0 before:bg-gradient-to-r before:from-accent before:via-blue-400 before:to-accent before:animate-[spin_4s_linear_infinite] before:rounded-lg;
-  }
-  
-  .neon-glow {
-    @apply shadow-[0_0_10px_theme(colors.accent),0_0_20px_theme(colors.accent)];
+    @apply bg-black/30 backdrop-blur-md border border-accent/20 rounded-lg shadow-md;
   }
   
   .card-back {
@@ -77,9 +69,7 @@
 }
 
 @layer utilities {
-  .text-glow {
-    text-shadow: 0 0 10px currentColor;
-  }
+  /* Removed text-glow utility */
 }
 
 /* Font families */

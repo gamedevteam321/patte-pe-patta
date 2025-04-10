@@ -15,7 +15,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
   return (
     <div className={`relative p-3 md:p-4 rounded-lg transition-all ${
       isCurrentPlayer ? "bg-accent/30 border border-accent" : 
-      isUser ? "bg-accent/20 border border-accent/30" : "glass-panel border border-accent/50"
+      isUser ? "bg-accent/20 border border-accent/30" : "bg-black/30 border border-accent/50"
     }`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">

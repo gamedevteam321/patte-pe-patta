@@ -20,6 +20,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
 
   useEffect(() => {
+    // Auto-refresh players every 5 seconds
+    const refreshInterval = setInterval(() => {
+      if (gameState && !gameState.gameStarted) {
+        handleRefreshGameState();
+      }
+    }, 5000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [gameState]);
+
+  useEffect(() => {
     // Keep track of player count changes for user feedback
     if (gameState && gameState.players.length > 1) {
       // When another player joins
@@ -57,12 +68,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
+          // End game by timeout if not already ended
+          if (gameState && !gameState.isGameOver) {
+            endGame();
+          }
         }
       }, 1000);
       
       return () => clearInterval(interval);
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, gameState?.isGameOver]);
 
   useEffect(() => {
     // Update turn timer
@@ -75,21 +90,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
+          // Auto-play will be handled by the server
         }
       }, 1000);
       
       return () => clearInterval(interval);
     }
-  }, [gameState?.turnEndTime]);
+  }, [gameState?.turnEndTime, gameState?.gameStarted]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
     setIsRefreshing(true);
-    toast({
-      title: "Refreshing game state",
-      description: "Syncing with other players..."
-    });
 
     // Use the window location to get the current room ID
     const roomId = window.location.pathname.split("/").pop();
@@ -102,6 +114,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }, 1000);
   };
 
+  // Helper function to end the game
+  const endGame = () => {
+    if (!gameState) return;
+    
+    // Find player with most cards as winner
+    const sortedPlayers = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length);
+    
+    // Update database status (handled by socket context)
+    toast({
+      title: "Game Over!",
+      description: "Time's up! The player with the most cards wins."
+    });
+  };
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -111,7 +137,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (!gameState) {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-[#0B0C10] border border-blue-900/20 rounded-lg">
-        <div className="text-xl font-semibold text-blue-400 mb-4">Loading game...</div>
+        <div className="text-xl font-semibold text-white mb-4">Loading game...</div>
         <div className="animate-pulse text-blue-300">Please wait while the game loads</div>
       </div>
     );
@@ -124,15 +150,57 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Only show real players, no AI players
   const players = gameState.players;
   
+  // Get user player
+  const userPlayer = players.find(p => p.id === userId);
+  
   // Check if we have multiple human players
   const hasMultiplePlayers = players.length > 1;
   const canStartGame = !gameState.gameStarted && hasMultiplePlayers && isHost;
+
+  // Layout players in the correct position based on how many players there are
+  const getPlayerPositions = () => {
+    // Find the index of the current user
+    const userIndex = players.findIndex(p => p.id === userId);
+    if (userIndex === -1) return [];
+    
+    // Reorder players so that the user is always at the bottom
+    const reorderedPlayers = [...players.slice(userIndex), ...players.slice(0, userIndex)];
+    
+    // Assign positions based on player count
+    return reorderedPlayers.map((player, index) => {
+      const isUser = player.id === userId;
+      
+      if (isUser) {
+        return { player, position: "bottom" as const, isUser: true };
+      }
+      
+      if (players.length === 2) {
+        return { player, position: "top" as const, isUser: false };
+      }
+      
+      if (players.length === 3) {
+        return { 
+          player, 
+          position: index === 1 ? "left" as const : "right" as const, 
+          isUser: false 
+        };
+      }
+      
+      if (players.length === 4) {
+        if (index === 1) return { player, position: "left" as const, isUser: false };
+        if (index === 2) return { player, position: "top" as const, isUser: false };
+        return { player, position: "right" as const, isUser: false };
+      }
+      
+      return { player, position: "top" as const, isUser: false };
+    });
+  };
 
   // Game over view
   if (gameState.isGameOver && gameState.winner) {
     return (
       <div className="space-y-8">
-        <div className="bg-[#0B0C10] border border-blue-500 rounded-lg p-8 text-center">
+        <div className="bg-[#0B0C10] border border-game-blue rounded-lg p-8 text-center">
           <h2 className="text-3xl font-bold text-blue-300 mb-4">Game Over!</h2>
           <div className="text-xl text-blue-200 mb-8">
             {gameState.winner.username === players.find(p => p.id === userId)?.username
@@ -146,7 +214,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 key={player.id} 
                 className={`p-4 rounded-lg ${
                   player.id === gameState.winner?.id 
-                    ? "bg-blue-900/40 border-2 border-blue-500" 
+                    ? "bg-game-blue/40 border-2 border-blue-500" 
                     : "bg-blue-900/20 border border-blue-800/50"
                 }`}
               >
@@ -168,7 +236,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           
           <Button 
             onClick={() => window.location.href = "/lobby"} 
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-game-blue hover:bg-blue-700 text-white"
           >
             Return to Lobby
           </Button>
@@ -177,54 +245,166 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   }
 
+  // Get player positions
+  const positionedPlayers = getPlayerPositions();
+
   return (
-    <div className="space-y-8">
-      {/* Game timers */}
-      {gameState.gameStarted && (
-        <div className="flex justify-between items-center">
-          <div className="bg-[#0B0C10] border border-blue-700/50 px-4 py-2 rounded-md">
-            <span className="text-sm text-blue-300">Game time: </span>
-            <span className="text-lg font-mono text-white">{gameTimer !== null ? formatTime(gameTimer) : "--:--"}</span>
+    <div className="space-y-2">
+      {/* Game Header with Timer */}
+      <div className="flex justify-between items-center px-4 py-2">
+        <h1 className="text-2xl font-bold text-yellow-400">Patte pe Patta</h1>
+        
+        {gameState.gameStarted && gameTimer !== null && (
+          <div className="bg-transparent border border-yellow-500 rounded-full px-4 py-1">
+            <span className="text-xl font-mono text-yellow-400">{formatTime(gameTimer)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Top Players (based on layout) */}
+      <div className="flex justify-center mb-4">
+        {positionedPlayers
+          .filter(p => p.position === "top")
+          .map(({ player, position, isUser }) => (
+            <PlayerDeck
+              key={player.id}
+              player={player}
+              isCurrentPlayer={player.id === currentPlayer?.id}
+              isUser={isUser}
+              position={position}
+            />
+          ))}
+      </div>
+
+      {/* Middle section with left, center, and right */}
+      <div className="relative flex justify-center items-stretch mb-4">
+        {/* Left Player */}
+        <div className="w-1/5 flex items-center">
+          {positionedPlayers
+            .filter(p => p.position === "left")
+            .map(({ player, position, isUser }) => (
+              <PlayerDeck
+                key={player.id}
+                player={player}
+                isCurrentPlayer={player.id === currentPlayer?.id}
+                isUser={isUser}
+                position={position}
+              />
+            ))}
+        </div>
+        
+        {/* Central Card Area */}
+        <div className="w-3/5 flex flex-col justify-center items-center">
+          {/* Game Table */}
+          <div className="bg-game-card p-4 relative border-2 border-blue-800 rounded-lg min-h-[240px] w-full flex flex-col justify-center items-center">
+            {/* Card Hand decorator pattern */}
+            <div className="absolute top-0 w-full flex justify-around">
+              {Array.from({length: 11}).map((_, i) => (
+                <span key={`top-${i}`} className="text-gray-700">👋</span>
+              ))}
+            </div>
+            
+            {/* Center Pile */}
+            <div className="flex justify-center items-center">
+              {gameState.centralPile.length > 0 ? (
+                <div className="relative h-36">
+                  {/* Show up to 3 cards in the pile */}
+                  {gameState.centralPile.slice(-3).map((card, i, arr) => (
+                    <div
+                      key={card.id}
+                      className="absolute transition-all duration-300"
+                      style={{
+                        left: `${i * 10}px`,
+                        top: `${i * 2}px`,
+                        zIndex: i,
+                        transform: `rotate(${(i - 1) * 4}deg)`
+                      }}
+                    >
+                      <PlayingCard 
+                        card={card} 
+                        isMatched={gameState.matchAnimation?.isActive && gameState.matchAnimation.cardId === card.id}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-white">No cards yet</div>
+              )}
+            </div>
+            
+            {/* Card Hand decorator pattern */}
+            <div className="absolute bottom-0 w-full flex justify-around">
+              {Array.from({length: 11}).map((_, i) => (
+                <span key={`bottom-${i}`} className="text-gray-700">👋</span>
+              ))}
+            </div>
           </div>
           
-          {turnTimer !== null && (
-            <div className={`px-4 py-2 rounded-md ${
-              turnTimer < 5 ? "bg-red-900/30 border border-red-700/50" : "bg-[#0B0C10] border border-blue-700/50"
-            }`}>
-              <span className="text-sm text-blue-300">Turn: </span>
-              <span className={`text-lg font-mono ${turnTimer < 5 ? "text-red-300" : "text-white"}`}>{turnTimer}s</span>
+          {/* Turn Timer */}
+          {gameState.gameStarted && turnTimer !== null && (
+            <div className="mt-2 w-full">
+              <div className="text-center text-white text-sm">{turnTimer} Sec</div>
+              <div className="h-2 w-full bg-gray-700 rounded overflow-hidden">
+                <div 
+                  className={`h-full ${turnTimer < 5 ? 'bg-red-500' : 'bg-green-500'}`} 
+                  style={{width: `${Math.min(100, (turnTimer / 15) * 100)}%`}}
+                ></div>
+              </div>
+            </div>
+          )}
+          
+          {/* Game Controls */}
+          {gameState.gameStarted && userPlayer && (
+            <div className="mt-2 flex justify-center space-x-4">
+              <Button
+                onClick={() => playCard()}
+                disabled={!isUserTurn}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Hit
+              </Button>
+              
+              <Button
+                onClick={() => shuffleDeck()}
+                disabled={!isUserTurn}
+                className="bg-game-blue hover:bg-blue-700 text-white"
+              >
+                <Shuffle className="h-5 w-5 mr-1" /> 
+                <span>1</span>
+              </Button>
             </div>
           )}
         </div>
-      )}
-
-      {/* Players counter and refresh button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Users className="h-5 w-5 mr-2 text-blue-400" />
-          <span className="text-sm font-medium text-blue-400">
-            {players.length} Player{players.length !== 1 ? 's' : ''}
-          </span>
-        </div>
         
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefreshGameState}
-            disabled={isRefreshing}
-            className="border-blue-500 hover:bg-blue-900/20 text-blue-300"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
-            {isRefreshing ? "Syncing..." : "Refresh Players"}
-          </Button>
-
-          {hasMultiplePlayers ? (
-            <Badge className="bg-blue-600 text-white">Multiplayer Active</Badge>
-          ) : (
-            <Badge className="bg-yellow-600 text-black">Waiting for players</Badge>
-          )}
+        {/* Right Player */}
+        <div className="w-1/5 flex items-center justify-end">
+          {positionedPlayers
+            .filter(p => p.position === "right")
+            .map(({ player, position, isUser }) => (
+              <PlayerDeck
+                key={player.id}
+                player={player}
+                isCurrentPlayer={player.id === currentPlayer?.id}
+                isUser={isUser}
+                position={position}
+              />
+            ))}
         </div>
+      </div>
+
+      {/* Current user's cards (bottom) */}
+      <div className="flex justify-center">
+        {positionedPlayers
+          .filter(p => p.position === "bottom")
+          .map(({ player, position, isUser }) => (
+            <PlayerDeck
+              key={player.id}
+              player={player}
+              isCurrentPlayer={player.id === currentPlayer?.id}
+              isUser={isUser}
+              position={position}
+            />
+          ))}
       </div>
 
       {/* Card distribution animation */}
@@ -252,13 +432,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
       {/* Start game button for host */}
       {canStartGame && (
-        <div className="w-full mb-6 p-4 bg-[#0B0C10] border border-blue-500/50 rounded-lg text-center">
-          <p className="text-blue-300 mb-4">
-            You're the host of this game. You can start the game when everyone is ready.
-          </p>
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10">
           <Button 
             onClick={() => startGame()} 
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
             size="lg"
           >
             <Play className="mr-2 h-5 w-5" />
@@ -266,109 +443,27 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           </Button>
         </div>
       )}
-
-      {/* Central Card Pile */}
-      <div className="bg-[#0B0C10] p-6 relative border border-blue-900/50 rounded-lg">
-        <h3 className="text-lg font-semibold text-blue-400 mb-4">Central Pile</h3>
-        <div className="flex justify-center items-center min-h-32">
-          {gameState.centralPile.length > 0 ? (
-            <div className="relative h-32">
-              {/* Show up to 5 cards in the pile */}
-              {gameState.centralPile.slice(-5).map((card, i, arr) => (
-                <div
-                  key={card.id}
-                  className="absolute transition-all duration-300"
-                  style={{
-                    left: `${i * 20}px`,
-                    top: `${i * 2}px`,
-                    zIndex: i,
-                  }}
-                >
-                  <PlayingCard 
-                    card={card} 
-                    isMatched={gameState.matchAnimation?.isActive && gameState.matchAnimation.cardId === card.id}
-                  />
-                </div>
-              ))}
-              {gameState.centralPile.length > 5 && (
-                <div className="absolute right-0 top-0 transform translate-x-full">
-                  <span className="text-sm text-blue-300">+{gameState.centralPile.length - 5} more</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-blue-300">No cards yet</div>
-          )}
-        </div>
+      
+      {/* Players counter and info */}
+      <div className="absolute top-2 right-4 flex items-center">
+        <Badge variant={hasMultiplePlayers ? "default" : "outline"} className={
+          hasMultiplePlayers 
+          ? "bg-green-600 text-white" 
+          : "border-yellow-500 text-yellow-400"
+        }>
+          <Users className="h-3 w-3 mr-1" />
+          {players.length} Player{players.length !== 1 ? 's' : ''}
+        </Badge>
         
-        {gameState.lastMatchWinner && (
-          <div className="absolute top-2 right-2">
-            <Badge className="bg-blue-500 text-white">
-              Last match won by: {gameState.players.find(p => p.id === gameState.lastMatchWinner)?.username}
-            </Badge>
-          </div>
-        )}
-      </div>
-      
-      {/* Game Controls */}
-      {gameState.gameStarted && (
-        <div className="flex justify-center space-x-4">
-          <Button
-            onClick={() => {
-              if (isUserTurn) {
-                playCard();
-              } else {
-                toast({
-                  title: "Not your turn",
-                  description: "Please wait for your turn to play",
-                  variant: "destructive"
-                });
-              }
-            }}
-            disabled={!isUserTurn}
-            className={isUserTurn 
-              ? "bg-blue-600 hover:bg-blue-700 text-white" 
-              : "bg-muted text-muted-foreground"}
-            size="lg"
-          >
-            <Send className="mr-2 h-5 w-5" />
-            Play Card
-          </Button>
-          
-          <Button
-            onClick={() => {
-              if (isUserTurn) {
-                shuffleDeck();
-              } else {
-                toast({
-                  title: "Not your turn",
-                  description: "Please wait for your turn to shuffle",
-                  variant: "destructive"
-                });
-              }
-            }}
-            disabled={!isUserTurn}
-            className={isUserTurn 
-              ? "bg-blue-500 hover:bg-blue-600 text-white" 
-              : "bg-muted text-muted-foreground"}
-            size="lg"
-          >
-            <Shuffle className="mr-2 h-5 w-5" />
-            Shuffle
-          </Button>
-        </div>
-      )}
-      
-      {/* Player Decks */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {players.map((player) => (
-          <PlayerDeck
-            key={player.id}
-            player={player}
-            isCurrentPlayer={player.id === currentPlayer?.id}
-            isUser={player.id === userId}
-          />
-        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshGameState}
+          disabled={isRefreshing}
+          className="ml-2 text-blue-300 hover:text-blue-200"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+        </Button>
       </div>
     </div>
   );

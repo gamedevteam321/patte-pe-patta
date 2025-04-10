@@ -55,12 +55,12 @@ export default {
         },
         game: {
           background: "#0B0C10",
-          card: "#142836",
+          card: "#0a4b76", // Updated to a richer blue for the center area
           green: "#25d366",
-          blue: "#0088cc",
+          blue: "#0047ab", // Updated to royal blue
           yellow: "#ffd700",
           red: "#ff3b30",
-          cyan: "#0088cc"
+          cyan: "#0047ab" // Also updated to royal blue
         }
       },
       borderRadius: {

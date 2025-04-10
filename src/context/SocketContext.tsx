@@ -98,15 +98,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
   const { user } = useAuth();
 
-  // Set up a Supabase auth listener to handle auth state changes
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session ? "User logged in" : "No session");
       setIsConnected(!!session);
     });
 
-    // Check current session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("Current session:", session ? "Active" : "None");
       setIsConnected(!!session);
@@ -162,7 +159,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.log('Game player change detected:', payload);
           fetchRooms();
           
-          // Re-fetch game state when players change
           if (currentRoom && currentRoom.id === roomId) {
             console.log("Player change detected, refreshing game state");
             initializeGame(roomId, currentRoom.max_players);
@@ -223,11 +219,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log("Creating room:", roomData);
     
     try {
-      // Check if user is authenticated before proceeding
       const { data: session } = await supabase.auth.getSession();
       
       if (!session.session || !user) {
-        // Sign in with mock user credentials for demo purposes
         await signInDemoUser();
       }
 
@@ -249,7 +243,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: roomData.name,
         host_id: user.id,
         host_name: user.username || user.email || "Player",
-        player_count: 1, // Start with 1 (the host)
+        player_count: 1,
         max_players: roomData.playerCount,
         is_private: roomData.isPrivate,
         password: roomData.password || null,
@@ -280,7 +274,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentRoom(data as RoomData);
         const channel = joinRoomChannel(data.id);
         
-        // Add the host as a player in the room
         const { error: playerError } = await supabase
           .from('game_players')
           .insert([{
@@ -309,10 +302,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return "";
   };
 
-  // Sign in with a demo user for testing purposes
   const signInDemoUser = async () => {
     try {
-      // Create a demo anonymous session - helpful for testing without full auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email: 'demo@example.com',
         password: 'demopassword'
@@ -321,7 +312,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (error) {
         console.error("Demo signin failed, trying to sign up:", error);
         
-        // Try to sign up the demo user if sign-in fails
         const { error: signUpError } = await supabase.auth.signUp({
           email: 'demo@example.com',
           password: 'demopassword'
@@ -406,7 +396,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
-      // Check if player already exists in this room
       const { data: existingPlayer } = await supabase
         .from('game_players')
         .select('*')
@@ -415,7 +404,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .single();
       
       if (!existingPlayer) {
-        // Player doesn't exist in this room, add them
         const { error: playerError } = await supabase
           .from('game_players')
           .insert([{
@@ -434,7 +422,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return false;
         }
         
-        // Update player count
         const { error: updateError } = await supabase
           .from('game_rooms')
           .update({ player_count: typedRoomData.player_count + 1 })
@@ -443,22 +430,39 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (updateError) {
           console.error("Error updating player count:", updateError);
         }
+        
+        typedRoomData.player_count += 1;
       }
       
       setCurrentRoom(typedRoomData);
       const channel = joinRoomChannel(roomId);
       
-      // Get all players in the room to sync game state
       const { data: playersData } = await supabase
         .from('game_players')
         .select('*')
         .eq('room_id', roomId);
       
       console.log("Players in room:", playersData);
+      console.log(`Total player count: ${playersData?.length || 0}`);
       
-      initializeGame(roomId, typedRoomData.max_players);
+      if (playersData && playersData.length > 0) {
+        console.log(`Setting player count to ${playersData.length}`);
+        
+        const { error: updateError } = await supabase
+          .from('game_rooms')
+          .update({ player_count: playersData.length })
+          .eq('id', roomId);
+        
+        if (updateError) {
+          console.error("Error updating player count:", updateError);
+        } else {
+          typedRoomData.player_count = playersData.length;
+          setCurrentRoom(typedRoomData);
+        }
+      }
       
-      // Notify all other players in the room that a new player has joined
+      await initializeGame(roomId, typedRoomData.max_players);
+      
       if (channel) {
         channel.send({
           type: 'broadcast',
@@ -530,33 +534,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Set up a timer check for turn timeouts and game end conditions
   useEffect(() => {
     const checkTimers = () => {
       if (!gameState || !gameState.gameStarted || gameState.isGameOver) return;
       
       const now = Date.now();
       
-      // Check for game duration timeout
       if (gameState.gameStartTime && gameState.roomDuration) {
         const gameEndTime = gameState.gameStartTime + gameState.roomDuration;
         if (now > gameEndTime) {
-          // End the game by timeout
           endGame();
           return;
         }
       }
       
-      // Check for turn timeout
       if (gameState.turnEndTime && now > gameState.turnEndTime) {
-        // Auto-play for the current player
         handleTurnTimeout();
       }
       
-      // Check if any player has no cards left
       const playerWithNoCards = gameState.players.find(player => player.cards.length === 0);
       if (playerWithNoCards) {
-        // End game because a player has no cards left
         endGame(playerWithNoCards.id);
       }
     };
@@ -565,7 +562,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(timerId);
   }, [gameState]);
 
-  // Handle turn timeout with auto-play
   const handleTurnTimeout = () => {
     if (!gameState || !roomChannel) return;
     
@@ -574,7 +570,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     console.log(`Turn timeout for player ${currentPlayer.username}, auto-playing`);
     
-    // Auto-play card for the player
     const card = currentPlayer.cards[0];
     const updatedPlayers = gameState.players.map((player, idx) => 
       idx === gameState.currentPlayerIndex 
@@ -593,7 +588,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       players: updatedPlayers,
       centralPile: updatedPile,
       currentPlayerIndex: nextPlayerIndex,
-      turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+      turnEndTime: Date.now() + 15000
     };
     
     roomChannel.send({
@@ -610,18 +605,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  // End the game and determine winner
   const endGame = (winningPlayerId?: string) => {
     if (!gameState || !roomChannel || !currentRoom) return;
     
     console.log(`Ending game, winner ID: ${winningPlayerId || "none - determining by card count"}`);
     
-    // Find the winner based on card count if not specified
     let winner: Player | undefined;
     if (winningPlayerId) {
       winner = gameState.players.find(p => p.id === winningPlayerId);
     } else {
-      // Sort players by card count (most cards wins)
       const sortedPlayers = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length);
       winner = sortedPlayers[0];
     }
@@ -642,7 +634,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
     
-    // Update room status in database
     supabase
       .from('game_rooms')
       .update({ status: "finished" })
@@ -679,10 +670,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedPile = [...gameState.centralPile, card];
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
-    // Check if the played card matches the top card in the pile
-    let lastMatchWinner = gameState.lastMatchWinner;
-    let matchAnimation = undefined;
-    
     if (updatedPile.length > 1) {
       const previousCard = updatedPile[updatedPile.length - 2];
       const playedCard = updatedPile[updatedPile.length - 1];
@@ -690,28 +677,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (checkCardMatch(playedCard, previousCard)) {
         console.log("Card match! Player wins the pile");
         
-        // Show animation first
-        matchAnimation = {
+        const matchAnimation = {
           isActive: true,
           cardId: playedCard.id,
           playerId: currentPlayer.id
         };
         
-        // Add all cards from pile to current player's deck
         const playersAfterMatch = updatedPlayers.map((player, idx) => 
           idx === gameState.currentPlayerIndex 
             ? { ...player, cards: [...player.cards, ...updatedPile] } 
             : player
         );
         
-        // First send animation state
         const animationState = {
           ...gameState,
           players: updatedPlayers,
           centralPile: updatedPile,
           currentPlayerIndex: nextPlayerIndex,
           matchAnimation,
-          turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+          turnEndTime: Date.now() + 15000
         };
         
         roomChannel.send({
@@ -722,7 +706,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         setGameState(animationState);
         
-        // After a delay, update with the match results
         setTimeout(() => {
           const updatedGameState = {
             ...gameState,
@@ -731,7 +714,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             currentPlayerIndex: nextPlayerIndex,
             lastMatchWinner: currentPlayer.id,
             matchAnimation: undefined,
-            turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+            turnEndTime: Date.now() + 15000
           };
           
           roomChannel.send({
@@ -742,7 +725,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           
           setGameState(updatedGameState);
           
-          // Show toast notification
           toast({
             title: "Match found!",
             description: `${currentPlayer.username} won the pile with a matching card!`
@@ -753,14 +735,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
     
-    // No match, just update the normal state
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: updatedPile,
       currentPlayerIndex: nextPlayerIndex,
-      lastMatchWinner,
-      turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+      lastMatchWinner: gameState.lastMatchWinner,
+      turnEndTime: Date.now() + 15000
     };
     
     roomChannel.send({
@@ -829,21 +810,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
   };
-  
+
   const startGame = () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Starting game");
     
     const gameStartTime = Date.now();
-    const roomDuration = 5 * 60 * 1000; // 5 minutes game duration
+    const roomDuration = 5 * 60 * 1000;
     
-    // Deduct bet amount from each player's coins
     const updatedPlayers = gameState.players.map(player => {
-      const currentCoins = player.coins || 1000; // Default to 1000 if not set
+      const currentCoins = player.coins !== undefined ? player.coins : 1000;
+      const newCoins = Math.max(0, currentCoins - currentRoom.bet_amount);
+      console.log(`Deducting ${currentRoom.bet_amount} coins from ${player.username}. Before: ${currentCoins}, After: ${newCoins}`);
       return {
         ...player,
-        coins: Math.max(0, currentCoins - currentRoom.bet_amount)
+        coins: newCoins
       };
     });
     
@@ -853,7 +835,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       gameStarted: true,
       gameStartTime,
       roomDuration,
-      turnEndTime: gameStartTime + 15000 // 15 seconds for first turn
+      turnEndTime: gameStartTime + 15000
     };
     
     roomChannel.send({
@@ -869,7 +851,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
     
-    // Update room status in database
     supabase
       .from('game_rooms')
       .update({ status: "playing" })
@@ -887,7 +868,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log("Initializing game state for room:", roomId);
     
     try {
-      // Get all players in the room
       const { data: playersData, error: playersError } = await supabase
         .from('game_players')
         .select('*')
@@ -904,6 +884,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       console.log("Found players in room:", playersData);
+      console.log(`Total players in room: ${playersData.length}`);
+      
+      if (currentRoom && currentRoom.player_count !== playersData.length) {
+        console.log(`Updating room player count from ${currentRoom.player_count} to ${playersData.length}`);
+        
+        const { error: updateError } = await supabase
+          .from('game_rooms')
+          .update({ player_count: playersData.length })
+          .eq('id', roomId);
+          
+        if (updateError) {
+          console.error("Error updating room player count:", updateError);
+        } else if (currentRoom) {
+          setCurrentRoom({
+            ...currentRoom,
+            player_count: playersData.length
+          });
+        }
+      }
       
       const suits: CardSuit[] = ["hearts", "diamonds", "clubs", "spades"];
       const ranks: CardRank[] = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -924,7 +923,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       const players: Player[] = [];
       
-      // Create players based on players in database
       playersData.forEach((playerData, index) => {
         const startIdx = index * cardsPerPlayer;
         const endIdx = index === playersData.length - 1 
@@ -937,19 +935,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           cards: shuffled.slice(startIdx, endIdx),
           isActive: true,
           autoPlayCount: 0,
-          coins: 1000 // Default starting coins
+          coins: 1000
         });
       });
+      
+      if (gameState && gameState.players.length > 0) {
+        const updatedPlayers = players.map(player => {
+          const existingPlayer = gameState.players.find(p => p.id === player.id);
+          if (existingPlayer && existingPlayer.coins !== undefined) {
+            return { ...player, coins: existingPlayer.coins };
+          }
+          return player;
+        });
+        
+        players.splice(0, players.length, ...updatedPlayers);
+      }
       
       const initialGameState: GameState = {
         players,
         currentPlayerIndex: 0,
         centralPile: [],
         isGameOver: false,
-        gameStarted: false
+        gameStarted: gameState?.gameStarted || false,
+        gameStartTime: gameState?.gameStartTime,
+        turnEndTime: gameState?.turnEndTime,
+        roomDuration: gameState?.roomDuration
       };
       
-      console.log("Created initial game state with players:", players.length);
+      console.log("Created game state with players:", players.length);
       
       if (roomChannel) {
         roomChannel.send({

@@ -68,7 +68,7 @@ const GameRoom: React.FC = () => {
     if (roomId) {
       const intervalId = setInterval(() => {
         handleResync();
-      }, 15000); // Auto-refresh every 15 seconds
+      }, 10000); // Auto-refresh every 10 seconds
       
       return () => clearInterval(intervalId);
     }
@@ -103,8 +103,8 @@ const GameRoom: React.FC = () => {
       <Layout>
         <div className="container max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col items-center justify-center h-64">
-            <Loader2 className="h-10 w-10 text-blue-400 animate-spin mb-4" />
-            <h2 className="text-xl font-semibold text-blue-400">
+            <Loader2 className="h-10 w-10 text-game-blue animate-spin mb-4" />
+            <h2 className="text-xl font-semibold text-game-blue">
               {retryCount === 0 ? "Joining game room..." : "Resyncing game data..."}
             </h2>
             {retryCount > 0 && (
@@ -122,10 +122,10 @@ const GameRoom: React.FC = () => {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto px-4 py-8 bg-[#0B0C10] rounded-lg shadow-md">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container max-w-[1000px] mx-auto px-4 py-4 bg-[#0B0C10] rounded-lg shadow-md">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-blue-400 text-glow">Game Room</h1>
+            <h1 className="text-3xl font-bold text-game-blue">Game Room</h1>
             {lastSyncTime && (
               <p className="text-xs text-blue-300">
                 Last synced: {lastSyncTime.toLocaleTimeString()}
@@ -133,26 +133,14 @@ const GameRoom: React.FC = () => {
             )}
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={handleResync}
-              variant="outline"
-              size="sm"
-              className="border-blue-500 text-blue-400 hover:bg-blue-900/20"
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Resync
-            </Button>
-            
-            <Button
-              onClick={handleLeaveRoom}
-              variant="outline"
-              className="border-red-500 text-red-400 hover:bg-red-900/20"
-            >
-              <DoorOpen className="mr-2 h-5 w-5" />
-              Leave Room
-            </Button>
-          </div>
+          <Button
+            onClick={handleLeaveRoom}
+            variant="outline"
+            className="border-red-500 text-red-400 hover:bg-red-900/20"
+          >
+            <DoorOpen className="mr-2 h-5 w-5" />
+            Leave Room
+          </Button>
         </div>
 
         {hasMultiplePlayers ? (
@@ -169,12 +157,12 @@ const GameRoom: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 gap-4">
+          <div>
             <GameBoard userId={user.id || ""} />
           </div>
           
-          <div className="space-y-4">
+          <div className="hidden">
             <GameInfo roomId={roomId} />
           </div>
         </div>

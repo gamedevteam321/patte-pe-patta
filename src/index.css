@@ -50,17 +50,17 @@
   
   body {
     @apply bg-primary text-foreground font-roboto antialiased;
-    background-color: #1a2e3b;
+    background-color: #0B0C10;
   }
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-[#1a2e3b] border border-[#25d366]/20 rounded-lg shadow-md;
+    @apply bg-[#0B0C10] border border-[#25d366]/20 rounded-lg shadow-md;
   }
   
   .card-back {
-    @apply relative w-[70px] h-[100px] rounded-md bg-[#0088cc] border border-[#25d366]/30 shadow-md;
+    @apply relative w-[70px] h-[100px] rounded-md bg-[#0047ab] border border-[#25d366]/30 shadow-md;
   }
   
   .card-front {
@@ -72,16 +72,12 @@
   }
 
   .btn-blue {
-    @apply bg-[#0088cc] hover:bg-[#006da3] text-white font-medium py-2 px-4 rounded transition-colors;
+    @apply bg-[#0047ab] hover:bg-[#003380] text-white font-medium py-2 px-4 rounded transition-colors;
   }
 
   .input-field {
     @apply bg-[#142836] border border-[#25d366]/30 rounded px-3 py-2 text-white w-full focus:outline-none focus:border-[#25d366];
   }
-}
-
-@layer utilities {
-  /* Removed text-glow utility */
 }
 
 /* Font families */

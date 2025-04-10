@@ -1,11 +1,10 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { User, LogOut, Home, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,157 +12,127 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { user, logout, isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+        variant: "default",
+      });
+      navigate("/login");
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-game-background">
+    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
       {showNav && (
-        <header className="glass-panel m-2 p-4 bg-game-card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {isMobile ? (
-                <Button 
-                  variant="ghost" 
-                  className="p-2 text-game-green hover:bg-game-green/10"
-                  onClick={toggleMenu}
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              ) : (
-                <Button 
-                  variant="ghost" 
-                  className="p-2 text-game-green hover:bg-game-green/10"
+        <nav className="bg-black/50 backdrop-blur-sm border-b border-white/10">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center">
+                <Button
+                  variant="ghost"
                   onClick={() => navigate("/")}
+                  className="text-game-cyan hover:text-game-cyan/80"
                 >
-                  <Home className="h-5 w-5 mr-2" />
-                  Home
+                  <Home className="h-5 w-5" />
                 </Button>
+              </div>
+
+              {isAuthenticated && (
+                <div className="flex items-center space-x-4">
+                  {isMobile ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        onClick={() => navigate("/profile")}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <User className="h-5 w-5 mr-2" />
+                        {user?.username || "Profile"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={handleLogout}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <LogOut className="h-5 w-5 mr-2" />
+                        Logout
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!isAuthenticated && (
+                <div className="flex items-center space-x-4">
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate("/login")}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/register")}
+                    className="bg-game-cyan hover:bg-game-cyan/80 text-white"
+                  >
+                    Register
+                  </Button>
+                </div>
               )}
             </div>
-            
-            <h1 className="text-xl md:text-2xl font-bold text-game-yellow">Patte pe Patta</h1>
 
-            {user ? (
-              <div className="flex items-center gap-2 md:gap-4">
-                {!isMobile && (
-                  <div className="hidden md:flex items-center gap-2">
-                    <div className="text-game-yellow">
-                      <span className="font-bold">{user.coins}</span> coins
-                    </div>
-                  </div>
-                )}
-                
-                {isMobile ? (
-                  <Button 
-                    variant="ghost" 
-                    className="p-2 text-game-blue hover:bg-game-blue/10"
-                    onClick={() => navigate("/profile")}
-                  >
-                    <User className="h-5 w-5" />
-                  </Button>
-                ) : (
-                  <>
-                    <Button 
-                      variant="ghost" 
-                      className="p-2 text-game-blue hover:bg-game-blue/10"
-                      onClick={() => navigate("/profile")}
-                    >
-                      <User className="h-5 w-5 mr-2" />
-                      Profile
-                    </Button>
-                    
-                    <Button 
-                      variant="ghost" 
-                      className="p-2 text-game-green hover:bg-game-green/10"
-                      onClick={handleLogout}
-                    >
-                      <LogOut className="h-5 w-5 mr-2" />
-                      Logout
-                    </Button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button 
-                  onClick={() => navigate("/login")}
-                  className="bg-game-blue text-white hover:bg-game-blue/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
+            {isMobile && isMenuOpen && isAuthenticated && (
+              <div className="py-2 space-y-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    navigate("/profile");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-gray-400 hover:text-white"
                 >
-                  Login
+                  <User className="h-5 w-5 mr-2" />
+                  Profile
                 </Button>
-                <Button 
-                  onClick={() => navigate("/register")}
-                  className="bg-game-green text-white hover:bg-game-green/80 text-xs md:text-base px-2 py-1 md:px-4 md:py-2"
-                >
-                  Register
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {/* Mobile Menu */}
-          {isMobile && menuOpen && user && (
-            <div className="mt-4 py-2 border-t border-white/10 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-game-yellow">
-                  <span className="font-bold">{user.coins}</span> coins
-                </span>
-                <Button 
-                  variant="ghost" 
-                  className="p-2 text-game-green hover:bg-game-green/10"
-                  onClick={handleLogout}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-gray-400 hover:text-white"
                 >
                   <LogOut className="h-5 w-5 mr-2" />
                   Logout
                 </Button>
               </div>
-              <Button 
-                variant="ghost"
-                className="w-full justify-start text-game-green hover:bg-game-green/10"
-                onClick={() => navigate("/")}
-              >
-                <Home className="h-5 w-5 mr-2" />
-                Home
-              </Button>
-              <Button 
-                variant="ghost"
-                className="w-full justify-start text-game-green hover:bg-game-green/10"
-                onClick={() => navigate("/lobby")}
-              >
-                Play Game
-              </Button>
-              <Button 
-                variant="ghost"
-                className="w-full justify-start text-game-blue hover:bg-game-blue/10"
-                onClick={() => navigate("/profile")}
-              >
-                <User className="h-5 w-5 mr-2" />
-                Profile
-              </Button>
-            </div>
-          )}
-        </header>
+            )}
+          </div>
+        </nav>
       )}
-
-      <main className="flex-1">
-        {children}
-      </main>
-
-      <footer className="glass-panel m-2 p-4 text-center text-sm text-white/60 bg-game-card">
-        © 2025 Patte pe Patta
-      </footer>
+      <main>{children}</main>
     </div>
   );
 };

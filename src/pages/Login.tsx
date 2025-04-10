@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +13,14 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/lobby");
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,67 +47,70 @@ const Login = () => {
 
   return (
     <Layout showNav={false}>
-      <div className="container max-w-md mx-auto px-4 py-8 md:py-16">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-game-cyan text-glow">Patte pe Patta</h1>
-          <p className="text-gray-400">Login to your account</p>
-        </div>
-
+      <div className="container max-w-md mx-auto px-4 py-8">
         <Card className="glass-panel border-white/10">
           <CardHeader>
-            <CardTitle className="text-game-cyan">Login</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-game-cyan">Login</CardTitle>
+            <CardDescription className="text-center text-gray-400">
+              Enter your credentials to access your account
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <label htmlFor="email" className="text-sm">Email</label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="bg-black/50 border-white/20"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="password" className="text-sm">Password</label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="bg-black/50 border-white/20"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-game-cyan text-white hover:bg-game-cyan/80"
-                >
-                  {isLoading ? "Logging in..." : "Login"}
-                  <LogIn className="ml-2 h-4 w-4" />
-                </Button>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="bg-black/50 border-white/20"
+                />
               </div>
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="bg-black/50 border-white/20"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-game-green hover:bg-game-green/80 text-black"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <LogIn className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </div>
+                )}
+              </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <div className="text-sm text-gray-400 text-center">
+          <CardFooter className="flex justify-center">
+            <p className="text-sm text-gray-400">
               Don't have an account?{" "}
-              <Link to="/register" className="text-game-magenta hover:underline">
-                Register
+              <Link to="/register" className="text-game-cyan hover:underline">
+                Register here
               </Link>
-            </div>
-            <div className="text-sm text-gray-400 text-center">
-              <Link to="/" className="text-game-cyan hover:underline">
-                Back to Home
-              </Link>
-            </div>
+            </p>
           </CardFooter>
         </Card>
       </div>

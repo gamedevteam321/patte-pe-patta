@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import RoomCreate from "./pages/RoomCreate";
 import GameRoom from "./pages/GameRoom";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
+import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -29,10 +29,38 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/lobby" element={<Lobby />} />
-              <Route path="/room/create" element={<RoomCreate />} />
-              <Route path="/room/:roomId" element={<GameRoom />} />
+              <Route
+                path="/profile"
+                element={
+                  <AuthGuard>
+                    <Profile />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/lobby"
+                element={
+                  <AuthGuard>
+                    <Lobby />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/room/create"
+                element={
+                  <AuthGuard>
+                    <RoomCreate />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/room/:roomId"
+                element={
+                  <AuthGuard>
+                    <GameRoom />
+                  </AuthGuard>
+                }
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

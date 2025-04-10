@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,19 @@ import { useSocket } from "@/context/SocketContext";
 import { Users, Coins, Info, Lock, Globe } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
+const getRandomRoomName = () => {
+  const adjectives = ["Epic", "Legendary", "Awesome", "Cool", "Lucky", "Royal", "Golden", "Mystic"];
+  const nouns = ["Showdown", "Battle", "Arena", "Table", "Circle", "League", "Club", "Party"];
+  const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+  return `${randomAdjective} ${randomNoun}`;
+};
+
 const RoomCreate: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { createRoom } = useSocket();
   const navigate = useNavigate();
-  const [roomName, setRoomName] = useState("");
+  const [roomName, setRoomName] = useState(getRandomRoomName());
   const [playerCount, setPlayerCount] = useState<string>("4");
   const [betAmount, setBetAmount] = useState<string>("50");
   const [isPrivate, setIsPrivate] = useState(false);

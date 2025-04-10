@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -23,6 +22,7 @@ export interface Player {
   cards: Card[];
   isActive: boolean;
   autoPlayCount: number;
+  coins?: number;
 }
 
 export interface GameState {
@@ -36,6 +36,11 @@ export interface GameState {
   gameStartTime?: number;
   turnEndTime?: number;
   roomDuration?: number;
+  matchAnimation?: {
+    isActive: boolean;
+    cardId: string;
+    playerId: string;
+  };
 }
 
 // Match the types with Supabase table structure
@@ -525,7 +530,133 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Check if the played card matches the top card in central pile
+  // Set up a timer check for turn timeouts and game end conditions
+  useEffect(() => {
+    const checkTimers = () => {
+      if (!gameState || !gameState.gameStarted || gameState.isGameOver) return;
+      
+      const now = Date.now();
+      
+      // Check for game duration timeout
+      if (gameState.gameStartTime && gameState.roomDuration) {
+        const gameEndTime = gameState.gameStartTime + gameState.roomDuration;
+        if (now > gameEndTime) {
+          // End the game by timeout
+          endGame();
+          return;
+        }
+      }
+      
+      // Check for turn timeout
+      if (gameState.turnEndTime && now > gameState.turnEndTime) {
+        // Auto-play for the current player
+        handleTurnTimeout();
+      }
+      
+      // Check if any player has no cards left
+      const playerWithNoCards = gameState.players.find(player => player.cards.length === 0);
+      if (playerWithNoCards) {
+        // End game because a player has no cards left
+        endGame(playerWithNoCards.id);
+      }
+    };
+    
+    const timerId = setInterval(checkTimers, 1000);
+    return () => clearInterval(timerId);
+  }, [gameState]);
+
+  // Handle turn timeout with auto-play
+  const handleTurnTimeout = () => {
+    if (!gameState || !roomChannel) return;
+    
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer || !currentPlayer.cards.length) return;
+    
+    console.log(`Turn timeout for player ${currentPlayer.username}, auto-playing`);
+    
+    // Auto-play card for the player
+    const card = currentPlayer.cards[0];
+    const updatedPlayers = gameState.players.map((player, idx) => 
+      idx === gameState.currentPlayerIndex 
+        ? { ...player, 
+            cards: player.cards.slice(1), 
+            autoPlayCount: player.autoPlayCount + 1 
+          } 
+        : player
+    );
+    
+    const updatedPile = [...gameState.centralPile, card];
+    const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    
+    const updatedGameState = {
+      ...gameState,
+      players: updatedPlayers,
+      centralPile: updatedPile,
+      currentPlayerIndex: nextPlayerIndex,
+      turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+    
+    toast({
+      title: "Turn timeout",
+      description: `${currentPlayer.username}'s turn timed out. Card auto-played.`
+    });
+  };
+
+  // End the game and determine winner
+  const endGame = (winningPlayerId?: string) => {
+    if (!gameState || !roomChannel || !currentRoom) return;
+    
+    console.log(`Ending game, winner ID: ${winningPlayerId || "none - determining by card count"}`);
+    
+    // Find the winner based on card count if not specified
+    let winner: Player | undefined;
+    if (winningPlayerId) {
+      winner = gameState.players.find(p => p.id === winningPlayerId);
+    } else {
+      // Sort players by card count (most cards wins)
+      const sortedPlayers = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length);
+      winner = sortedPlayers[0];
+    }
+    
+    if (!winner) return;
+    
+    const updatedGameState = {
+      ...gameState,
+      isGameOver: true,
+      winner
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+    
+    // Update room status in database
+    supabase
+      .from('game_rooms')
+      .update({ status: "finished" })
+      .eq('id', currentRoom.id)
+      .then(() => {
+        console.log("Room status updated to finished");
+      });
+    
+    toast({
+      title: "Game Over!",
+      description: `${winner.username} wins the game!`
+    });
+  };
+
   const checkCardMatch = (playedCard: Card, topCard: Card): boolean => {
     return playedCard.rank === topCard.rank || playedCard.suit === topCard.suit;
   };
@@ -550,12 +681,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Check if the played card matches the top card in the pile
     let lastMatchWinner = gameState.lastMatchWinner;
+    let matchAnimation = undefined;
+    
     if (updatedPile.length > 1) {
       const previousCard = updatedPile[updatedPile.length - 2];
       const playedCard = updatedPile[updatedPile.length - 1];
       
       if (checkCardMatch(playedCard, previousCard)) {
         console.log("Card match! Player wins the pile");
+        
+        // Show animation first
+        matchAnimation = {
+          isActive: true,
+          cardId: playedCard.id,
+          playerId: currentPlayer.id
+        };
         
         // Add all cards from pile to current player's deck
         const playersAfterMatch = updatedPlayers.map((player, idx) => 
@@ -564,28 +704,50 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             : player
         );
         
-        const updatedGameState = {
+        // First send animation state
+        const animationState = {
           ...gameState,
-          players: playersAfterMatch,
-          centralPile: [],
+          players: updatedPlayers,
+          centralPile: updatedPile,
           currentPlayerIndex: nextPlayerIndex,
-          lastMatchWinner: currentPlayer.id,
+          matchAnimation,
           turnEndTime: Date.now() + 15000 // 15 seconds for next turn
         };
         
         roomChannel.send({
           type: 'broadcast',
           event: 'game_state',
-          payload: { gameState: updatedGameState }
+          payload: { gameState: animationState }
         });
         
-        setGameState(updatedGameState);
+        setGameState(animationState);
         
-        // Show toast notification
-        toast({
-          title: "Match found!",
-          description: `${currentPlayer.username} won the pile with a matching card!`
-        });
+        // After a delay, update with the match results
+        setTimeout(() => {
+          const updatedGameState = {
+            ...gameState,
+            players: playersAfterMatch,
+            centralPile: [],
+            currentPlayerIndex: nextPlayerIndex,
+            lastMatchWinner: currentPlayer.id,
+            matchAnimation: undefined,
+            turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+          };
+          
+          roomChannel.send({
+            type: 'broadcast',
+            event: 'game_state',
+            payload: { gameState: updatedGameState }
+          });
+          
+          setGameState(updatedGameState);
+          
+          // Show toast notification
+          toast({
+            title: "Match found!",
+            description: `${currentPlayer.username} won the pile with a matching card!`
+          });
+        }, 1500);
         
         return;
       }
@@ -676,8 +838,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const gameStartTime = Date.now();
     const roomDuration = 5 * 60 * 1000; // 5 minutes game duration
     
+    // Deduct bet amount from each player's coins
+    const updatedPlayers = gameState.players.map(player => {
+      const currentCoins = player.coins || 1000; // Default to 1000 if not set
+      return {
+        ...player,
+        coins: Math.max(0, currentCoins - currentRoom.bet_amount)
+      };
+    });
+    
     const updatedGameState = {
       ...gameState,
+      players: updatedPlayers,
       gameStarted: true,
       gameStartTime,
       roomDuration,
@@ -692,7 +864,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     toast({
       title: "Game started!",
-      description: "The cards are being shuffled and dealt."
+      description: `The cards are being shuffled and dealt. ${currentRoom.bet_amount} coins have been collected from each player.`
     });
     
     setGameState(updatedGameState);
@@ -764,7 +936,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           username: playerData.username,
           cards: shuffled.slice(startIdx, endIdx),
           isActive: true,
-          autoPlayCount: 0
+          autoPlayCount: 0,
+          coins: 1000 // Default starting coins
         });
       });
       

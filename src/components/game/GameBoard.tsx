@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useSocket, GameState } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
@@ -58,12 +57,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
-          // Game over logic
-          const winner = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length)[0];
-          toast({
-            title: "Game Over!",
-            description: `${winner.username} wins with ${winner.cards.length} cards!`
-          });
         }
       }, 1000);
       
@@ -82,7 +75,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
-          // Auto-play logic would go here
         }
       }, 1000);
       
@@ -118,7 +110,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   if (!gameState) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 glass-panel">
+      <div className="flex flex-col items-center justify-center h-64 bg-[#0B0C10] border border-blue-900/20 rounded-lg">
         <div className="text-xl font-semibold text-blue-400 mb-4">Loading game...</div>
         <div className="animate-pulse text-blue-300">Please wait while the game loads</div>
       </div>
@@ -136,19 +128,68 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const hasMultiplePlayers = players.length > 1;
   const canStartGame = !gameState.gameStarted && hasMultiplePlayers && isHost;
 
+  // Game over view
+  if (gameState.isGameOver && gameState.winner) {
+    return (
+      <div className="space-y-8">
+        <div className="bg-[#0B0C10] border border-blue-500 rounded-lg p-8 text-center">
+          <h2 className="text-3xl font-bold text-blue-300 mb-4">Game Over!</h2>
+          <div className="text-xl text-blue-200 mb-8">
+            {gameState.winner.username === players.find(p => p.id === userId)?.username
+              ? "Congratulations! You won the game! 🎉"
+              : `${gameState.winner.username} won the game!`}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {players.map((player) => (
+              <div 
+                key={player.id} 
+                className={`p-4 rounded-lg ${
+                  player.id === gameState.winner?.id 
+                    ? "bg-blue-900/40 border-2 border-blue-500" 
+                    : "bg-blue-900/20 border border-blue-800/50"
+                }`}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-blue-300">{player.username}</span>
+                  <Badge
+                    variant={player.id === gameState.winner?.id ? "secondary" : "outline"}
+                  >
+                    {player.id === gameState.winner?.id ? "Winner" : "Player"}
+                  </Badge>
+                </div>
+                <div className="text-gray-300">Cards: {player.cards.length}</div>
+                {player.coins !== undefined && (
+                  <div className="text-gray-300">Coins: {player.coins}</div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <Button 
+            onClick={() => window.location.href = "/lobby"} 
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Return to Lobby
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Game timers */}
       {gameState.gameStarted && (
         <div className="flex justify-between items-center">
-          <div className="bg-blue-900/30 border border-blue-700/50 px-4 py-2 rounded-md">
+          <div className="bg-[#0B0C10] border border-blue-700/50 px-4 py-2 rounded-md">
             <span className="text-sm text-blue-300">Game time: </span>
             <span className="text-lg font-mono text-white">{gameTimer !== null ? formatTime(gameTimer) : "--:--"}</span>
           </div>
           
           {turnTimer !== null && (
             <div className={`px-4 py-2 rounded-md ${
-              turnTimer < 5 ? "bg-red-900/30 border border-red-700/50" : "bg-blue-900/30 border border-blue-700/50"
+              turnTimer < 5 ? "bg-red-900/30 border border-red-700/50" : "bg-[#0B0C10] border border-blue-700/50"
             }`}>
               <span className="text-sm text-blue-300">Turn: </span>
               <span className={`text-lg font-mono ${turnTimer < 5 ? "text-red-300" : "text-white"}`}>{turnTimer}s</span>
@@ -211,7 +252,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
       {/* Start game button for host */}
       {canStartGame && (
-        <div className="w-full mb-6 p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg text-center">
+        <div className="w-full mb-6 p-4 bg-[#0B0C10] border border-blue-500/50 rounded-lg text-center">
           <p className="text-blue-300 mb-4">
             You're the host of this game. You can start the game when everyone is ready.
           </p>
@@ -227,7 +268,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       )}
 
       {/* Central Card Pile */}
-      <div className="glass-panel bg-gradient-to-br from-blue-950 to-black p-6 relative border border-blue-900/50">
+      <div className="bg-[#0B0C10] p-6 relative border border-blue-900/50 rounded-lg">
         <h3 className="text-lg font-semibold text-blue-400 mb-4">Central Pile</h3>
         <div className="flex justify-center items-center min-h-32">
           {gameState.centralPile.length > 0 ? (
@@ -243,7 +284,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                     zIndex: i,
                   }}
                 >
-                  <PlayingCard card={card} />
+                  <PlayingCard 
+                    card={card} 
+                    isMatched={gameState.matchAnimation?.isActive && gameState.matchAnimation.cardId === card.id}
+                  />
                 </div>
               ))}
               {gameState.centralPile.length > 5 && (

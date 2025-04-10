@@ -3,7 +3,7 @@ import React from "react";
 import { Player } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Clock } from "lucide-react";
+import { UserCircle, Clock, Coins } from "lucide-react";
 
 interface PlayerDeckProps {
   player: Player;
@@ -15,7 +15,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
   return (
     <div className={`relative p-3 md:p-4 rounded-lg transition-all ${
       isCurrentPlayer ? "bg-game-green/30 border border-game-green" : 
-      isUser ? "bg-game-blue/20 border border-game-blue/50" : "bg-game-card border border-white/10"
+      isUser ? "bg-game-blue/20 border border-game-blue/50" : "bg-[#0B0C10] border border-white/10"
     }`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
@@ -29,18 +29,26 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
             </Badge>
           )}
         </div>
-        <Badge variant={isCurrentPlayer ? "default" : "outline"} className={
-          isCurrentPlayer ? "bg-game-green text-white text-xs md:text-sm" : "text-white/90 text-xs md:text-sm border-white/20"
-        }>
-          {isCurrentPlayer ? (
-            <span className="flex items-center">
-              <Clock className="h-3 w-3 mr-1 animate-pulse" />
-              Turn
-            </span>
-          ) : (
-            `${player.cards.length} cards`
+        <div className="flex items-center space-x-2">
+          {player.coins !== undefined && (
+            <Badge variant="outline" className="text-yellow-300 border-yellow-500/30 flex items-center">
+              <Coins className="h-3 w-3 mr-1 text-yellow-400" />
+              {player.coins}
+            </Badge>
           )}
-        </Badge>
+          <Badge variant={isCurrentPlayer ? "default" : "outline"} className={
+            isCurrentPlayer ? "bg-game-green text-white text-xs md:text-sm" : "text-white/90 text-xs md:text-sm border-white/20"
+          }>
+            {isCurrentPlayer ? (
+              <span className="flex items-center">
+                <Clock className="h-3 w-3 mr-1 animate-pulse" />
+                Turn
+              </span>
+            ) : (
+              `${player.cards.length} cards`
+            )}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex justify-center">

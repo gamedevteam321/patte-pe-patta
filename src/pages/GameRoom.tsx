@@ -50,6 +50,7 @@ const GameRoom: React.FC = () => {
     }
   }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms]);
 
+  // Auto-refresh players list when game state changes
   useEffect(() => {
     if (gameState && roomId) {
       console.log("Game state updated:", gameState);
@@ -62,32 +63,27 @@ const GameRoom: React.FC = () => {
     }
   }, [gameState, roomId]);
 
+  // Set up auto-refresh interval for player data
+  useEffect(() => {
+    if (roomId) {
+      const intervalId = setInterval(() => {
+        handleResync();
+      }, 15000); // Auto-refresh every 15 seconds
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [roomId]);
+
   const handleResync = () => {
     if (roomId) {
       setRetryCount(prev => prev + 1);
       setIsJoining(true);
       
-      toast({
-        title: "Resyncing game data",
-        description: "Attempting to refresh player data..."
-      });
-      
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
         if (success) {
-          toast({
-            title: "Game synced",
-            description: "Successfully refreshed game data"
-          });
           setLastSyncTime(new Date());
-          // Also refresh the rooms list to update player counts
           fetchRooms();
-        } else {
-          toast({
-            title: "Sync failed",
-            description: "Could not refresh game data",
-            variant: "destructive"
-          });
         }
       });
     }
@@ -126,7 +122,7 @@ const GameRoom: React.FC = () => {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto px-4 py-8 bg-gradient-to-br from-blue-950 to-black rounded-lg shadow-md">
+      <div className="container max-w-6xl mx-auto px-4 py-8 bg-[#0B0C10] rounded-lg shadow-md">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-blue-400 text-glow">Game Room</h1>

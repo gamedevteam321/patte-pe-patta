@@ -173,7 +173,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (!gameState) {
@@ -370,16 +370,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               <Timer className="h-4 w-4 text-blue-300" />
               <div className="text-white text-sm">
                 {isUserTurn ? (
-                  <span className="text-blue-300 font-bold">Your turn! {turnTimer}s</span>
+                  <span className="text-blue-300 font-bold">
+                    Your Turn! {turnTimer !== null ? formatTime(Math.floor(turnTimer / 1000)) : '00:00'}
+                  </span>
                 ) : (
-                  <span className="text-gray-300">{currentPlayer?.username}'s turn - {turnTimer}s</span>
+                  <span className="text-gray-300">
+                    {currentPlayer?.username}'s turn - {turnTimer !== null ? formatTime(Math.floor(turnTimer / 1000)) : '00:00'}
+                  </span>
                 )}
               </div>
             </div>
             <div className="h-2 w-full bg-gray-700 rounded overflow-hidden mt-1">
               <div 
-                className={`h-full ${turnTimer < 5 ? 'bg-red-500' : 'bg-green-500'}`} 
-                style={{width: `${Math.min(100, (turnTimer / 15) * 100)}%`}}
+                className={`h-full ${turnTimer !== null && turnTimer < 5000 ? 'bg-red-500' : 'bg-green-500'}`} 
+                style={{
+                  width: `${turnTimer !== null ? Math.min(100, (turnTimer / 15000) * 100) : 0}%`
+                }}
               ></div>
             </div>
           </div>

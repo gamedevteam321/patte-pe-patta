@@ -295,15 +295,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         {/* Central Card Area */}
         <div className="w-3/5 flex flex-col justify-center items-center">
-          {/* Game Table */}
+          {/* Game Table - Removed hand decorations */}
           <div className="bg-game-card p-4 relative border-2 border-blue-800 rounded-lg min-h-[240px] w-full flex flex-col justify-center items-center">
-            {/* Card Hand decorator pattern */}
-            <div className="absolute top-0 w-full flex justify-around">
-              {Array.from({length: 11}).map((_, i) => (
-                <span key={`top-${i}`} className="text-gray-700">👋</span>
-              ))}
-            </div>
-            
             {/* Center Pile */}
             <div className="flex justify-center items-center">
               {gameState.centralPile.length > 0 ? (
@@ -330,13 +323,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               ) : (
                 <div className="text-white">No cards yet</div>
               )}
-            </div>
-            
-            {/* Card Hand decorator pattern */}
-            <div className="absolute bottom-0 w-full flex justify-around">
-              {Array.from({length: 11}).map((_, i) => (
-                <span key={`bottom-${i}`} className="text-gray-700">👋</span>
-              ))}
             </div>
           </div>
           

@@ -108,6 +108,24 @@
   animation: distribute-cards 0.5s ease-out forwards;
 }
 
+/* Card play animation */
+@keyframes card-play {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+    filter: brightness(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-card-play {
+  animation: card-play 0.5s ease-out;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .container {

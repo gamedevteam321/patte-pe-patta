@@ -18,6 +18,7 @@ const GameRoom: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [showFullWarning, setShowFullWarning] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -45,6 +46,7 @@ const GameRoom: React.FC = () => {
           setLastSyncTime(new Date());
           // Refresh room list to get latest player counts
           fetchRooms();
+          setShowFullWarning(false); // Reset warning flag when joining succeeds
         }
       });
     }
@@ -84,6 +86,7 @@ const GameRoom: React.FC = () => {
         if (success) {
           setLastSyncTime(new Date());
           fetchRooms();
+          setShowFullWarning(false); // Reset warning flag on successful sync
         }
       });
     }

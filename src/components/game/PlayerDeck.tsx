@@ -1,18 +1,24 @@
-
 import React from "react";
 import { Player } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Clock, Coins } from "lucide-react";
+import { UserCircle, Clock, Coins, Timer } from "lucide-react";
 
 interface PlayerDeckProps {
   player: Player;
   isCurrentPlayer: boolean;
   isUser: boolean;
   position?: "top" | "left" | "right" | "bottom";
+  turnTimeRemaining?: number;
 }
 
-const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser, position = "bottom" }) => {
+const PlayerDeck: React.FC<PlayerDeckProps> = ({ 
+  player, 
+  isCurrentPlayer, 
+  isUser, 
+  position = "bottom",
+  turnTimeRemaining
+}) => {
   // Get player profile color based on position or status
   const getProfileColor = () => {
     if (isUser) return "bg-game-blue text-white";
@@ -49,6 +55,12 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
     }
   };
 
+  // Format time remaining for display
+  const formatTimeRemaining = () => {
+    if (turnTimeRemaining === undefined) return "";
+    return `${Math.ceil(turnTimeRemaining / 1000)}s`;
+  };
+
   return (
     <div className={`${getContainerClasses()} p-2`}>
       {/* Player Avatar */}
@@ -65,6 +77,16 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({ player, isCurrentPlayer, isUser
       <div className="text-center text-white mt-1 text-sm font-medium">
         {player.username} {isUser && "(You)"}
       </div>
+      
+      {/* Turn Timer - Only show for current player */}
+      {isCurrentPlayer && turnTimeRemaining !== undefined && (
+        <div className="mt-1 flex items-center justify-center">
+          <Badge variant="outline" className="text-yellow-300 border-yellow-500/30 flex items-center text-xs">
+            <Timer className="h-3 w-3 mr-1 text-yellow-400" />
+            {formatTimeRemaining()}
+          </Badge>
+        </div>
+      )}
       
       {/* Cards Count Badge */}
       <div className="flex items-center space-x-2 mt-1">

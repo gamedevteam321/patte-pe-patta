@@ -55,6 +55,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   }, [gameState?.gameStarted, distributionComplete]);
 
   useEffect(() => {
+    if (gameState && !gameState.gameStarted) {
+      setDistributionComplete(false);
+    }
+  }, [gameState]);
+
+  useEffect(() => {
     if (gameState?.gameStarted && gameState.gameStartTime && gameState.roomDuration) {
       const interval = setInterval(() => {
         const now = Date.now();
@@ -76,7 +82,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       
       return () => clearInterval(interval);
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, gameState?.isGameOver]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.turnEndTime) {
@@ -84,7 +90,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         const now = Date.now();
         const remaining = Math.max(0, gameState.turnEndTime - now);
         
-        setTurnTimer(Math.floor(remaining / 1000));
+        setTurnTimer(remaining);
         
         if (remaining <= 0) {
           clearInterval(interval);
@@ -92,8 +98,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }, 1000);
       
       return () => clearInterval(interval);
+    } else {
+      // Reset turn timer when not in a turn
+      setTurnTimer(null);
     }
-  }, [gameState?.turnEndTime, gameState?.gameStarted]);
+  }, [gameState?.gameStarted, gameState?.turnEndTime]);
 
   useEffect(() => {
     if (gameState?.players) {
@@ -117,17 +126,34 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState?.matchAnimation?.isActive) {
+      console.log("Match animation started, disabling actions");
       setShowMatchAnimation(true);
       setActionsDisabled(true);
       
       const timer = setTimeout(() => {
+        console.log("Match animation ended, enabling actions");
         setShowMatchAnimation(false);
         setActionsDisabled(false);
       }, 2000);
       
-      return () => clearTimeout(timer);
+      return () => {
+        console.log("Cleaning up match animation timer");
+        clearTimeout(timer);
+      };
+    } else {
+      // If match animation is not active, ensure actions are enabled and match text is hidden
+      console.log("No match animation, ensuring actions are enabled and match text is hidden");
+      setActionsDisabled(false);
+      setShowMatchAnimation(false);
     }
   }, [gameState?.matchAnimation]);
+
+  // Reset match animation state when game state changes
+  useEffect(() => {
+    if (!gameState?.matchAnimation?.isActive) {
+      setShowMatchAnimation(false);
+    }
+  }, [gameState]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
@@ -277,6 +303,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               isCurrentPlayer={player.id === currentPlayer?.id}
               isUser={isUser}
               position={position}
+              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
             />
           ))}
       </div>
@@ -292,6 +319,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 isCurrentPlayer={player.id === currentPlayer?.id}
                 isUser={isUser}
                 position={position}
+                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
               />
             ))}
         </div>
@@ -400,6 +428,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 isCurrentPlayer={player.id === currentPlayer?.id}
                 isUser={isUser}
                 position={position}
+                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
               />
             ))}
         </div>
@@ -415,6 +444,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               isCurrentPlayer={player.id === currentPlayer?.id}
               isUser={isUser}
               position={position}
+              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
             />
           ))}
       </div>

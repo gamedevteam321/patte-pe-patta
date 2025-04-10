@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -824,16 +823,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Improved card matching logic
   const checkCardMatch = (playedCard: Card, topCard: Card): boolean => {
-    // Cards match if they have the same rank or suit
-    return playedCard.rank === topCard.rank || playedCard.suit === topCard.suit;
+    // Cards match if they have the same rank only (not suit)
+    console.log(`Checking match: ${playedCard.rank}${playedCard.suit} with ${topCard.rank}${topCard.suit}`);
+    const isMatch = playedCard.rank === topCard.rank;
+    console.log(`Match result: ${isMatch}`);
+    return isMatch;
   };
 
   // Handler for after card match animation completes
   const handleCardMatch = (playerId: string) => {
     if (!gameState || !roomChannel) return;
     
+    console.log(`Handling card match for player: ${playerId}`);
+    
     const playerIndex = gameState.players.findIndex(p => p.id === playerId);
-    if (playerIndex === -1) return;
+    if (playerIndex === -1) {
+      console.error(`Player with ID ${playerId} not found`);
+      return;
+    }
     
     // Move all central pile cards to the player's hand
     const updatedPlayers = [...gameState.players];
@@ -842,14 +849,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       cards: [...updatedPlayers[playerIndex].cards, ...gameState.centralPile]
     };
     
+    // Create a new game state with the match animation cleared
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: [],
       lastMatchWinner: playerId,
-      matchAnimation: undefined
+      matchAnimation: undefined // Explicitly clear the match animation
     };
     
+    console.log("Broadcasting updated game state after match");
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -874,6 +883,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Get the top card from the player's hand
     const card = currentPlayer.cards[0];
+    console.log(`Playing card: ${card.rank}${card.suit}`);
     
     // Remove the played card from the player's hand
     const updatedPlayers = gameState.players.map((player, idx) => 
@@ -889,57 +899,39 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
     // Check for a match with the previous card
+    let matchFound = false;
+    let matchAnimation = undefined;
+    
     if (updatedPile.length > 1) {
       const previousCard = updatedPile[updatedPile.length - 2];
       const playedCard = updatedPile[updatedPile.length - 1];
       
-      if (checkCardMatch(playedCard, previousCard)) {
+      matchFound = checkCardMatch(playedCard, previousCard);
+      
+      if (matchFound) {
         console.log("Card match! Player wins the pile");
         
         // Create match animation state
-        const matchAnimation = {
+        matchAnimation = {
           isActive: true,
           cardId: playedCard.id,
           playerId: currentPlayer.id
         };
-        
-        // First update just shows the matching card and animation
-        const animationState = {
-          ...gameState,
-          players: updatedPlayers,
-          centralPile: updatedPile,
-          currentPlayerIndex: nextPlayerIndex,
-          matchAnimation,
-          turnEndTime: Date.now() + 15000
-        };
-        
-        roomChannel.send({
-          type: 'broadcast',
-          event: 'game_state',
-          payload: { gameState: animationState }
-        });
-        
-        setGameState(animationState);
-        
-        // After a delay, handle the match outcome
-        setTimeout(() => {
-          handleCardMatch(currentPlayer.id);
-        }, 1500);
-        
-        return;
       }
     }
     
-    // No match, update game state normally
+    // Update game state with the played card
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: updatedPile,
       currentPlayerIndex: nextPlayerIndex,
       lastMatchWinner: gameState.lastMatchWinner,
-      turnEndTime: Date.now() + 15000
+      turnEndTime: Date.now() + 15000,
+      matchAnimation
     };
     
+    console.log("Broadcasting updated game state after playing card");
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -947,6 +939,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     
     setGameState(updatedGameState);
+    
+    // If match was found, handle match after animation delay
+    if (matchFound) {
+      console.log("Scheduling match handling after animation");
+      setTimeout(() => {
+        handleCardMatch(currentPlayer.id);
+      }, 1500);
+    }
   };
 
   const collectPile = () => {
@@ -1007,10 +1007,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setGameState(updatedGameState);
   };
 
-  const startGame = () => {
+  const startGame = async () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
     console.log("Starting game");
+    
+    // First, initialize the game and distribute cards
+    await initializeGame(currentRoom.id, currentRoom.max_players);
+    
+    // Only proceed if gameState was updated by initializeGame
+    if (!gameState) return;
     
     const gameStartTime = Date.now();
     const roomDuration = 5 * 60 * 1000;
@@ -1042,7 +1048,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     toast({
       title: "Game started!",
-      description: `The cards are being shuffled and dealt. ${currentRoom.bet_amount} coins have been collected from each player.`
+      description: `The cards have been shuffled and dealt. ${currentRoom.bet_amount} coins have been collected from each player.`
     });
     
     setGameState(updatedGameState);
@@ -1151,19 +1157,24 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         players.splice(0, players.length, ...updatedPlayers);
       }
       
+      // Create a new game state with cards distributed but game not started yet
       const initialGameState: GameState = {
         players,
         currentPlayerIndex: 0,
         centralPile: [],
         isGameOver: false,
-        gameStarted: gameState?.gameStarted || false,
-        gameStartTime: gameState?.gameStartTime,
-        turnEndTime: gameState?.turnEndTime,
-        roomDuration: gameState?.roomDuration
+        gameStarted: false, // Keep this false until startGame is called
+        gameStartTime: undefined,
+        turnEndTime: undefined,
+        roomDuration: undefined
       };
       
       console.log("Created game state with players:", players.length);
       
+      // Update the game state first
+      setGameState(initialGameState);
+      
+      // Then broadcast the update
       if (roomChannel) {
         roomChannel.send({
           type: 'broadcast',
@@ -1172,9 +1183,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
       
-      setGameState(initialGameState);
+      return initialGameState;
     } catch (error) {
       console.error("Error initializing game state:", error);
+      return null;
     }
   };
 

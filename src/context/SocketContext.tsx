@@ -63,6 +63,7 @@ type SocketContextType = {
   availableRooms: RoomData[];
   currentRoom: RoomData | null;
   gameState: GameState | null;
+  roomChannel: RealtimeChannel | null;
   createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string }) => Promise<string>;
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
@@ -72,6 +73,7 @@ type SocketContextType = {
   fetchRooms: () => void;
   startGame: () => void;
   kickInactivePlayer: (playerId: string) => void;
+  endGame: (winningPlayerId?: string) => void;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -79,6 +81,7 @@ const SocketContext = createContext<SocketContextType>({
   availableRooms: [],
   currentRoom: null,
   gameState: null,
+  roomChannel: null,
   createRoom: async () => "",
   joinRoom: async () => false,
   leaveRoom: () => {},
@@ -88,6 +91,7 @@ const SocketContext = createContext<SocketContextType>({
   fetchRooms: () => {},
   startGame: () => {},
   kickInactivePlayer: () => {},
+  endGame: () => {}
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -1203,6 +1207,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         availableRooms, 
         currentRoom, 
         gameState,
+        roomChannel,
         createRoom,
         joinRoom,
         leaveRoom,
@@ -1211,7 +1216,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         shuffleDeck,
         fetchRooms,
         startGame,
-        kickInactivePlayer
+        kickInactivePlayer,
+        endGame
       }}
     >
       {children}

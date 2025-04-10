@@ -12,7 +12,7 @@ interface GameBoardProps {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
-  const { gameState, playCard, shuffleDeck, joinRoom, startGame, kickInactivePlayer } = useSocket();
+  const { gameState, playCard, shuffleDeck, joinRoom, startGame, kickInactivePlayer, endGame, roomChannel } = useSocket();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
   const [distributionComplete, setDistributionComplete] = useState(false);
@@ -69,20 +69,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         setGameTimer(Math.floor(remaining / 1000));
         
-        if (remaining <= 0) {
+        if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
-          if (gameState && !gameState.isGameOver) {
-            toast({
-              title: "Game Over",
-              description: "Time's up! The game has ended."
-            });
-          }
+          // When time is up, determine winner based on most cards
+          const timeUpWinner = gameState.players.reduce((prev, current) => 
+            (prev.cards.length > current.cards.length) ? prev : current
+          );
+          
+          // End the game with the time up winner
+          endGame(timeUpWinner.id);
         }
       }, 1000);
       
       return () => clearInterval(interval);
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.turnEndTime) {
@@ -103,6 +104,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       setTurnTimer(null);
     }
   }, [gameState?.gameStarted, gameState?.turnEndTime]);
+
+  // Add effect to handle game over state
+  useEffect(() => {
+    if (gameState?.isGameOver) {
+      // Clear any existing timers
+      setGameTimer(null);
+      setTurnTimer(null);
+    }
+  }, [gameState?.isGameOver]);
 
   useEffect(() => {
     if (gameState?.players) {
@@ -231,49 +241,50 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
   };
 
-  if (gameState.isGameOver && gameState.winner) {
+  if (gameState.isGameOver) {
+    const winner = gameState.winner;
+    const isUserWinner = winner?.id === userId;
+    
     return (
-      <div className="space-y-8">
-        <div className="bg-[#0B0C10] border border-[#4169E1] rounded-lg p-8 text-center">
-          <h2 className="text-3xl font-bold text-blue-300 mb-4">Game Over!</h2>
-          <div className="text-xl text-blue-200 mb-8">
-            {gameState.winner.username === players.find(p => p.id === userId)?.username
-              ? "Congratulations! You won the game! 🎉"
-              : `${gameState.winner.username} won the game!`}
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
+          <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
+            Game Over!
+          </h2>
+          <div className="text-xl text-center text-white mb-6">
+            {isUserWinner ? (
+              <span className="text-green-400">Congratulations! You won! 🎉</span>
+            ) : (
+              <span>{winner?.username} won the game!</span>
+            )}
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {players.map((player) => (
-              <div 
-                key={player.id} 
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {gameState.players.map((player) => (
+              <div
+                key={player.id}
                 className={`p-4 rounded-lg ${
-                  player.id === gameState.winner?.id 
-                    ? "bg-[#4169E1]/40 border-2 border-blue-500" 
-                    : "bg-blue-900/20 border border-blue-800/50"
+                  player.id === winner?.id
+                    ? "bg-green-500/20 border-2 border-green-500"
+                    : "bg-gray-800/50"
                 }`}
               >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-blue-300">{player.username}</span>
-                  <Badge
-                    variant={player.id === gameState.winner?.id ? "secondary" : "outline"}
-                  >
-                    {player.id === gameState.winner?.id ? "Winner" : "Player"}
-                  </Badge>
+                <div className="text-lg font-semibold text-white">
+                  {player.username}
                 </div>
-                <div className="text-gray-300">Cards: {player.cards.length}</div>
-                {player.coins !== undefined && (
-                  <div className="text-gray-300">Coins: {player.coins}</div>
-                )}
+                <div className="text-sm text-gray-300">
+                  Cards: {player.cards.length}
+                </div>
               </div>
             ))}
           </div>
-          
-          <Button 
-            onClick={() => window.location.href = "/lobby"} 
-            className="bg-[#4169E1] hover:bg-[#3158c4] text-white"
-          >
-            Return to Lobby
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              onClick={() => window.location.href = "/lobby"}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Return to Lobby
+            </Button>
+          </div>
         </div>
       </div>
     );

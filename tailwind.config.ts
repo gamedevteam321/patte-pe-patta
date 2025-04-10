@@ -54,13 +54,14 @@ export default {
           foreground: "hsl(var(--card-foreground))"
         },
         game: {
-          background: "#121212",
-          card: "#1E1E1E",
-          cyan: "#00FFFF",
-          magenta: "#FF00FF",
-          green: "#39FF14",
-          yellow: "#FFF01F",
-          red: "#FF3131"
+          background: "#050c1d",
+          card: "#0f172a",
+          cyan: "#3b82f6",
+          magenta: "#6366f1",
+          green: "#10b981",
+          yellow: "#f59e0b",
+          red: "#ef4444",
+          blue: "#3b82f6"
         }
       },
       borderRadius: {
@@ -98,8 +99,8 @@ export default {
           "100%": { transform: "rotate(0deg)" }
         },
         "pulse-neon": {
-          "0%, 100%": { boxShadow: "0 0 5px theme('colors.game.cyan'), 0 0 10px theme('colors.game.cyan')" },
-          "50%": { boxShadow: "0 0 15px theme('colors.game.cyan'), 0 0 20px theme('colors.game.cyan')" }
+          "0%, 100%": { boxShadow: "0 0 5px theme('colors.blue.500'), 0 0 10px theme('colors.blue.500')" },
+          "50%": { boxShadow: "0 0 15px theme('colors.blue.500'), 0 0 20px theme('colors.blue.500')" }
         },
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
@@ -117,8 +118,8 @@ export default {
         "float": "float 3s ease-in-out infinite",
       },
       backgroundImage: {
-        'gradient-game': 'linear-gradient(to bottom right, #1E1E1E, #121212)',
-        'neon-border': 'linear-gradient(90deg, #00FFFF, #FF00FF, #39FF14, #00FFFF)',
+        'gradient-game': 'linear-gradient(to bottom right, #1e3a8a, #0f172a)',
+        'neon-border': 'linear-gradient(90deg, #3b82f6, #6366f1, #10b981, #3b82f6)',
       }
     }
   },

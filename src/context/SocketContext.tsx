@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -31,6 +32,10 @@ export interface GameState {
   lastMatchWinner?: string;
   isGameOver: boolean;
   winner?: Player;
+  gameStarted: boolean;
+  gameStartTime?: number;
+  turnEndTime?: number;
+  roomDuration?: number;
 }
 
 // Match the types with Supabase table structure
@@ -60,6 +65,7 @@ type SocketContextType = {
   collectPile: () => void;
   shuffleDeck: () => void;
   fetchRooms: () => void;
+  startGame: () => void;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -74,6 +80,7 @@ const SocketContext = createContext<SocketContextType>({
   collectPile: () => {},
   shuffleDeck: () => {},
   fetchRooms: () => {},
+  startGame: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -153,7 +160,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Re-fetch game state when players change
           if (currentRoom && currentRoom.id === roomId) {
             console.log("Player change detected, refreshing game state");
-            initializeGameState(roomId, currentRoom.max_players);
+            initializeGame(roomId, currentRoom.max_players);
           }
         }
       )
@@ -164,6 +171,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.log('Received game state update:', payload);
           if (payload.payload && payload.payload.gameState) {
             setGameState(payload.payload.gameState);
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'player_joined' },
+        (payload) => {
+          console.log('Player joined broadcast received:', payload);
+          fetchRooms();
+          if (currentRoom) {
+            initializeGame(currentRoom.id, currentRoom.max_players);
           }
         }
       )
@@ -226,7 +244,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         name: roomData.name,
         host_id: user.id,
         host_name: user.username || user.email || "Player",
-        player_count: 1,
+        player_count: 1, // Start with 1 (the host)
         max_players: roomData.playerCount,
         is_private: roomData.isPrivate,
         password: roomData.password || null,
@@ -255,8 +273,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data) {
         console.log("Room created:", data);
         setCurrentRoom(data as RoomData);
-        joinRoomChannel(data.id);
-        initializeGameState(data.id, data.max_players);
+        const channel = joinRoomChannel(data.id);
+        
+        // Add the host as a player in the room
+        const { error: playerError } = await supabase
+          .from('game_players')
+          .insert([{
+            room_id: data.id,
+            user_id: user.id,
+            username: user.username || user.email || "Player"
+          }]);
+          
+        if (playerError) {
+          console.error("Error adding host as player:", playerError);
+        }
+        
+        initializeGame(data.id, data.max_players);
         return data.id;
       }
     } catch (error) {
@@ -419,7 +451,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       console.log("Players in room:", playersData);
       
-      initializeGameState(roomId, typedRoomData.max_players);
+      initializeGame(roomId, typedRoomData.max_players);
       
       // Notify all other players in the room that a new player has joined
       if (channel) {
@@ -493,8 +525,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Check if the played card matches the top card in central pile
+  const checkCardMatch = (playedCard: Card, topCard: Card): boolean => {
+    return playedCard.rank === topCard.rank || playedCard.suit === topCard.suit;
+  };
+
   const playCard = () => {
-    if (!gameState || !currentRoom || !roomChannel) return;
+    if (!gameState || !currentRoom || !roomChannel || !gameState.gameStarted) return;
     
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer || !currentPlayer.cards.length) return;
@@ -511,11 +548,57 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedPile = [...gameState.centralPile, card];
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
+    // Check if the played card matches the top card in the pile
+    let lastMatchWinner = gameState.lastMatchWinner;
+    if (updatedPile.length > 1) {
+      const previousCard = updatedPile[updatedPile.length - 2];
+      const playedCard = updatedPile[updatedPile.length - 1];
+      
+      if (checkCardMatch(playedCard, previousCard)) {
+        console.log("Card match! Player wins the pile");
+        
+        // Add all cards from pile to current player's deck
+        const playersAfterMatch = updatedPlayers.map((player, idx) => 
+          idx === gameState.currentPlayerIndex 
+            ? { ...player, cards: [...player.cards, ...updatedPile] } 
+            : player
+        );
+        
+        const updatedGameState = {
+          ...gameState,
+          players: playersAfterMatch,
+          centralPile: [],
+          currentPlayerIndex: nextPlayerIndex,
+          lastMatchWinner: currentPlayer.id,
+          turnEndTime: Date.now() + 15000 // 15 seconds for next turn
+        };
+        
+        roomChannel.send({
+          type: 'broadcast',
+          event: 'game_state',
+          payload: { gameState: updatedGameState }
+        });
+        
+        setGameState(updatedGameState);
+        
+        // Show toast notification
+        toast({
+          title: "Match found!",
+          description: `${currentPlayer.username} won the pile with a matching card!`
+        });
+        
+        return;
+      }
+    }
+    
+    // No match, just update the normal state
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: updatedPile,
-      currentPlayerIndex: nextPlayerIndex
+      currentPlayerIndex: nextPlayerIndex,
+      lastMatchWinner,
+      turnEndTime: Date.now() + 15000 // 15 seconds for next turn
     };
     
     roomChannel.send({
@@ -584,8 +667,49 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
   };
+  
+  const startGame = () => {
+    if (!gameState || !currentRoom || !roomChannel) return;
+    
+    console.log("Starting game");
+    
+    const gameStartTime = Date.now();
+    const roomDuration = 5 * 60 * 1000; // 5 minutes game duration
+    
+    const updatedGameState = {
+      ...gameState,
+      gameStarted: true,
+      gameStartTime,
+      roomDuration,
+      turnEndTime: gameStartTime + 15000 // 15 seconds for first turn
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    toast({
+      title: "Game started!",
+      description: "The cards are being shuffled and dealt."
+    });
+    
+    setGameState(updatedGameState);
+    
+    // Update room status in database
+    supabase
+      .from('game_rooms')
+      .update({ status: "playing" })
+      .eq('id', currentRoom.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error updating room status:", error);
+        }
+      });
+  };
 
-  const initializeGameState = async (roomId: string, maxPlayers: number) => {
+  const initializeGame = async (roomId: string, maxPlayers: number) => {
     if (!user) return;
     
     console.log("Initializing game state for room:", roomId);
@@ -644,11 +768,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       });
       
-      const initialGameState = {
+      const initialGameState: GameState = {
         players,
         currentPlayerIndex: 0,
         centralPile: [],
-        isGameOver: false
+        isGameOver: false,
+        gameStarted: false
       };
       
       console.log("Created initial game state with players:", players.length);
@@ -686,7 +811,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         playCard,
         collectPile,
         shuffleDeck,
-        fetchRooms
+        fetchRooms,
+        startGame
       }}
     >
       {children}

@@ -107,8 +107,8 @@ const GameRoom: React.FC = () => {
       <Layout>
         <div className="container max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col items-center justify-center h-64">
-            <Loader2 className="h-10 w-10 text-game-cyan animate-spin mb-4" />
-            <h2 className="text-xl font-semibold text-game-cyan">
+            <Loader2 className="h-10 w-10 text-blue-400 animate-spin mb-4" />
+            <h2 className="text-xl font-semibold text-blue-400">
               {retryCount === 0 ? "Joining game room..." : "Resyncing game data..."}
             </h2>
             {retryCount > 0 && (
@@ -126,12 +126,12 @@ const GameRoom: React.FC = () => {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto px-4 py-8">
+      <div className="container max-w-6xl mx-auto px-4 py-8 bg-gradient-to-br from-blue-950 to-black rounded-lg shadow-md">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-game-cyan text-glow">Game Room</h1>
+            <h1 className="text-3xl font-bold text-blue-400 text-glow">Game Room</h1>
             {lastSyncTime && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-blue-300">
                 Last synced: {lastSyncTime.toLocaleTimeString()}
               </p>
             )}
@@ -142,7 +142,7 @@ const GameRoom: React.FC = () => {
               onClick={handleResync}
               variant="outline"
               size="sm"
-              className="border-game-cyan text-game-cyan hover:bg-game-cyan/20"
+              className="border-blue-500 text-blue-400 hover:bg-blue-900/20"
             >
               <RefreshCw className="h-4 w-4 mr-1" />
               Resync
@@ -151,7 +151,7 @@ const GameRoom: React.FC = () => {
             <Button
               onClick={handleLeaveRoom}
               variant="outline"
-              className="border-game-magenta text-game-magenta hover:bg-game-magenta/20"
+              className="border-red-500 text-red-400 hover:bg-red-900/20"
             >
               <DoorOpen className="mr-2 h-5 w-5" />
               Leave Room
@@ -160,8 +160,8 @@ const GameRoom: React.FC = () => {
         </div>
 
         {hasMultiplePlayers ? (
-          <div className="w-full mb-4 p-2 bg-green-600/20 border border-green-500/30 rounded-md text-center">
-            <p className="text-sm text-green-400">
+          <div className="w-full mb-4 p-2 bg-blue-600/20 border border-blue-500/30 rounded-md text-center">
+            <p className="text-sm text-blue-300">
               Multiplayer mode active! Other players have joined the game.
             </p>
           </div>

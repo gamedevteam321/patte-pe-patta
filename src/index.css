@@ -7,33 +7,33 @@
 
 @layer base {
   :root {
-    --background: 0 0% 7%;
+    --background: 220 70% 4%;
     --foreground: 210 40% 98%;
 
-    --card: 0 0% 12%;
+    --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 9%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 180 100% 50%;
-    --primary-foreground: 0 0% 12%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 300 100% 50%;
-    --secondary-foreground: 0 0% 12%;
+    --secondary: 225 73% 57%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 215 27% 16%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 120 100% 54%;
-    --accent-foreground: 0 0% 12%;
+    --accent: 201 96% 32%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 100% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 180 100% 50%;
+    --border: 215 27% 20%;
+    --input: 215 27% 20%;
+    --ring: 224 76% 48%;
 
     --radius: 0.5rem;
   }
@@ -50,25 +50,25 @@
   
   body {
     @apply bg-game-background text-foreground font-roboto antialiased;
-    background-image: radial-gradient(circle at 50% 50%, rgba(30, 30, 30, 0.8) 0%, rgba(18, 18, 18, 1) 100%);
+    background-image: radial-gradient(circle at 50% 50%, rgba(17, 24, 39, 0.8) 0%, rgba(3, 7, 18, 1) 100%);
   }
 }
 
 @layer components {
   .glass-panel {
-    @apply bg-black/30 backdrop-blur-md border border-white/10 rounded-lg shadow-lg;
+    @apply bg-black/30 backdrop-blur-md border border-blue-500/10 rounded-lg shadow-lg;
   }
   
   .neon-border {
-    @apply relative rounded-lg p-[1px] overflow-hidden before:content-[''] before:absolute before:inset-0 before:bg-neon-border before:animate-[spin_4s_linear_infinite] before:rounded-lg;
+    @apply relative rounded-lg p-[1px] overflow-hidden before:content-[''] before:absolute before:inset-0 before:bg-gradient-to-r before:from-blue-500 before:via-blue-400 before:to-blue-600 before:animate-[spin_4s_linear_infinite] before:rounded-lg;
   }
   
   .neon-glow {
-    @apply shadow-[0_0_10px_theme(colors.game.cyan),0_0_20px_theme(colors.game.cyan)];
+    @apply shadow-[0_0_10px_theme(colors.blue.400),0_0_20px_theme(colors.blue.500)];
   }
   
   .card-back {
-    @apply relative w-[70px] h-[100px] rounded-md bg-gradient-to-br from-game-card to-game-background border border-white/20 shadow-md;
+    @apply relative w-[70px] h-[100px] rounded-md bg-gradient-to-br from-blue-900 to-game-background border border-blue-800/50 shadow-md;
   }
   
   .card-front {
@@ -89,4 +89,23 @@
 
 .font-opensans {
   font-family: 'Open Sans', sans-serif;
+}
+
+/* Card distribution animation */
+@keyframes distribute-cards {
+  0% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.8) rotate(10deg);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+.animate-distribute-cards {
+  animation: distribute-cards 0.5s ease-out forwards;
 }

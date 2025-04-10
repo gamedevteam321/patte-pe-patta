@@ -7,7 +7,7 @@ import { useSocket } from "@/context/SocketContext";
 import GameBoard from "@/components/game/GameBoard";
 import GameInfo from "@/components/game/GameInfo";
 import { Button } from "@/components/ui/button";
-import { DoorOpen, Loader2, RefreshCw } from "lucide-react";
+import { DoorOpen, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const GameRoom: React.FC = () => {
@@ -18,19 +18,22 @@ const GameRoom: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [showFullWarning, setShowFullWarning] = useState(false);
+  const [initialJoinComplete, setInitialJoinComplete] = useState(false);
 
+  // Initial room join effect
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
       return;
     }
 
-    if (!currentRoom && roomId && !isJoining) {
+    if (!currentRoom && roomId && !isJoining && !initialJoinComplete) {
       console.log("Attempting to join room:", roomId);
       setIsJoining(true);
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
+        setInitialJoinComplete(true);
+        
         if (!success) {
           toast({
             title: "Failed to join room",
@@ -46,11 +49,10 @@ const GameRoom: React.FC = () => {
           setLastSyncTime(new Date());
           // Refresh room list to get latest player counts
           fetchRooms();
-          setShowFullWarning(false); // Reset warning flag when joining succeeds
         }
       });
     }
-  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms]);
+  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms, initialJoinComplete]);
 
   // Auto-refresh players list when game state changes
   useEffect(() => {
@@ -65,16 +67,19 @@ const GameRoom: React.FC = () => {
     }
   }, [gameState, roomId]);
 
-  // Set up auto-refresh interval for player data
+  // Set up auto-refresh interval for player data - less frequent to prevent excessive requests
   useEffect(() => {
-    if (roomId) {
+    if (roomId && initialJoinComplete) {
       const intervalId = setInterval(() => {
-        handleResync();
-      }, 10000); // Auto-refresh every 10 seconds
+        // Only resync if not currently joining and if there's an actual room ID
+        if (!isJoining && roomId) {
+          handleResync();
+        }
+      }, 15000); // Auto-refresh every 15 seconds instead of 10
       
       return () => clearInterval(intervalId);
     }
-  }, [roomId]);
+  }, [roomId, isJoining, initialJoinComplete]);
 
   const handleResync = () => {
     if (roomId) {
@@ -86,7 +91,6 @@ const GameRoom: React.FC = () => {
         if (success) {
           setLastSyncTime(new Date());
           fetchRooms();
-          setShowFullWarning(false); // Reset warning flag on successful sync
         }
       });
     }
@@ -106,13 +110,13 @@ const GameRoom: React.FC = () => {
       <Layout>
         <div className="container max-w-6xl mx-auto px-4 py-8">
           <div className="flex flex-col items-center justify-center h-64">
-            <Loader2 className="h-10 w-10 text-game-blue animate-spin mb-4" />
-            <h2 className="text-xl font-semibold text-game-blue">
+            <Loader2 className="h-10 w-10 text-[#4169E1] animate-spin mb-4" />
+            <h2 className="text-xl font-semibold text-[#4169E1]">
               {retryCount === 0 ? "Joining game room..." : "Resyncing game data..."}
             </h2>
             {retryCount > 0 && (
               <p className="text-sm text-muted-foreground mt-2">
-                Attempt {retryCount} - Refreshing player data
+                Refreshing player data
               </p>
             )}
           </div>
@@ -128,7 +132,7 @@ const GameRoom: React.FC = () => {
       <div className="container max-w-[1000px] mx-auto px-4 py-4 bg-[#0B0C10] rounded-lg shadow-md">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-game-blue">Game Room</h1>
+            <h1 className="text-3xl font-bold text-[#4169E1]">Game Room</h1>
             {lastSyncTime && (
               <p className="text-xs text-blue-300">
                 Last synced: {lastSyncTime.toLocaleTimeString()}

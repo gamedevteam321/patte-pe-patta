@@ -57,7 +57,7 @@ const Lobby: React.FC = () => {
     <Layout>
       <div className="container max-w-6xl mx-auto px-4 py-6 md:py-8">
         <div className="mb-6 md:mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-game-cyan text-glow">Patte pe Patta</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-[#4169E1] text-glow">Patte pe Patta</h1>
           <p className="text-base md:text-lg text-muted-foreground mb-2 md:mb-4">
             Fast-paced multiplayer card game
           </p>
@@ -67,7 +67,7 @@ const Lobby: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-4 md:gap-6">
           <div className="w-full md:w-2/3">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg md:text-xl font-bold text-game-cyan">Available Rooms</h2>
+              <h2 className="text-lg md:text-xl font-bold text-[#4169E1]">Available Rooms</h2>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -111,7 +111,7 @@ const Lobby: React.FC = () => {
                     });
                   }
                 }}
-                className="w-full bg-game-blue hover:bg-game-blue/80 text-white p-4 md:p-6 text-base md:text-lg"
+                className="w-full bg-[#4169E1] hover:bg-[#3158c4] text-white p-4 md:p-6 text-base md:text-lg"
               >
                 Join Room
               </Button>

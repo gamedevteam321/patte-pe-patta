@@ -60,7 +60,7 @@
   }
   
   .card-back {
-    @apply relative w-[70px] h-[100px] rounded-md bg-[#0047ab] border border-[#25d366]/30 shadow-md;
+    @apply relative w-[70px] h-[100px] rounded-md bg-[#4169E1] border border-[#25d366]/30 shadow-md;
   }
   
   .card-front {
@@ -72,7 +72,7 @@
   }
 
   .btn-blue {
-    @apply bg-[#0047ab] hover:bg-[#003380] text-white font-medium py-2 px-4 rounded transition-colors;
+    @apply bg-[#4169E1] hover:bg-[#3158c4] text-white font-medium py-2 px-4 rounded transition-colors;
   }
 
   .input-field {

@@ -20,12 +20,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
 
   useEffect(() => {
-    // Auto-refresh players every 5 seconds
+    // Auto-refresh players every 7 seconds - less frequent to prevent continuous refresh
     const refreshInterval = setInterval(() => {
       if (gameState && !gameState.gameStarted) {
         handleRefreshGameState();
       }
-    }, 5000);
+    }, 7000);
     
     return () => clearInterval(refreshInterval);
   }, [gameState]);
@@ -70,7 +70,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           clearInterval(interval);
           // End game by timeout if not already ended
           if (gameState && !gameState.isGameOver) {
-            endGame();
+            // Game over by timeout
+            toast({
+              title: "Game Over",
+              description: "Time's up! The game has ended."
+            });
           }
         }
       }, 1000);
@@ -112,20 +116,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setTimeout(() => {
       setIsRefreshing(false);
     }, 1000);
-  };
-
-  // Helper function to end the game
-  const endGame = () => {
-    if (!gameState) return;
-    
-    // Find player with most cards as winner
-    const sortedPlayers = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length);
-    
-    // Update database status (handled by socket context)
-    toast({
-      title: "Game Over!",
-      description: "Time's up! The player with the most cards wins."
-    });
   };
 
   const formatTime = (seconds: number): string => {
@@ -175,10 +165,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
       
       if (players.length === 2) {
+        // For 2 players: opponent is at the top
         return { player, position: "top" as const, isUser: false };
       }
       
       if (players.length === 3) {
+        // For 3 players: opponents are at left and right
         return { 
           player, 
           position: index === 1 ? "left" as const : "right" as const, 
@@ -187,6 +179,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
       
       if (players.length === 4) {
+        // For 4 players: opponents are at left, top, and right
         if (index === 1) return { player, position: "left" as const, isUser: false };
         if (index === 2) return { player, position: "top" as const, isUser: false };
         return { player, position: "right" as const, isUser: false };
@@ -200,7 +193,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver && gameState.winner) {
     return (
       <div className="space-y-8">
-        <div className="bg-[#0B0C10] border border-game-blue rounded-lg p-8 text-center">
+        <div className="bg-[#0B0C10] border border-[#4169E1] rounded-lg p-8 text-center">
           <h2 className="text-3xl font-bold text-blue-300 mb-4">Game Over!</h2>
           <div className="text-xl text-blue-200 mb-8">
             {gameState.winner.username === players.find(p => p.id === userId)?.username
@@ -214,7 +207,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 key={player.id} 
                 className={`p-4 rounded-lg ${
                   player.id === gameState.winner?.id 
-                    ? "bg-game-blue/40 border-2 border-blue-500" 
+                    ? "bg-[#4169E1]/40 border-2 border-blue-500" 
                     : "bg-blue-900/20 border border-blue-800/50"
                 }`}
               >
@@ -236,7 +229,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           
           <Button 
             onClick={() => window.location.href = "/lobby"} 
-            className="bg-game-blue hover:bg-blue-700 text-white"
+            className="bg-[#4169E1] hover:bg-[#3158c4] text-white"
           >
             Return to Lobby
           </Button>
@@ -295,8 +288,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         {/* Central Card Area */}
         <div className="w-3/5 flex flex-col justify-center items-center">
-          {/* Game Table - Removed hand decorations */}
-          <div className="bg-game-card p-4 relative border-2 border-blue-800 rounded-lg min-h-[240px] w-full flex flex-col justify-center items-center">
+          {/* Game Table - No hand decorations */}
+          <div className="bg-game-card p-4 relative border-2 border-[#4169E1] rounded-lg min-h-[240px] w-full flex flex-col justify-center items-center">
             {/* Center Pile */}
             <div className="flex justify-center items-center">
               {gameState.centralPile.length > 0 ? (
@@ -353,7 +346,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               <Button
                 onClick={() => shuffleDeck()}
                 disabled={!isUserTurn}
-                className="bg-game-blue hover:bg-blue-700 text-white"
+                className="bg-[#4169E1] hover:bg-[#3158c4] text-white"
               >
                 <Shuffle className="h-5 w-5 mr-1" /> 
                 <span>1</span>

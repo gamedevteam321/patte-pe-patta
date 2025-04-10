@@ -25,7 +25,7 @@ const Login = () => {
       await login(email, password);
       toast({
         title: "Login successful",
-        description: "Welcome back to Satta Kings Arena!",
+        description: "Welcome back to Patte pe Patta!",
         variant: "default",
       });
       navigate("/lobby");
@@ -42,9 +42,9 @@ const Login = () => {
 
   return (
     <Layout showNav={false}>
-      <div className="container max-w-md mx-auto px-4 py-16">
+      <div className="container max-w-md mx-auto px-4 py-8 md:py-16">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 text-game-cyan text-glow">Satta Kings Arena</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-game-cyan text-glow">Patte pe Patta</h1>
           <p className="text-gray-400">Login to your account</p>
         </div>
 
@@ -83,7 +83,7 @@ const Login = () => {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-game-cyan text-black hover:bg-game-cyan/80"
+                  className="bg-game-cyan text-white hover:bg-game-cyan/80"
                 >
                   {isLoading ? "Logging in..." : "Login"}
                   <LogIn className="ml-2 h-4 w-4" />

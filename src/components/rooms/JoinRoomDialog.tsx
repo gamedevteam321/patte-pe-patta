@@ -73,9 +73,9 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="glass-panel border-yellow-400/30">
+      <DialogContent className="glass-panel border-accent/30">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-yellow-400">
+          <DialogTitle className="flex items-center text-accent">
             <KeyRound className="mr-2 h-5 w-5" />
             Join Private Room
           </DialogTitle>
@@ -125,7 +125,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({
             </Button>
             <Button 
               type="submit"
-              className="bg-yellow-400 hover:bg-yellow-500 text-black"
+              className="bg-accent hover:bg-accent/80 text-white"
             >
               Join Room
             </Button>

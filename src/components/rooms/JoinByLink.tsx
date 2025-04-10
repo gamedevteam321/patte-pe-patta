@@ -77,9 +77,9 @@ const JoinByLink: React.FC = () => {
   };
 
   return (
-    <Card className="glass-panel border-yellow-400/30">
+    <Card className="glass-panel border-accent/30">
       <CardHeader>
-        <CardTitle className="text-yellow-400 flex items-center">
+        <CardTitle className="text-accent flex items-center text-lg">
           <KeyRound className="mr-2 h-5 w-5" />
           Join by Room Code
         </CardTitle>
@@ -116,7 +116,7 @@ const JoinByLink: React.FC = () => {
         <CardFooter>
           <Button
             type="submit"
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+            className="w-full bg-accent hover:bg-accent/80 text-white"
             disabled={isJoining}
           >
             {isJoining ? "Joining..." : "Join Room"}

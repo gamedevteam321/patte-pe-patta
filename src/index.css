@@ -126,6 +126,30 @@
   animation: card-play 0.5s ease-out;
 }
 
+/* Card match animation */
+@keyframes card-match {
+  0% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: translateY(-40px) scale(1.1);
+    filter: brightness(1.3);
+  }
+  50% {
+    transform: translateY(-30px) scale(1.2);
+    filter: brightness(1.5) drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+.animate-card-match {
+  animation: card-match 1.2s ease-in-out;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .container {

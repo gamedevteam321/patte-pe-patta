@@ -4,7 +4,7 @@ import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle, Users, RefreshCw, Play } from "lucide-react";
+import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface GameBoardProps {
@@ -12,33 +12,32 @@ interface GameBoardProps {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
-  const { gameState, playCard, shuffleDeck, joinRoom, startGame } = useSocket();
+  const { gameState, playCard, shuffleDeck, joinRoom, startGame, kickInactivePlayer } = useSocket();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
   const [distributionComplete, setDistributionComplete] = useState(false);
   const [gameTimer, setGameTimer] = useState<number | null>(null);
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
+  const [showMatchAnimation, setShowMatchAnimation] = useState(false);
+  const [actionsDisabled, setActionsDisabled] = useState(false);
+  const [syncRate, setSyncRate] = useState(3000);
 
   useEffect(() => {
-    // Auto-refresh players every 7 seconds - less frequent to prevent continuous refresh
     const refreshInterval = setInterval(() => {
       if (gameState && !gameState.gameStarted) {
         handleRefreshGameState();
       }
-    }, 7000);
+    }, syncRate);
     
     return () => clearInterval(refreshInterval);
-  }, [gameState]);
+  }, [gameState, syncRate]);
 
   useEffect(() => {
-    // Keep track of player count changes for user feedback
     if (gameState && gameState.players.length > 1) {
-      // When another player joins
       console.log(`Game has ${gameState.players.length} players`);
-      
-      // Log all player names for debugging
       const playerNames = gameState.players.map(p => `${p.username} (${p.id})`).join(", ");
       console.log(`Current players: ${playerNames}`);
+      setSyncRate(2000);
     }
   }, [gameState?.players.length]);
 
@@ -46,7 +45,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (gameState?.gameStarted && !distributionComplete) {
       setShowDistribution(true);
       
-      // Hide distribution animation after 3 seconds
       const timer = setTimeout(() => {
         setShowDistribution(false);
         setDistributionComplete(true);
@@ -57,7 +55,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   }, [gameState?.gameStarted, distributionComplete]);
 
   useEffect(() => {
-    // Update game timer
     if (gameState?.gameStarted && gameState.gameStartTime && gameState.roomDuration) {
       const interval = setInterval(() => {
         const now = Date.now();
@@ -68,9 +65,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
-          // End game by timeout if not already ended
           if (gameState && !gameState.isGameOver) {
-            // Game over by timeout
             toast({
               title: "Game Over",
               description: "Time's up! The game has ended."
@@ -84,7 +79,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, gameState?.isGameOver]);
 
   useEffect(() => {
-    // Update turn timer
     if (gameState?.gameStarted && gameState.turnEndTime) {
       const interval = setInterval(() => {
         const now = Date.now();
@@ -94,7 +88,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
-          // Auto-play will be handled by the server
         }
       }, 1000);
       
@@ -102,12 +95,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState?.turnEndTime, gameState?.gameStarted]);
 
+  useEffect(() => {
+    if (gameState?.players) {
+      const inactivePlayers = gameState.players.filter(p => p.autoPlayCount >= 2);
+      
+      if (inactivePlayers.length > 0) {
+        inactivePlayers.forEach(player => {
+          if (gameState.players[0].id === userId) {
+            kickInactivePlayer(player.id);
+            
+            toast({
+              title: "Player removed",
+              description: `${player.username} was removed for inactivity`,
+              variant: "destructive"
+            });
+          }
+        });
+      }
+    }
+  }, [gameState?.players, kickInactivePlayer, userId]);
+
+  useEffect(() => {
+    if (gameState?.matchAnimation?.isActive) {
+      setShowMatchAnimation(true);
+      setActionsDisabled(true);
+      
+      const timer = setTimeout(() => {
+        setShowMatchAnimation(false);
+        setActionsDisabled(false);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState?.matchAnimation]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
     setIsRefreshing(true);
 
-    // Use the window location to get the current room ID
     const roomId = window.location.pathname.split("/").pop();
     if (roomId) {
       await joinRoom(roomId);
@@ -137,26 +163,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const isUserTurn = currentPlayer?.id === userId;
   const isHost = gameState.players.length > 0 && gameState.players[0].id === userId;
   
-  // Only show real players, no AI players
   const players = gameState.players;
   
-  // Get user player
   const userPlayer = players.find(p => p.id === userId);
   
-  // Check if we have multiple human players
   const hasMultiplePlayers = players.length > 1;
   const canStartGame = !gameState.gameStarted && hasMultiplePlayers && isHost;
 
-  // Layout players in the correct position based on how many players there are
   const getPlayerPositions = () => {
-    // Find the index of the current user
     const userIndex = players.findIndex(p => p.id === userId);
     if (userIndex === -1) return [];
     
-    // Reorder players so that the user is always at the bottom
     const reorderedPlayers = [...players.slice(userIndex), ...players.slice(0, userIndex)];
     
-    // Assign positions based on player count
     return reorderedPlayers.map((player, index) => {
       const isUser = player.id === userId;
       
@@ -165,12 +184,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
       
       if (players.length === 2) {
-        // For 2 players: opponent is at the top
         return { player, position: "top" as const, isUser: false };
       }
       
       if (players.length === 3) {
-        // For 3 players: opponents are at left and right
         return { 
           player, 
           position: index === 1 ? "left" as const : "right" as const, 
@@ -179,7 +196,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
       
       if (players.length === 4) {
-        // For 4 players: opponents are at left, top, and right
         if (index === 1) return { player, position: "left" as const, isUser: false };
         if (index === 2) return { player, position: "top" as const, isUser: false };
         return { player, position: "right" as const, isUser: false };
@@ -189,7 +205,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
   };
 
-  // Game over view
   if (gameState.isGameOver && gameState.winner) {
     return (
       <div className="space-y-8">
@@ -238,12 +253,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   }
 
-  // Get player positions
   const positionedPlayers = getPlayerPositions();
 
   return (
     <div className="space-y-2">
-      {/* Game Header with Timer */}
       <div className="flex justify-between items-center px-4 py-2">
         <h1 className="text-2xl font-bold text-yellow-400">Patte pe Patta</h1>
         
@@ -254,7 +267,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         )}
       </div>
 
-      {/* Top Players (based on layout) */}
       <div className="flex justify-center mb-4">
         {positionedPlayers
           .filter(p => p.position === "top")
@@ -269,9 +281,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           ))}
       </div>
 
-      {/* Middle section with left, center, and right */}
       <div className="relative flex justify-center items-stretch mb-4">
-        {/* Left Player */}
         <div className="w-1/5 flex items-center">
           {positionedPlayers
             .filter(p => p.position === "left")
@@ -286,19 +296,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             ))}
         </div>
         
-        {/* Central Card Area */}
         <div className="w-3/5 flex flex-col justify-center items-center">
-          {/* Game Table - No hand decorations */}
           <div className="bg-game-card p-4 relative border-2 border-[#4169E1] rounded-lg min-h-[240px] w-full flex flex-col justify-center items-center">
-            {/* Center Pile */}
             <div className="flex justify-center items-center">
               {gameState.centralPile.length > 0 ? (
                 <div className="relative h-36">
-                  {/* Show up to 3 cards in the pile */}
                   {gameState.centralPile.slice(-3).map((card, i, arr) => (
                     <div
                       key={card.id}
-                      className="absolute transition-all duration-300"
+                      className={`absolute transition-all duration-300 ${
+                        gameState.matchAnimation?.isActive && 
+                        gameState.matchAnimation.cardId === card.id ? 
+                        'animate-card-match' : ''
+                      }`}
                       style={{
                         left: `${i * 10}px`,
                         top: `${i * 2}px`,
@@ -317,27 +327,52 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 <div className="text-white">No cards yet</div>
               )}
             </div>
+            
+            {showMatchAnimation && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-yellow-500/30 px-6 py-3 rounded-full animate-pulse">
+                  <span className="text-2xl font-bold text-white">MATCH!</span>
+                </div>
+              </div>
+            )}
           </div>
           
-          {/* Turn Timer */}
-          {gameState.gameStarted && turnTimer !== null && (
-            <div className="mt-2 w-full">
-              <div className="text-center text-white text-sm">{turnTimer} Sec</div>
-              <div className="h-2 w-full bg-gray-700 rounded overflow-hidden">
-                <div 
-                  className={`h-full ${turnTimer < 5 ? 'bg-red-500' : 'bg-green-500'}`} 
-                  style={{width: `${Math.min(100, (turnTimer / 15) * 100)}%`}}
-                ></div>
+          <div className="mt-2 w-full">
+            <div className="flex items-center justify-center gap-2 text-center">
+              <Timer className="h-4 w-4 text-blue-300" />
+              <div className="text-white text-sm">
+                {isUserTurn ? (
+                  <span className="text-blue-300 font-bold">Your turn! {turnTimer}s</span>
+                ) : (
+                  <span className="text-gray-300">{currentPlayer?.username}'s turn - {turnTimer}s</span>
+                )}
+              </div>
+            </div>
+            <div className="h-2 w-full bg-gray-700 rounded overflow-hidden mt-1">
+              <div 
+                className={`h-full ${turnTimer < 5 ? 'bg-red-500' : 'bg-green-500'}`} 
+                style={{width: `${Math.min(100, (turnTimer / 15) * 100)}%`}}
+              ></div>
+            </div>
+          </div>
+          
+          {userPlayer && userPlayer.autoPlayCount > 0 && gameState.gameStarted && (
+            <div className="mt-2">
+              <div className="flex items-center justify-center gap-1 text-yellow-400">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm">
+                  Auto-play count: {userPlayer.autoPlayCount}/2
+                  {userPlayer.autoPlayCount === 1 && " - One more will kick you!"}
+                </span>
               </div>
             </div>
           )}
           
-          {/* Game Controls */}
           {gameState.gameStarted && userPlayer && (
             <div className="mt-2 flex justify-center space-x-4">
               <Button
                 onClick={() => playCard()}
-                disabled={!isUserTurn}
+                disabled={!isUserTurn || actionsDisabled}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 Hit
@@ -345,7 +380,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               
               <Button
                 onClick={() => shuffleDeck()}
-                disabled={!isUserTurn}
+                disabled={!isUserTurn || actionsDisabled}
                 className="bg-[#4169E1] hover:bg-[#3158c4] text-white"
               >
                 <Shuffle className="h-5 w-5 mr-1" /> 
@@ -355,7 +390,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           )}
         </div>
         
-        {/* Right Player */}
         <div className="w-1/5 flex items-center justify-end">
           {positionedPlayers
             .filter(p => p.position === "right")
@@ -371,7 +405,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
       </div>
 
-      {/* Current user's cards (bottom) */}
       <div className="flex justify-center">
         {positionedPlayers
           .filter(p => p.position === "bottom")
@@ -386,7 +419,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           ))}
       </div>
 
-      {/* Card distribution animation */}
       {showDistribution && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="text-center">
@@ -409,7 +441,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
       )}
 
-      {/* Start game button for host */}
       {canStartGame && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10">
           <Button 
@@ -423,7 +454,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
       )}
       
-      {/* Players counter and info */}
       <div className="absolute top-2 right-4 flex items-center">
         <Badge variant={hasMultiplePlayers ? "default" : "outline"} className={
           hasMultiplePlayers 

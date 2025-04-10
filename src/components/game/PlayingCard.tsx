@@ -13,11 +13,13 @@ const PlayingCard: React.FC<PlayingCardProps> = ({ card, isBack = false, classNa
   // If showing back of card or no card provided, render card back
   if (isBack || !card) {
     return (
-      <div className={`card-back ${className} bg-[#0B0C10] border border-white/10 rounded-md w-16 h-24 relative flex items-center justify-center shadow`}>
+      <div className={`card-back ${className} bg-[#8B0000] rounded-md w-16 h-24 relative flex items-center justify-center shadow`}>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-10 h-10 rounded-full bg-[#0047ab]/30 flex items-center justify-center">
-            <span className="text-xl font-bold text-white">♠</span>
-          </div>
+          <img 
+            src="/lovable-uploads/bebf358c-ed3c-4e33-90b4-b88a8a430586.png" 
+            alt="Card back" 
+            className="w-full h-full object-cover rounded-md"
+          />
         </div>
       </div>
     );

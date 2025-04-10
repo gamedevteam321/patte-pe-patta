@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -71,6 +72,7 @@ type SocketContextType = {
   shuffleDeck: () => void;
   fetchRooms: () => void;
   startGame: () => void;
+  kickInactivePlayer: (playerId: string) => void;
 };
 
 const SocketContext = createContext<SocketContextType>({
@@ -86,6 +88,7 @@ const SocketContext = createContext<SocketContextType>({
   shuffleDeck: () => {},
   fetchRooms: () => {},
   startGame: () => {},
+  kickInactivePlayer: () => {},
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -96,6 +99,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [roomChannel, setRoomChannel] = useState<RealtimeChannel | null>(null);
+  const [joinInProgress, setJoinInProgress] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -182,6 +186,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.log('Player joined broadcast received:', payload);
           fetchRooms();
           if (currentRoom) {
+            initializeGame(currentRoom.id, currentRoom.max_players);
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'player_kicked' },
+        (payload) => {
+          console.log('Player kicked broadcast received:', payload);
+          fetchRooms();
+          
+          // If current user was kicked
+          if (payload.payload && payload.payload.kickedId === user?.id) {
+            toast({
+              title: "You were kicked",
+              description: "You were removed from the game due to inactivity",
+              variant: "destructive"
+            });
+            
+            // Redirect to lobby
+            window.location.href = "/lobby";
+          } else if (currentRoom) {
             initializeGame(currentRoom.id, currentRoom.max_players);
           }
         }
@@ -337,6 +363,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {
     if (!isConnected || !user) return false;
     
+    // Prevent multiple join attempts
+    if (joinInProgress) {
+      console.log("Join already in progress, skipping");
+      return false;
+    }
+    
+    setJoinInProgress(true);
     console.log("Joining room:", roomId, "with password:", password ? "provided" : "none");
     
     try {
@@ -353,6 +386,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           description: "The room you're trying to join doesn't exist.",
           variant: "destructive"
         });
+        setJoinInProgress(false);
         return false;
       }
       
@@ -362,17 +396,37 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           description: "The room you're trying to join doesn't exist.",
           variant: "destructive"
         });
+        setJoinInProgress(false);
         return false;
       }
       
       const typedRoomData = roomData as RoomData;
       
+      // Check if the player is already in the room
+      const { data: existingPlayer } = await supabase
+        .from('game_players')
+        .select('*')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingPlayer) {
+        console.log("Player already in room, just refreshing state");
+        setCurrentRoom(typedRoomData);
+        joinRoomChannel(roomId);
+        await initializeGame(roomId, typedRoomData.max_players);
+        setJoinInProgress(false);
+        return true;
+      }
+      
+      // Only check player count for new players joining
       if (typedRoomData.player_count >= typedRoomData.max_players) {
         toast({
           title: "Room full",
           description: "This room is already full.",
           variant: "destructive"
         });
+        setJoinInProgress(false);
         return false;
       }
       
@@ -383,6 +437,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             description: "This room requires a password.",
             variant: "destructive"
           });
+          setJoinInProgress(false);
           return false;
         }
         
@@ -392,47 +447,41 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             description: "The password you entered is incorrect.",
             variant: "destructive"
           });
+          setJoinInProgress(false);
           return false;
         }
       }
       
-      const { data: existingPlayer } = await supabase
+      // New player joining
+      const { error: playerError } = await supabase
         .from('game_players')
-        .select('*')
-        .eq('room_id', roomId)
-        .eq('user_id', user.id)
-        .single();
+        .insert([{
+          room_id: roomId,
+          user_id: user.id,
+          username: user.username || user.email
+        }]);
       
-      if (!existingPlayer) {
-        const { error: playerError } = await supabase
-          .from('game_players')
-          .insert([{
-            room_id: roomId,
-            user_id: user.id,
-            username: user.username || user.email
-          }]);
-        
-        if (playerError) {
-          console.error("Error joining room:", playerError);
-          toast({
-            title: "Error",
-            description: "Failed to join room: " + playerError.message,
-            variant: "destructive"
-          });
-          return false;
-        }
-        
-        const { error: updateError } = await supabase
-          .from('game_rooms')
-          .update({ player_count: typedRoomData.player_count + 1 })
-          .eq('id', roomId);
-        
-        if (updateError) {
-          console.error("Error updating player count:", updateError);
-        }
-        
-        typedRoomData.player_count += 1;
+      if (playerError) {
+        console.error("Error joining room:", playerError);
+        toast({
+          title: "Error",
+          description: "Failed to join room: " + playerError.message,
+          variant: "destructive"
+        });
+        setJoinInProgress(false);
+        return false;
       }
+      
+      const { error: updateError } = await supabase
+        .from('game_rooms')
+        .update({ player_count: typedRoomData.player_count + 1 })
+        .eq('id', roomId);
+      
+      if (updateError) {
+        console.error("Error updating player count:", updateError);
+      }
+      
+      typedRoomData.player_count += 1;
       
       setCurrentRoom(typedRoomData);
       const channel = joinRoomChannel(roomId);
@@ -474,6 +523,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       }
       
+      setJoinInProgress(false);
       return true;
     } catch (error) {
       console.error("Exception joining room:", error);
@@ -482,6 +532,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         description: "Something went wrong joining the room",
         variant: "destructive"
       });
+      setJoinInProgress(false);
       return false;
     }
   };
@@ -534,6 +585,102 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  // Add function to kick inactive players
+  const kickInactivePlayer = async (playerId: string) => {
+    if (!gameState || !roomChannel || !currentRoom || !user) return;
+    
+    // Only host can kick players
+    if (gameState.players[0].id !== user.id) {
+      console.log("Only host can kick players");
+      return;
+    }
+    
+    try {
+      console.log(`Kicking inactive player: ${playerId}`);
+      
+      // Get the player to be kicked
+      const playerToKick = gameState.players.find(p => p.id === playerId);
+      if (!playerToKick) {
+        console.error("Player to kick not found");
+        return;
+      }
+      
+      // Remove player from game state
+      const updatedPlayers = gameState.players.filter(p => p.id !== playerId);
+      
+      if (updatedPlayers.length === 0) {
+        console.log("Cannot kick last player");
+        return;
+      }
+      
+      // Adjust current player index if needed
+      let nextPlayerIndex = gameState.currentPlayerIndex;
+      if (nextPlayerIndex >= updatedPlayers.length) {
+        nextPlayerIndex = 0;
+      }
+      
+      const updatedGameState = {
+        ...gameState,
+        players: updatedPlayers,
+        currentPlayerIndex: nextPlayerIndex,
+        turnEndTime: Date.now() + 15000
+      };
+      
+      // Broadcast updated game state
+      roomChannel.send({
+        type: 'broadcast',
+        event: 'game_state',
+        payload: { gameState: updatedGameState }
+      });
+      
+      // Broadcast player kicked event
+      roomChannel.send({
+        type: 'broadcast',
+        event: 'player_kicked',
+        payload: { 
+          kickedId: playerId,
+          kickedName: playerToKick.username
+        }
+      });
+      
+      // Remove from database
+      const { error: removeError } = await supabase
+        .from('game_players')
+        .delete()
+        .eq('room_id', currentRoom.id)
+        .eq('user_id', playerId);
+      
+      if (removeError) {
+        console.error("Error removing player from database:", removeError);
+      }
+      
+      // Update room player count
+      const { error: updateError } = await supabase
+        .from('game_rooms')
+        .update({ player_count: Math.max(1, currentRoom.player_count - 1) })
+        .eq('id', currentRoom.id);
+      
+      if (updateError) {
+        console.error("Error updating player count:", updateError);
+      }
+      
+      // Update current room
+      setCurrentRoom({
+        ...currentRoom,
+        player_count: Math.max(1, currentRoom.player_count - 1)
+      });
+      
+      setGameState(updatedGameState);
+      
+      toast({
+        title: "Player kicked",
+        description: `${playerToKick.username} was removed for inactivity`
+      });
+    } catch (error) {
+      console.error("Error kicking inactive player:", error);
+    }
+  };
+
   useEffect(() => {
     const checkTimers = () => {
       if (!gameState || !gameState.gameStarted || gameState.isGameOver) return;
@@ -583,12 +730,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const updatedPile = [...gameState.centralPile, card];
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
+    // Check for match with the previous card
+    let matchFound = false;
+    let matchAnimation = undefined;
+    
+    if (updatedPile.length > 1) {
+      const previousCard = updatedPile[updatedPile.length - 2];
+      const playedCard = updatedPile[updatedPile.length - 1];
+      
+      matchFound = checkCardMatch(playedCard, previousCard);
+      
+      if (matchFound) {
+        matchAnimation = {
+          isActive: true,
+          cardId: playedCard.id,
+          playerId: currentPlayer.id
+        };
+      }
+    }
+    
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: updatedPile,
       currentPlayerIndex: nextPlayerIndex,
-      turnEndTime: Date.now() + 15000
+      turnEndTime: Date.now() + 15000,
+      matchAnimation
     };
     
     roomChannel.send({
@@ -598,6 +765,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     
     setGameState(updatedGameState);
+    
+    // If match was found, handle match after animation delay
+    if (matchFound) {
+      setTimeout(() => {
+        handleCardMatch(currentPlayer.id);
+      }, 1500);
+    }
     
     toast({
       title: "Turn timeout",
@@ -648,8 +822,46 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  // Improved card matching logic
   const checkCardMatch = (playedCard: Card, topCard: Card): boolean => {
+    // Cards match if they have the same rank or suit
     return playedCard.rank === topCard.rank || playedCard.suit === topCard.suit;
+  };
+
+  // Handler for after card match animation completes
+  const handleCardMatch = (playerId: string) => {
+    if (!gameState || !roomChannel) return;
+    
+    const playerIndex = gameState.players.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) return;
+    
+    // Move all central pile cards to the player's hand
+    const updatedPlayers = [...gameState.players];
+    updatedPlayers[playerIndex] = {
+      ...updatedPlayers[playerIndex],
+      cards: [...updatedPlayers[playerIndex].cards, ...gameState.centralPile]
+    };
+    
+    const updatedGameState = {
+      ...gameState,
+      players: updatedPlayers,
+      centralPile: [],
+      lastMatchWinner: playerId,
+      matchAnimation: undefined
+    };
+    
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'game_state',
+      payload: { gameState: updatedGameState }
+    });
+    
+    setGameState(updatedGameState);
+    
+    toast({
+      title: "Match found!",
+      description: `${updatedPlayers[playerIndex].username} won the pile with a matching card!`
+    });
   };
 
   const playCard = () => {
@@ -660,16 +872,23 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     console.log("Playing card");
     
+    // Get the top card from the player's hand
     const card = currentPlayer.cards[0];
+    
+    // Remove the played card from the player's hand
     const updatedPlayers = gameState.players.map((player, idx) => 
       idx === gameState.currentPlayerIndex 
         ? { ...player, cards: player.cards.slice(1) } 
         : player
     );
     
+    // Add the card to the central pile
     const updatedPile = [...gameState.centralPile, card];
+    
+    // Determine the next player
     const nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
     
+    // Check for a match with the previous card
     if (updatedPile.length > 1) {
       const previousCard = updatedPile[updatedPile.length - 2];
       const playedCard = updatedPile[updatedPile.length - 1];
@@ -677,18 +896,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (checkCardMatch(playedCard, previousCard)) {
         console.log("Card match! Player wins the pile");
         
+        // Create match animation state
         const matchAnimation = {
           isActive: true,
           cardId: playedCard.id,
           playerId: currentPlayer.id
         };
         
-        const playersAfterMatch = updatedPlayers.map((player, idx) => 
-          idx === gameState.currentPlayerIndex 
-            ? { ...player, cards: [...player.cards, ...updatedPile] } 
-            : player
-        );
-        
+        // First update just shows the matching card and animation
         const animationState = {
           ...gameState,
           players: updatedPlayers,
@@ -706,35 +921,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         setGameState(animationState);
         
+        // After a delay, handle the match outcome
         setTimeout(() => {
-          const updatedGameState = {
-            ...gameState,
-            players: playersAfterMatch,
-            centralPile: [],
-            currentPlayerIndex: nextPlayerIndex,
-            lastMatchWinner: currentPlayer.id,
-            matchAnimation: undefined,
-            turnEndTime: Date.now() + 15000
-          };
-          
-          roomChannel.send({
-            type: 'broadcast',
-            event: 'game_state',
-            payload: { gameState: updatedGameState }
-          });
-          
-          setGameState(updatedGameState);
-          
-          toast({
-            title: "Match found!",
-            description: `${currentPlayer.username} won the pile with a matching card!`
-          });
+          handleCardMatch(currentPlayer.id);
         }, 1500);
         
         return;
       }
     }
     
+    // No match, update game state normally
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
@@ -943,7 +1139,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const updatedPlayers = players.map(player => {
           const existingPlayer = gameState.players.find(p => p.id === player.id);
           if (existingPlayer && existingPlayer.coins !== undefined) {
-            return { ...player, coins: existingPlayer.coins };
+            return { 
+              ...player, 
+              coins: existingPlayer.coins,
+              autoPlayCount: existingPlayer.autoPlayCount || 0 
+            };
           }
           return player;
         });
@@ -998,10 +1198,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         collectPile,
         shuffleDeck,
         fetchRooms,
-        startGame
+        startGame,
+        kickInactivePlayer
       }}
     >
       {children}
     </SocketContext.Provider>
   );
 };
+

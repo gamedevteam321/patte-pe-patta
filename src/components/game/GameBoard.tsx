@@ -165,6 +165,24 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState]);
 
+  // Add this effect to handle dealing card screen duration
+  useEffect(() => {
+    if (showDistribution) {
+      const timer = setTimeout(() => {
+        setShowDistribution(false);
+      }, 2000); // Show for 2 seconds only
+      return () => clearTimeout(timer);
+    }
+  }, [showDistribution]);
+
+  // Add this effect to prevent game restarts
+  useEffect(() => {
+    if (gameState?.gameStarted && !gameState.isGameOver) {
+      // If game is already started and not over, prevent any restart attempts
+      return;
+    }
+  }, [gameState?.gameStarted, gameState?.isGameOver]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -255,7 +273,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             {isUserWinner ? (
               <span className="text-green-400">Congratulations! You won! 🎉</span>
             ) : (
-              <span>{winner?.username} won the game!</span>
+              <span className="text-yellow-400">{winner?.username} won the game!</span>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -280,7 +298,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           <div className="flex justify-center">
             <Button
               onClick={() => window.location.href = "/lobby"}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
             >
               Return to Lobby
             </Button>

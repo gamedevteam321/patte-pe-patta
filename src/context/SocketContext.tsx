@@ -23,6 +23,8 @@ export interface Player {
   isActive: boolean;
   autoPlayCount: number;
   coins?: number;
+  wins?: number;
+  losses?: number;
 }
 
 export interface GameState {
@@ -690,6 +692,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       const now = Date.now();
       
+      // Check if game duration has expired
       if (gameState.gameStartTime && gameState.roomDuration) {
         const gameEndTime = gameState.gameStartTime + gameState.roomDuration;
         if (now > gameEndTime) {
@@ -698,13 +701,30 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
+      // Check for turn timeout
       if (gameState.turnEndTime && now > gameState.turnEndTime) {
         handleTurnTimeout();
       }
       
+      // Check if any player has won by having no cards
       const playerWithNoCards = gameState.players.find(player => player.cards.length === 0);
       if (playerWithNoCards) {
         endGame(playerWithNoCards.id);
+        return;
+      }
+
+      // Check if all players except one have left
+      const activePlayers = gameState.players.filter(p => p.isActive);
+      if (activePlayers.length === 1) {
+        endGame(activePlayers[0].id);
+        return;
+      }
+
+      // Check if all players have been inactive for too long
+      const allInactive = gameState.players.every(p => p.autoPlayCount >= 2);
+      if (allInactive) {
+        endGame();
+        return;
       }
     };
     
@@ -782,7 +802,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const endGame = (winningPlayerId?: string) => {
+  const endGame = async (winningPlayerId?: string) => {
     if (!gameState || !roomChannel || !currentRoom) return;
     
     console.log(`Ending game, winner ID: ${winningPlayerId || "none - determining by card count"}`);
@@ -791,18 +811,40 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (winningPlayerId) {
       winner = gameState.players.find(p => p.id === winningPlayerId);
     } else {
+      // If no specific winner, determine by card count
       const sortedPlayers = [...gameState.players].sort((a, b) => b.cards.length - a.cards.length);
       winner = sortedPlayers[0];
     }
     
     if (!winner) return;
     
+    // Calculate coins won
+    const coinsWon = currentRoom.bet_amount * gameState.players.length;
+    
+    // Update winner's coins
+    const updatedPlayers = gameState.players.map(player => {
+      if (player.id === winner?.id) {
+        return {
+          ...player,
+          coins: (player.coins || 0) + coinsWon,
+          wins: (player.wins || 0) + 1
+        };
+      } else {
+        return {
+          ...player,
+          losses: (player.losses || 0) + 1
+        };
+      }
+    });
+    
     const updatedGameState = {
       ...gameState,
+      players: updatedPlayers,
       isGameOver: true,
       winner
     };
     
+    // Broadcast the game over state
     roomChannel.send({
       type: 'broadcast',
       event: 'game_state',
@@ -811,17 +853,49 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setGameState(updatedGameState);
     
-    supabase
-      .from('game_rooms')
-      .update({ status: "finished" })
-      .eq('id', currentRoom.id)
-      .then(() => {
-        console.log("Room status updated to finished");
-      });
+    // Update room status in database
+    try {
+      await supabase
+        .from('game_rooms')
+        .update({ 
+          status: "finished",
+          winner_id: winner.id,
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', currentRoom.id);
+
+      // Update player stats in game_players table
+      for (const player of updatedPlayers) {
+        // First, get the current player record
+        const { data: playerData, error: fetchError } = await supabase
+          .from('game_players')
+          .select('*')
+          .eq('user_id', player.id)
+          .eq('room_id', currentRoom.id)
+          .single();
+
+        if (fetchError) {
+          console.error("Error fetching player data:", fetchError);
+          continue;
+        }
+
+        // Update the player's stats
+        await supabase
+          .from('game_players')
+          .update({
+            username: player.username,
+            joined_at: playerData.joined_at
+          })
+          .eq('user_id', player.id)
+          .eq('room_id', currentRoom.id);
+      }
+    } catch (error) {
+      console.error("Error updating game completion data:", error);
+    }
     
     toast({
       title: "Game Over!",
-      description: `${winner.username} wins the game!`
+      description: `${winner.username} wins the game and ${coinsWon} coins!`
     });
   };
 
@@ -848,18 +922,58 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     // Move all central pile cards to the player's hand
     const updatedPlayers = [...gameState.players];
+    const centralPileCards = [...gameState.centralPile];
     updatedPlayers[playerIndex] = {
       ...updatedPlayers[playerIndex],
-      cards: [...updatedPlayers[playerIndex].cards, ...gameState.centralPile]
+      cards: [...updatedPlayers[playerIndex].cards, ...centralPileCards]
     };
     
-    // Create a new game state with the match animation cleared
+    // Check if this match makes the player win (has all cards)
+    const totalCards = updatedPlayers.reduce((sum, player) => sum + player.cards.length, 0);
+    const winningPlayer = updatedPlayers[playerIndex];
+    
+    if (winningPlayer.cards.length === totalCards) {
+      // Player has all cards, they win!
+      const updatedGameState = {
+        ...gameState,
+        players: updatedPlayers,
+        centralPile: [],
+        isGameOver: true,
+        winner: winningPlayer,
+        matchAnimation: {
+          isActive: true,
+          cardId: centralPileCards[centralPileCards.length - 1]?.id || "",
+          playerId: playerId
+        }
+      };
+      
+      console.log("Game Over - Player has all cards:", winningPlayer.username);
+      
+      // Broadcast the game over state
+      roomChannel.send({
+        type: 'broadcast',
+        event: 'game_state',
+        payload: { gameState: updatedGameState }
+      });
+      
+      setGameState(updatedGameState);
+      
+      // Call endGame to handle database updates and notifications
+      endGame(winningPlayer.id);
+      return;
+    }
+    
+    // If no winner yet, continue with normal match handling
     const updatedGameState = {
       ...gameState,
       players: updatedPlayers,
       centralPile: [],
       lastMatchWinner: playerId,
-      matchAnimation: undefined // Explicitly clear the match animation
+      matchAnimation: {
+        isActive: true,
+        cardId: centralPileCards[centralPileCards.length - 1]?.id || "",
+        playerId: playerId
+      }
     };
     
     console.log("Broadcasting updated game state after match");
@@ -1014,6 +1128,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const startGame = async () => {
     if (!gameState || !currentRoom || !roomChannel) return;
     
+    // Prevent starting if game is already in progress
+    if (gameState.gameStarted && !gameState.isGameOver) {
+      console.log("Game is already in progress");
+      return;
+    }
+    
     console.log("Starting game");
     
     // First, initialize the game and distribute cards
@@ -1041,7 +1161,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       gameStarted: true,
       gameStartTime,
       roomDuration,
-      turnEndTime: gameStartTime + 15000
+      turnEndTime: gameStartTime + 15000,
+      isGameOver: false // Explicitly set to false when starting
     };
     
     roomChannel.send({
@@ -1166,7 +1287,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         players,
         currentPlayerIndex: 0,
         centralPile: [],
-        isGameOver: false,
+        isGameOver: false, // Keep this false until startGame is called
         gameStarted: false, // Keep this false until startGame is called
         gameStartTime: undefined,
         turnEndTime: undefined,

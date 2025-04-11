@@ -51,13 +51,20 @@ export interface RoomData {
   name: string;
   host_id: string;
   host_name: string;
-  player_count: number;
   max_players: number;
+  player_count: number;
   is_private: boolean;
-  password?: string; // For room creation
-  status: "waiting" | "playing" | "finished";
+  password?: string;
+  status: 'waiting' | 'playing' | 'finished';
   bet_amount: number;
   created_at: string;
+}
+
+interface UserData {
+  id: string;
+  email: string;
+  username?: string;
+  coins: number;
 }
 
 type SocketContextType = {
@@ -384,7 +391,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .eq('id', roomId)
         .single();
       
-      if (roomError) {
+      if (roomError || !roomData) {
         console.error("Error fetching room:", roomError);
         toast({
           title: "Room not found",
@@ -395,18 +402,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      if (!roomData) {
+      // Check if player has enough coins using local user state
+      if (user.coins < roomData.bet_amount) {
         toast({
-          title: "Room not found",
-          description: "The room you're trying to join doesn't exist.",
+          title: "Insufficient Coins",
+          description: `You need ${roomData.bet_amount} coins to join this room.`,
           variant: "destructive"
         });
         setJoinInProgress(false);
         return false;
       }
-      
-      const typedRoomData = roomData as RoomData;
-      
+
       // Check if the player is already in the room
       const { data: existingPlayer } = await supabase
         .from('game_players')
@@ -417,15 +423,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (existingPlayer) {
         console.log("Player already in room, just refreshing state");
-        setCurrentRoom(typedRoomData);
+        setCurrentRoom(roomData as RoomData);
         joinRoomChannel(roomId);
-        await initializeGame(roomId, typedRoomData.max_players);
+        await initializeGame(roomId, roomData.max_players);
         setJoinInProgress(false);
         return true;
       }
       
       // Only check player count for new players joining
-      if (typedRoomData.player_count >= typedRoomData.max_players) {
+      if (roomData.player_count >= roomData.max_players) {
         toast({
           title: "Room full",
           description: "This room is already full.",
@@ -435,7 +441,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return false;
       }
       
-      if (typedRoomData.is_private) {
+      if (roomData.is_private) {
         if (!password) {
           toast({
             title: "Password required",
@@ -446,7 +452,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return false;
         }
         
-        if (password !== typedRoomData.password) {
+        if (password !== roomData.password) {
           toast({
             title: "Incorrect password",
             description: "The password you entered is incorrect.",
@@ -456,6 +462,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return false;
         }
       }
+      
+      // Deduct coins from local user state
+      const newCoins = user.coins - roomData.bet_amount;
+      user.coins = newCoins;
+      
+      // Show coin deduction notification
+      toast({
+        title: "Room Joined",
+        description: `${roomData.bet_amount} coins have been deducted. Current balance: ${newCoins} coins`,
+      });
       
       // New player joining
       const { error: playerError } = await supabase
@@ -479,16 +495,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       const { error: updateError } = await supabase
         .from('game_rooms')
-        .update({ player_count: typedRoomData.player_count + 1 })
+        .update({ player_count: roomData.player_count + 1 })
         .eq('id', roomId);
       
       if (updateError) {
         console.error("Error updating player count:", updateError);
       }
       
-      typedRoomData.player_count += 1;
+      roomData.player_count += 1;
       
-      setCurrentRoom(typedRoomData);
+      setCurrentRoom(roomData as RoomData);
       const channel = joinRoomChannel(roomId);
       
       const { data: playersData } = await supabase
@@ -510,12 +526,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (updateError) {
           console.error("Error updating player count:", updateError);
         } else {
-          typedRoomData.player_count = playersData.length;
-          setCurrentRoom(typedRoomData);
+          roomData.player_count = playersData.length;
+          setCurrentRoom(roomData as RoomData);
         }
       }
       
-      await initializeGame(roomId, typedRoomData.max_players);
+      await initializeGame(roomId, roomData.max_players);
       
       if (channel) {
         channel.send({

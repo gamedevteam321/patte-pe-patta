@@ -6,8 +6,10 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
-// Import controllers
+// Import controllers and middleware
 const gameController = require('../components/game/gameController');
+const authController = require('../components/auth/authController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Health check endpoint
 router.get('/health', async (req, res) => {
@@ -38,10 +40,16 @@ router.get('/health', async (req, res) => {
   }
 });
 
-// Game routes
-router.get('/games', gameController.getGames);
-router.post('/games', gameController.createGame);
-router.get('/games/:id', gameController.getGame);
-router.put('/games/:id', gameController.updateGame);
+// Auth routes
+router.post('/auth/login', authController.login);
+router.post('/auth/register', authController.register);
+router.post('/auth/logout', authController.logout);
+router.get('/auth/verify', authController.verifyToken);
+
+// Protected game routes
+router.get('/games', authMiddleware, gameController.getGames);
+router.post('/games', authMiddleware, gameController.createGame);
+router.get('/games/:id', authMiddleware, gameController.getGame);
+router.put('/games/:id', authMiddleware, gameController.updateGame);
 
 module.exports = router; 

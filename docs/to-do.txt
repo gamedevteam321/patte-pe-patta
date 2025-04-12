@@ -1,0 +1,14 @@
+[] server
+    [] User login and logout
+        []
+        {
+    "email": "test@example.com",
+    "password": "yourpassword"
+}
+{
+    "email": "shobhit.rawat@saathi.in",
+    "password": "demopassword"
+}
+    [] room management
+    [] game management
+    [] money management

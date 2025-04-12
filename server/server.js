@@ -21,16 +21,11 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api/v1', require('./routing/api'));
+app.use('/api/v1', require('./routing/api_v1'));
 
 // Socket.io connection handling
-io.on('connection', (socket) => {
-  console.log('New client connected');
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
-  });
-});
+const socketHandler = require('./components/socket/socketHandler');
+socketHandler(io);
 
 // Start server
 const PORT = process.env.PORT || 3000;

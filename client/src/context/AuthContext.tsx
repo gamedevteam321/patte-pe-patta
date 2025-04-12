@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from "@/integrations/supabase/client";
+import { authService, AuthResponse } from "@/services/authService";
 
 type User = {
   id: string;
@@ -70,22 +70,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!isSessionValid(session)) {
       try {
-        // Try to refresh the session
-        const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
-        if (error) {
-          console.error("Session refresh failed:", error);
+        const response = await authService.verifyToken(session.access_token);
+        if (response.status === 'NG') {
           return false;
         }
-        if (newSession) {
-          saveSession({
-            access_token: newSession.access_token,
-            refresh_token: newSession.refresh_token,
-            expires_at: newSession.expires_at!,
-          });
+        if (response.user) {
+          setUser(response.user);
           return true;
         }
       } catch (error) {
-        console.error("Error refreshing session:", error);
+        console.error("Error verifying session:", error);
         return false;
       }
     }
@@ -111,91 +105,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    // Set up auth state listener for Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session ? "User logged in" : "No session");
-      
-      if (session?.user) {
-        // Save session to localStorage
-        saveSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at!,
-        });
-
-        // If we have a Supabase session, retrieve or initialize the user data
-        const savedUser = localStorage.getItem("user");
-        if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          parsedUser.id = session.user.id;
-          setUser(parsedUser);
-        } else {
-          const newUser: User = {
-            id: session.user.id,
-            username: session.user.email?.split('@')[0] || 'Player',
-            email: session.user.email || '',
-            avatar: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`,
-            coins: 1000,
-            wins: 0,
-            losses: 0
-          };
-          setUser(newUser);
-          localStorage.setItem("user", JSON.stringify(newUser));
-        }
-      } else {
-        setUser(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("session");
-      }
-      setIsLoading(false);
-    });
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setUser(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("session");
-      }
-      setIsLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: 'demopassword'
-      });
+      const response = await authService.login(email, password);
       
-      if (error) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: 'demopassword'
-        });
-        
-        if (signUpError) throw signUpError;
+      if (response.status === 'NG' || !response.user || !response.token) {
+        throw new Error(response.error || 'Login failed');
       }
       
-      const mockUser: User = {
-        id: data?.user?.id || uuidv4(),
-        username: email.split('@')[0],
-        email,
-        avatar: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`,
-        coins: 1000,
-        wins: 0,
-        losses: 0,
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem("user", JSON.stringify(mockUser));
+      setUser(response.user);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      saveSession({
+        access_token: response.token,
+        refresh_token: response.token,
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
+      });
     } catch (error) {
       console.error("Login failed", error);
       throw error;
@@ -208,25 +134,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: 'demopassword'
+      const response = await authService.register(username, email, password);
+      
+      if (response.status === 'NG' || !response.user || !response.token) {
+        throw new Error(response.error || 'Registration failed');
+      }
+      
+      setUser(response.user);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      saveSession({
+        access_token: response.token,
+        refresh_token: response.token,
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
       });
-      
-      if (error) throw error;
-      
-      const mockUser: User = {
-        id: data?.user?.id || uuidv4(),
-        username,
-        email,
-        avatar: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`,
-        coins: 1000,
-        wins: 0,
-        losses: 0,
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem("user", JSON.stringify(mockUser));
     } catch (error) {
       console.error("Registration failed", error);
       throw error;
@@ -238,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      await supabase.auth.signOut();
+      await authService.logout();
       setUser(null);
       localStorage.removeItem("user");
       localStorage.removeItem("session");

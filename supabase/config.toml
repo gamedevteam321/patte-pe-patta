@@ -1,0 +1,35 @@
+# Project configuration
+project_id = "nesxgukzngrupkbuxujg"
+
+# Database configuration
+[db]
+  port = 5432
+  major_version = 15
+
+# API configuration
+[api]
+  port = 54321
+  schemas = ["public", "storage"]
+  extra_search_path = ["public", "extensions"]
+  max_rows = 1000
+
+# Studio configuration
+[studio]
+  port = 54323
+
+# Inbucket configuration
+[inbucket]
+  port = 54324
+  smtp_port = 54325
+  pop3_port = 54326
+
+# Storage configuration
+[storage]
+  file_size_limit = 52428800
+
+# Auth configuration
+[auth]
+  site_url = "http://localhost:3000"
+  additional_redirect_urls = ["https://localhost:3000"]
+  jwt_expiry = 3600
+  enable_signup = true 

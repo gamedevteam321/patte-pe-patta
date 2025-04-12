@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KeyRound } from "lucide-react";
-import { useSocket } from "@/context/SocketContext";
+import { useState } from 'react';
 
 interface JoinRoomDialogProps {
   isOpen: boolean;
@@ -20,114 +19,58 @@ interface JoinRoomDialogProps {
   onJoin: (roomId: string, password?: string) => void;
 }
 
-const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({ 
-  isOpen, 
-  setIsOpen, 
-  roomId, 
-  onJoin 
-}) => {
-  const [code, setCode] = useState("");
+const JoinRoomDialog = ({ isOpen, setIsOpen, roomId, onJoin }: JoinRoomDialogProps) => {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const { availableRooms } = useSocket();
+  const [isJoining, setIsJoining] = useState(false);
 
-  // Set initial code when roomId changes
-  useEffect(() => {
-    if (roomId) {
-      setCode(roomId);
-    }
-  }, [roomId]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!code.trim() && !roomId) {
-      setError("Please enter a room code");
-      return;
+    setIsJoining(true);
+    try {
+      await onJoin(roomId, password);
+      setPassword("");
+    } finally {
+      setIsJoining(false);
     }
-    
-    const roomToJoin = code.trim() || roomId;
-    
-    // Check if it's a valid room
-    const room = availableRooms.find(r => r.id === roomToJoin);
-    if (!room) {
-      setError("Room not found");
-      return;
-    }
-    
-    if (room.is_private && !password.trim()) {
-      setError("Password is required for private rooms");
-      return;
-    }
-    
-    console.log("Joining room from dialog:", roomToJoin, "with password:", password.trim() ? "provided" : "none");
-    onJoin(roomToJoin, password.trim() || undefined);
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-    setCode(roomId || "");
-    setPassword("");
-    setError("");
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="glass-panel border-game-green/30 bg-game-card">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center text-game-green">
-            <KeyRound className="mr-2 h-5 w-5" />
-            Join Private Room
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Enter Room Password
           </DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="roomCode">Room Code</Label>
-            <Input
-              id="roomCode"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setError("");
-              }}
-              placeholder="Enter room code"
-              className="input-field"
-              readOnly={!!roomId}
-            />
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter room password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoFocus
+              />
+            </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">Room Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              placeholder="Enter room password"
-              className="input-field"
-              autoFocus
-            />
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-          
-          <DialogFooter className="flex justify-between">
+          <DialogFooter>
             <Button 
               type="button" 
-              variant="ghost" 
-              onClick={handleClose}
-              className="text-gray-400 hover:text-white hover:bg-white/10"
+              variant="outline" 
+              onClick={() => setIsOpen(false)}
+              disabled={isJoining}
             >
               Cancel
             </Button>
             <Button 
-              type="submit"
-              className="bg-game-green hover:bg-game-green/80 text-white"
+              type="submit" 
+              disabled={!password.trim() || isJoining}
             >
-              Join Room
+              {isJoining ? 'Joining...' : 'Join Room'}
             </Button>
           </DialogFooter>
         </form>

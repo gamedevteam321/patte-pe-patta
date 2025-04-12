@@ -14,11 +14,20 @@ const authMiddleware = require('../middleware/authMiddleware');
 // Health check endpoint
 router.get('/health', async (req, res) => {
   try {
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+    const supabase = createClient(
+      process.env.SUPABASE_URL, 
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
     
     // Check database connection
     const { data, error } = await supabase
-      .from('game_rooms')
+      .from('rooms')
       .select('count')
       .limit(1);
     

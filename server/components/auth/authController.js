@@ -5,7 +5,18 @@ const jwt = require('jsonwebtoken');
 // Load environment variables
 dotenv.config();
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// Initialize Supabase clients - one with anon key for auth, one with service role for admin operations
+const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 const jwtSecret = process.env.JWT_SECRET || 'secret_2025';
 
 const authController = {
@@ -14,7 +25,7 @@ const authController = {
       const { email, password } = req.body;
       
       // Try to sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabaseAuth.auth.signInWithPassword({
         email,
         password
       });
@@ -26,6 +37,25 @@ const authController = {
           status: 'NG',
           error: 'Login failed: Invalid email or password' 
         });
+      }
+      
+      // After successful login, check if profile exists
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      
+      // If profile doesn't exist, create one
+      if (profileError) {
+        // Create a default profile
+        await supabaseAdmin
+          .from('profiles')
+          .insert([{
+            id: data.user.id,
+            username: email.split('@')[0],
+            avatar_url: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`
+          }]);
       }
       
       // Successful login
@@ -63,12 +93,21 @@ const authController = {
     try {
       const { username, email, password } = req.body;
       
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await supabaseAuth.auth.signUp({
         email,
         password
       });
       
       if (error) throw error;
+
+      // Create a profile using admin client
+      await supabaseAdmin
+        .from('profiles')
+        .insert([{
+          id: data.user.id,
+          username,
+          avatar_url: `/avatars/avatar${Math.floor(Math.random() * 8) + 1}.png`
+        }]);
       
       const mockUser = {
         id: data.user.id,
@@ -98,7 +137,7 @@ const authController = {
 
   logout: async (req, res) => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabaseAuth.auth.signOut();
       
       if (error) throw error;
       
@@ -119,17 +158,24 @@ const authController = {
       const decoded = jwt.verify(token, jwtSecret);
       
       // Get user data from Supabase
-      const { data: { user }, error } = await supabase.auth.getUser(token);
+      const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
       
       if (error) {
         return res.status(401).json({ error: 'Invalid token' });
       }
       
+      // Get profile data
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
       res.json({
         user: {
           id: user.id,
           email: user.email,
-          username: user.email.split('@')[0]
+          username: profile?.username || user.email.split('@')[0]
         }
       });
     } catch (error) {

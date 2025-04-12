@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -35,14 +34,7 @@ const Lobby: React.FC = () => {
 
     // Initial room fetch
     fetchRooms();
-    
-    // Set up interval to refresh rooms periodically
-    const intervalId = setInterval(() => {
-      fetchRooms();
-    }, 10000); // Every 10 seconds
-    
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated, navigate, fetchRooms, currentRoom]);
+  }, [isAuthenticated, navigate, currentRoom, fetchRooms]);
 
   const handleRefresh = () => {
     console.log("Manually refreshing room list");

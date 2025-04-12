@@ -4,7 +4,17 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// Initialize Supabase client with service role key to bypass RLS
+const supabase = createClient(
+  process.env.SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 const gameController = {
   getGames: async (req, res) => {

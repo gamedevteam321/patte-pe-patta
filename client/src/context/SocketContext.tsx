@@ -45,6 +45,7 @@ export interface GameState {
 export interface RoomData {
   id: string;
   name: string;
+  code: string;
   hostName: string;
   maxPlayers: number;
   players: Player[];
@@ -106,20 +107,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchRooms = React.useCallback(() => {
     const now = Date.now();
     if (now - lastFetchTime < 2000) {
-      return;
-    }
-
+        return;
+      }
+      
     if (socket && isConnected) {
       setLastFetchTime(now);
       socket.emit('fetch_rooms', (response: { success: boolean; rooms: RoomData[] }) => {
         if (response.success) {
           setAvailableRooms(response.rooms);
         } else {
-          toast({
-            title: "Error",
+        toast({
+          title: "Error",
             description: "Failed to fetch rooms. Please try again.",
-            variant: "destructive"
-          });
+          variant: "destructive"
+        });
         }
       });
     }
@@ -279,7 +280,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setCurrentRoom(response.room);
           resolve(true);
         } else {
-          toast({
+    toast({
             title: "Failed to join room",
             description: response.error || "Unknown error",
             variant: "destructive"
@@ -287,7 +288,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           resolve(false);
         }
       });
-    });
+      });
   };
 
   const leaveRoom = () => {

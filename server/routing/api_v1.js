@@ -27,7 +27,7 @@ router.get('/health', async (req, res) => {
     
     // Check database connection
     const { data, error } = await supabase
-      .from('rooms')
+      .from('game_rooms')
       .select('count')
       .limit(1);
     

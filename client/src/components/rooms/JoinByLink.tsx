@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -33,10 +32,10 @@ const JoinByLink: React.FC = () => {
     try {
       console.log("Joining room by link with code:", roomCode.trim());
       
-      // Check if room exists
-      const roomExists = availableRooms.some(room => room.id === roomCode.trim());
+      // Check if room exists and get its ID
+      const room = availableRooms.find(room => room.code === roomCode.trim());
       
-      if (!roomExists) {
+      if (!room) {
         toast({
           title: "Room not found",
           description: "The room code you entered doesn't exist.",
@@ -49,14 +48,14 @@ const JoinByLink: React.FC = () => {
       // Force a small delay to simulate network request
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      const success = await joinRoom(roomCode.trim(), password.trim() || undefined);
+      const success = await joinRoom(room.id, password.trim() || undefined);
       
       if (success) {
         toast({
           title: "Success!",
           description: "You've joined the room successfully.",
         });
-        navigate(`/room/${roomCode.trim()}`);
+        navigate(`/room/${room.id}`);
       } else {
         toast({
           title: "Failed to join room",

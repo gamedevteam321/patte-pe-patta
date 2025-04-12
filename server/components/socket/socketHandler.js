@@ -86,16 +86,14 @@ const socketHandler = (io) => {
             
             return {
               id: room.id,
-              code: room.code,
+              name: room.name || "Game Room",
+              hostName: room.host_name,
+              maxPlayers: room.max_players || 2,
+              playerCount: playerCount,
+              isPrivate: room.is_private || false,
+              betAmount: room.amount_stack || 0,
               status: room.status,
-              created_by: room.created_by,
-              max_players: room.max_players, 
-              player_count: playerCount,
-              amount_stack: room.amount_stack,
-              roomName: inMemoryRoom.roomName || "Game Room",
-              hostName: inMemoryRoom.hostName || "Host",
-              isPrivate: inMemoryRoom.isPrivate || false,
-              isFull: playerCount >= room.max_players
+              createdAt: room.created_at
             };
           });
           
@@ -160,7 +158,12 @@ const socketHandler = (io) => {
             status: 'waiting',
             code: roomCode,
             max_players: roomData.maxPlayers || 2, // Default to 2 players
-            amount_stack: roomData.betAmount || 0
+            amount_stack: roomData.betAmount || 0,
+            host_id: roomData.userId,
+            host_name: roomData.hostName,
+            player_count: 1,
+            is_private: roomData.isPrivate || false,
+            name: roomData.name || "Game Room"
           }])
           .select()
           .single();
@@ -239,8 +242,10 @@ const socketHandler = (io) => {
     socket.on('join_room', async (roomData, callback) => {
       try {
         const { roomId, userId, username } = roomData;
+        console.log('Join room request received:', { roomId, userId, username });
         
         if (!userId) {
+          console.log('Join room failed: Authentication required');
           socket.emit('room:error', { message: 'Authentication required' });
           if (callback) callback({ success: false, error: 'Authentication required' });
           return;
@@ -254,14 +259,18 @@ const socketHandler = (io) => {
           .single();
 
         if (roomError || !room) {
+          console.log('Join room failed: Room not found in database', { roomError });
           if (callback) {
             callback({ success: false, error: 'Room not found' });
           }
           return;
         }
 
+        console.log('Room found in database:', room);
+
         // Check if room is private and validate password
         if (room.is_private && room.password !== roomData.password) {
+          console.log('Join room failed: Invalid password for private room');
           if (callback) {
             callback({ success: false, error: 'Invalid password' });
           }
@@ -271,8 +280,17 @@ const socketHandler = (io) => {
         // Check if room is full
         const roomInMemory = rooms.get(roomId);
         const playerCount = roomInMemory?.players?.length || 0;
+        console.log('Current room state:', { 
+          roomInMemory: roomInMemory ? { 
+            ...roomInMemory, 
+            players: roomInMemory.players.map(p => ({ id: p.id, name: p.name }))
+          } : null,
+          playerCount,
+          maxPlayers: room.max_players 
+        });
         
         if (playerCount >= room.max_players) {
+          console.log('Join room failed: Room is full');
           if (callback) {
             callback({ success: false, error: 'Room is full' });
           }
@@ -280,45 +298,74 @@ const socketHandler = (io) => {
         }
 
         // Get current room data from memory or initialize if not exists
-        const roomData = rooms.get(roomId) || { 
+        const currentRoom = rooms.get(roomId) || { 
           ...room,
           roomName: room.name || "Game Room",
-          hostName: "Host",
+          hostName: room.host_name || "Host",
           players: []
         };
         
+        // Check if player is already in the room
+        const existingPlayer = currentRoom.players.find(p => p.userId === userId);
+        if (existingPlayer) {
+          console.log('Player already in room:', existingPlayer);
+          if (callback) {
+            callback({ success: true, room: currentRoom });
+          }
+          return;
+        }
+        
         // Add player to room in memory
-        roomData.players.push({
+        const newPlayer = {
           id: socket.id,
           userId: userId,
           name: username,
           isHost: false,
           isReady: false
-        });
+        };
+        currentRoom.players.push(newPlayer);
+        console.log('Added new player to room:', newPlayer);
         
-        rooms.set(roomId, roomData);
+        rooms.set(roomId, currentRoom);
         socket.join(roomId);
+
+        // Update player count in database
+        const { error: updateError } = await supabase
+          .from('rooms')
+          .update({ player_count: currentRoom.players.length })
+          .eq('id', roomId);
+
+        if (updateError) {
+          console.error('Failed to update player count:', updateError);
+        }
 
         // Notify room about new player
         io.to(roomId).emit('player_joined', {
-          player: { id: socket.id, userId, name: username, isHost: false, isReady: false }
+          player: newPlayer
         });
         
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
         // Emit joined event to the joining client
-        socket.emit('room:joined', roomData);
+        socket.emit('room:joined', currentRoom);
+
+        console.log('Player successfully joined room:', {
+          roomId,
+          playerCount: currentRoom.players.length,
+          maxPlayers: room.max_players
+        });
 
         if (callback) {
           callback({ 
             success: true,
-            room: roomData
+            room: currentRoom
           });
         }
         
         // Check if room is now full, and start game if needed
-        if (roomData.players.length >= room.max_players) {
+        if (currentRoom.players.length >= room.max_players) {
+          console.log('Room is now full, starting game...');
           // All players are ready when the room is full
           io.to(roomId).emit('room:ready', { roomId });
           
@@ -395,11 +442,19 @@ const socketHandler = (io) => {
     // Handle disconnection
     socket.on('disconnect', async () => {
       try {
-        // Find all rooms the player is in
+        console.log('User disconnected:', socket.id);
+        
+        // Find all rooms where this player is present
         for (const [roomId, room] of rooms.entries()) {
           const playerIndex = room.players.findIndex(p => p.id === socket.id);
           if (playerIndex !== -1) {
             const player = room.players[playerIndex];
+            
+            // Update player count in database
+            await supabase
+              .from('rooms')
+              .update({ player_count: room.players.length - 1 })
+              .eq('id', roomId);
             
             // If player was host, assign new host or delete room
             if (player.isHost) {
@@ -408,9 +463,13 @@ const socketHandler = (io) => {
                 const newHost = room.players.find(p => !p.isHost);
                 if (newHost) {
                   newHost.isHost = true;
-                  
-                  // Update host in database if needed
-                  // No need to update host_id as it's not in the schema
+                  await supabase
+                    .from('rooms')
+                    .update({ 
+                      host_id: newHost.userId,
+                      host_name: newHost.name 
+                    })
+                    .eq('id', roomId);
                 }
               } else {
                 // Delete room if no players left
@@ -427,15 +486,33 @@ const socketHandler = (io) => {
             // Remove player from room
             room.players.splice(playerIndex, 1);
             
+            // Update game state if game was in progress
+            if (room.gameState && room.gameState.status === 'in_progress') {
+              // Handle game state cleanup
+              room.gameState.players = room.gameState.players.filter(p => p.id !== socket.id);
+              if (room.gameState.currentTurn === socket.id) {
+                // Move to next player if it was disconnected player's turn
+                const nextPlayerIndex = room.gameState.players.findIndex(p => p.id === socket.id) + 1;
+                room.gameState.currentTurn = room.gameState.players[nextPlayerIndex % room.gameState.players.length].id;
+              }
+              io.to(roomId).emit('game_state_updated', room.gameState);
+            }
+            
             // Notify remaining players
-            io.to(roomId).emit('player_left', { playerId: socket.id });
+            io.to(roomId).emit('player_left', { 
+              playerId: socket.id,
+              playerName: player.name,
+              isHost: player.isHost
+            });
             
             // Emit rooms updated to all clients
             io.emit('rooms_updated');
           }
         }
       } catch (error) {
-        console.error('Error handling disconnect:', error);
+        console.error('Error handling disconnect:', error.message);
+        // Attempt cleanup even if there's an error
+        socket.leaveAll();
       }
     });
   });

@@ -20,7 +20,7 @@ const gameController = {
   getGames: async (req, res) => {
     try {
       const { data, error } = await supabase
-        .from('game_rooms')
+        .from('rooms')
         .select('*');
       
       if (error) throw error;
@@ -33,7 +33,7 @@ const gameController = {
   createGame: async (req, res) => {
     try {
       const { data, error } = await supabase
-        .from('game_rooms')
+        .from('rooms')
         .insert([req.body])
         .select();
       
@@ -47,7 +47,7 @@ const gameController = {
   getGame: async (req, res) => {
     try {
       const { data, error } = await supabase
-        .from('game_rooms')
+        .from('rooms')
         .select('*')
         .eq('id', req.params.id)
         .single();
@@ -62,7 +62,7 @@ const gameController = {
   updateGame: async (req, res) => {
     try {
       const { data, error } = await supabase
-        .from('game_rooms')
+        .from('rooms')
         .update(req.body)
         .eq('id', req.params.id)
         .select();

@@ -194,43 +194,57 @@ const socketHandler = (io) => {
         // Add to in-memory storage with additional metadata
         const roomWithPlayers = {
           ...supabaseRoom,
-          roomName: roomData.name, // Store name in memory
-          hostName: roomData.hostName, // Store host name in memory
+          roomName: roomData.name,
+          hostName: roomData.hostName,
           isPrivate: roomData.isPrivate || false,
           password: roomData.password || null,
           players: [{
             id: socket.id,
             userId: roomData.userId,
-            name: roomData.hostName,
+            username: roomData.hostName,
             isHost: true,
-            isReady: false
-          }]
+            isReady: true,
+            cards: []
+          }],
+          gameState: {
+            status: 'waiting',
+            players: [{
+              id: socket.id,
+              userId: roomData.userId,
+              username: roomData.hostName,
+              isHost: true,
+              isReady: true,
+              cards: [],
+              score: 0,
+              isActive: true,
+              autoPlayCount: 0
+            }],
+            currentPlayerIndex: 0,
+            centralPile: [],
+            gameStarted: false,
+            isGameOver: false,
+            gameStartTime: null,
+            roomDuration: 10 * 60 * 1000,
+            turnEndTime: null,
+            requiredPlayers: roomData.maxPlayers || 2
+          }
         };
-        rooms.set(supabaseRoom.id, roomWithPlayers);
-        socket.join(supabaseRoom.id);
 
-        // Emit room created event
-        io.emit('rooms_updated');
+        rooms.set(roomId, roomWithPlayers);
+
+        // Join the socket to the room
+        socket.join(roomId);
+
+        // Emit room creation success with game state
+        socket.emit('room:created', roomWithPlayers);
+
+        // Also emit room:joined since the creator is automatically added
         socket.emit('room:joined', roomWithPlayers);
-        
-        // After successful room creation, emit room update event
-        io.emit('room:created', {
-          id: supabaseRoom.id,
-          code: supabaseRoom.code,
-          status: supabaseRoom.status,
-          created_by: supabaseRoom.created_by,
-          max_players: supabaseRoom.max_players,
-          player_count: 1, // New room starts with 1 player
-          amount_stack: supabaseRoom.amount_stack,
-          roomName: roomData.name || "Game Room",
-          hostName: roomData.hostName || "Host",
-          isPrivate: roomData.isPrivate || false,
-          isFull: false
-        });
 
-        if (callback) {
-          callback({ success: true, room: roomWithPlayers });
-        }
+        // Emit game state update to all players in the room
+        io.to(roomId).emit('game_state_updated', roomWithPlayers.gameState);
+
+        if (callback) callback({ success: true, room: roomWithPlayers });
       } catch (error) {
         console.error('Error creating room:', error);
         socket.emit('room:error', { message: `Failed to create room: ${error.message}` });
@@ -251,66 +265,34 @@ const socketHandler = (io) => {
           return;
         }
         
-        // Check if room exists
-        const { data: room, error: roomError } = await supabase
-          .from('rooms')
-          .select('*')
-          .eq('id', roomId)
-          .single();
-
-        if (roomError || !room) {
-          console.log('Join room failed: Room not found in database', { roomError });
+        // Check if room exists in memory first
+        const currentRoom = rooms.get(roomId);
+        if (!currentRoom) {
+          console.log('Join room failed: Room not found in memory');
           if (callback) {
             callback({ success: false, error: 'Room not found' });
           }
           return;
         }
 
-        console.log('Room found in database:', room);
-
-        // Check if room is private and validate password
-        if (room.is_private && room.password !== roomData.password) {
-          console.log('Join room failed: Invalid password for private room');
+        // Check if player is already in the room
+        const existingPlayer = currentRoom.players.find(p => p.userId === userId);
+        if (existingPlayer) {
+          // Update the socket ID for reconnecting player
+          existingPlayer.id = socket.id;
+          socket.join(roomId);
+          console.log('Reconnecting existing player:', existingPlayer);
           if (callback) {
-            callback({ success: false, error: 'Invalid password' });
+            callback({ success: true, room: currentRoom });
           }
           return;
         }
 
         // Check if room is full
-        const roomInMemory = rooms.get(roomId);
-        const playerCount = roomInMemory?.players?.length || 0;
-        console.log('Current room state:', { 
-          roomInMemory: roomInMemory ? { 
-            ...roomInMemory, 
-            players: roomInMemory.players.map(p => ({ id: p.id, name: p.name }))
-          } : null,
-          playerCount,
-          maxPlayers: room.max_players 
-        });
-        
-        if (playerCount >= room.max_players) {
+        if (currentRoom.players.length >= currentRoom.max_players) {
           console.log('Join room failed: Room is full');
           if (callback) {
             callback({ success: false, error: 'Room is full' });
-          }
-          return;
-        }
-
-        // Get current room data from memory or initialize if not exists
-        const currentRoom = rooms.get(roomId) || { 
-          ...room,
-          roomName: room.name || "Game Room",
-          hostName: room.host_name || "Host",
-          players: []
-        };
-        
-        // Check if player is already in the room
-        const existingPlayer = currentRoom.players.find(p => p.userId === userId);
-        if (existingPlayer) {
-          console.log('Player already in room:', existingPlayer);
-          if (callback) {
-            callback({ success: true, room: currentRoom });
           }
           return;
         }
@@ -319,12 +301,31 @@ const socketHandler = (io) => {
         const newPlayer = {
           id: socket.id,
           userId: userId,
-          name: username,
+          username: username,
           isHost: false,
-          isReady: false
+          isReady: false,
+          cards: []
         };
+
         currentRoom.players.push(newPlayer);
-        console.log('Added new player to room:', newPlayer);
+        
+        // Add player to game state
+        if (currentRoom.gameState) {
+          currentRoom.gameState.players.push({
+            ...newPlayer,
+            cards: [],
+            score: 0,
+            isActive: true,
+            autoPlayCount: 0
+          });
+
+          // Check if we have all required players
+          if (currentRoom.gameState.players.length === currentRoom.gameState.requiredPlayers) {
+            currentRoom.gameState.status = 'ready';
+            // Emit room ready event
+            io.to(roomId).emit('room:ready', { roomId });
+          }
+        }
         
         rooms.set(roomId, currentRoom);
         socket.join(roomId);
@@ -347,39 +348,23 @@ const socketHandler = (io) => {
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
-        // Emit joined event to the joining client
-        socket.emit('room:joined', currentRoom);
+        // Emit game state update to all players
+        io.to(roomId).emit('game_state_updated', currentRoom.gameState);
 
-        console.log('Player successfully joined room:', {
-          roomId,
-          playerCount: currentRoom.players.length,
-          maxPlayers: room.max_players
-        });
-
+        // Send proper callback response
         if (callback) {
           callback({ 
             success: true,
             room: currentRoom
           });
         }
-        
-        // Check if room is now full, and start game if needed
-        if (currentRoom.players.length >= room.max_players) {
-          console.log('Room is now full, starting game...');
-          // All players are ready when the room is full
-          io.to(roomId).emit('room:ready', { roomId });
-          
-          // Update room status to playing
-          await supabase
-            .from('rooms')
-            .update({ status: 'playing' })
-            .eq('id', roomId);
-            
-          // Start game after a short delay
-          setTimeout(() => {
-            io.to(roomId).emit('game:start', { roomId });
-          }, 3000);
-        }
+
+        console.log('Player successfully joined room:', {
+          roomId,
+          playerCount: currentRoom.players.length,
+          maxPlayers: currentRoom.max_players,
+          status: currentRoom.gameState.status
+        });
       } catch (error) {
         console.error('Error in join_room:', error);
         if (callback) {
@@ -514,6 +499,122 @@ const socketHandler = (io) => {
         // Attempt cleanup even if there's an error
         socket.leaveAll();
       }
+    });
+
+    // Handle game start
+    socket.on('start_game', async (roomId, callback) => {
+      try {
+        console.log('Start game request received for room:', roomId);
+        
+        const room = rooms.get(roomId);
+        if (!room) {
+          throw new Error('Room not found');
+        }
+
+        // Verify room is ready to start
+        if (room.gameState.status !== 'ready') {
+          throw new Error('Room is not ready to start');
+        }
+
+        // Check if user is host
+        const isHost = room.players[0]?.id === socket.id;
+        if (!isHost) {
+          throw new Error('Only host can start the game');
+        }
+
+        // Initialize game state with deck
+        const deck = shuffleDeck(createDeck());
+        const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
+        
+        // Update game state
+        room.gameState.status = 'in_progress';
+        room.gameState.gameStarted = true;
+        room.gameState.gameStartTime = Date.now();
+        room.gameState.turnEndTime = Date.now() + (30 * 1000);
+
+        // Distribute cards to players
+        room.gameState.players.forEach((player, index) => {
+          player.cards = deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer);
+        });
+
+        // Set remaining cards to central pile
+        room.gameState.centralPile = deck.slice(cardsPerPlayer * room.gameState.players.length);
+
+        // Update room state
+        room.status = 'playing';
+        rooms.set(roomId, room);
+
+        // Update database
+        await supabase
+          .from('rooms')
+          .update({ 
+            status: 'playing',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', roomId);
+
+        // Notify all players
+        io.to(roomId).emit('game:start', {
+          roomId,
+          gameState: room.gameState
+        });
+
+        if (callback) {
+          callback({ success: true });
+        }
+
+        console.log('Game started successfully:', {
+          roomId,
+          playersCount: room.gameState.players.length,
+          status: room.gameState.status
+        });
+      } catch (error) {
+        console.error('Error starting game:', error);
+        if (callback) {
+          callback({ 
+            success: false, 
+            error: error.message || 'Failed to start game' 
+          });
+        }
+      }
+    });
+
+    // Handle shuffle deck
+    socket.on('shuffle_deck', ({ roomId }) => {
+      try {
+        const room = rooms.get(roomId);
+        if (!room || !room.gameState) {
+          console.log('Room or game state not found for shuffle');
+          return;
+        }
+
+        const player = room.gameState.players.find(p => p.id === socket.id);
+        if (!player) {
+          console.log('Player not found for shuffle');
+          return;
+        }
+
+        // Shuffle the player's cards
+        const shuffleCards = (cards) => {
+          for (let i = cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cards[i], cards[j]] = [cards[j], cards[i]];
+          }
+          return cards;
+        };
+
+        player.cards = shuffleCards([...player.cards]);
+
+        // Emit the updated game state
+        io.to(roomId).emit('game_state_updated', room.gameState);
+      } catch (error) {
+        console.error('Error in shuffle_deck:', error);
+      }
+    });
+
+    // Handle play card
+    socket.on('play_card', ({ roomId, card }) => {
+      // ... existing code ...
     });
   });
 };

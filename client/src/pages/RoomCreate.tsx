@@ -83,14 +83,14 @@ const RoomCreate: React.FC = () => {
       
       console.log("Creating room with:", roomConfig);
 
-      const roomId = await createRoom(roomConfig);
+      const result = await createRoom(roomConfig);
       
-      if (roomId) {
+      if (result !== false) {
         toast({
           title: "Success",
           description: "Room created successfully!"
         });
-        navigate(`/room/${roomId}`);
+        navigate(`/room/${result}`);
       } else {
         toast({
           title: "Error",

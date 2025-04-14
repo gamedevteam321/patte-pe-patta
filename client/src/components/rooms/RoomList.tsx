@@ -69,7 +69,7 @@ const RoomList: React.FC = () => {
     
     const success = await joinRoom(roomId, password);
     if (success) {
-      navigate(`/game/${roomId}`);
+      navigate(`/room/${roomId}`);
     }
   };
 

@@ -32,7 +32,13 @@ app.use(express.json());
 
 // Initialize Socket.io with CORS settings
 const io = new Server(server, {
-  cors: corsOptions
+  cors: corsOptions,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
+  allowUpgrades: true,
+  upgrade: true,
+  cookie: false
 });
 
 // Test Supabase connection before starting server
@@ -98,7 +104,7 @@ app.use('/api/v1', require('./routing/api_v1'));
 socketHandler(io);
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 (async () => {
   // Test connection with retry

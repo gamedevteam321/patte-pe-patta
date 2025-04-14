@@ -8,6 +8,7 @@ export interface Card {
   id: string;
   suit: string;
   value: string;
+  rank: string;
 }
 
 export interface Player {
@@ -21,6 +22,7 @@ export interface Player {
   score?: number;
   wins?: number;
   losses?: number;
+  autoPlayCount?: number;
 }
 
 export interface GameState {
@@ -34,6 +36,8 @@ export interface GameState {
   gameStartTime?: number;
   turnEndTime?: number;
   roomDuration?: number;
+  status: 'waiting' | 'ready' | 'in_progress';
+  requiredPlayers: number;
   matchAnimation?: {
     isActive: boolean;
     cardId: string;
@@ -41,7 +45,7 @@ export interface GameState {
   };
 }
 
-// Match the types with Supabase table structure
+// Database schema types
 export interface RoomData {
   id: string;
   name: string;
@@ -70,12 +74,16 @@ interface SocketContextType {
   availableRooms: RoomData[];
   currentRoom: RoomData | null;
   gameState: GameState | null;
+  canStartGame: boolean;
   fetchRooms: () => void;
-  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string; hostId?: string }) => Promise<boolean>;
+  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string; hostId?: string }) => Promise<string | false>;
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
   playCard: (card: any) => void;
+  shuffleDeck: () => void;
+  kickInactivePlayer: (playerId: string) => void;
+  endGame: (winnerId: string) => void;
 }
 
 const SocketContext = React.createContext<SocketContextType>({
@@ -84,12 +92,16 @@ const SocketContext = React.createContext<SocketContextType>({
   availableRooms: [],
   currentRoom: null,
   gameState: null,
+  canStartGame: false,
   fetchRooms: () => {},
   createRoom: async () => false,
   joinRoom: async () => false,
   leaveRoom: () => {},
   startGame: () => {},
-  playCard: () => {}
+  playCard: () => {},
+  shuffleDeck: () => {},
+  kickInactivePlayer: () => {},
+  endGame: () => {}
 });
 
 export const useSocket = () => React.useContext(SocketContext);
@@ -100,6 +112,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [availableRooms, setAvailableRooms] = React.useState<RoomData[]>([]);
   const [currentRoom, setCurrentRoom] = React.useState<RoomData | null>(null);
   const [gameState, setGameState] = React.useState<GameState | null>(null);
+  const [canStartGame, setCanStartGame] = React.useState(false);
   const [lastFetchTime, setLastFetchTime] = React.useState<number>(0);
   const [isConnecting, setIsConnecting] = React.useState(false);
   const { user } = useAuth();
@@ -116,11 +129,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (response.success) {
           setAvailableRooms(response.rooms);
         } else {
-        toast({
+            toast({
           title: "Error",
             description: "Failed to fetch rooms. Please try again.",
-          variant: "destructive"
-        });
+              variant: "destructive"
+            });
         }
       });
     }
@@ -129,9 +142,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initialize socket connection
   const initializeSocket = React.useCallback(() => {
     if (!user || isConnecting || (socket && isConnected)) {
-      return;
-    }
-
+        return;
+      }
+      
     setIsConnecting(true);
     console.log('Initializing socket connection...');
 
@@ -163,10 +176,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       fetchRooms();
     };
 
-    const handleDisconnect = () => {
-      console.log('Socket disconnected');
+    const handleDisconnect = (reason: string) => {
+      console.log('Socket disconnected. Reason:', reason);
       setIsConnected(false);
       setIsConnecting(false);
+      setGameState(null);  // Clear game state on disconnect
+      
+      if (reason === 'io server disconnect') {
+        // Server initiated disconnect, don't attempt reconnection
+        toast({
+          title: "Server Disconnected",
+          description: "The server has closed the connection. Please refresh the page.",
+          variant: "destructive"
+        });
+        return;
+      }
       
       if (reconnectAttempts < 5) {
         connectionTimeout = setTimeout(() => {
@@ -175,12 +199,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           newSocket.connect();
         }, 1000 * reconnectAttempts);
       } else {
-        toast({
+      toast({
           title: "Connection Lost",
           description: "Unable to reconnect. Please refresh the page.",
-          variant: "destructive"
-        });
-      }
+        variant: "destructive"
+      });
+    }
     };
 
     newSocket.on('connect', handleConnect);
@@ -195,20 +219,70 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
-    newSocket.on('room:created', (newRoom: RoomData) => {
-      setAvailableRooms(prevRooms => [...prevRooms, newRoom]);
+    newSocket.on('room:created', (roomData) => {
+      console.log('SocketContext: Room created:', roomData);
+      setCurrentRoom(roomData);
+      if (roomData.gameState) {
+        console.log('SocketContext: Setting initial game state from room creation');
+        setGameState(roomData.gameState);
+      }
     });
 
-    newSocket.on('room:joined', (room: RoomData) => {
-      setCurrentRoom(room);
+    newSocket.on('room:joined', (roomData) => {
+      console.log('SocketContext: Room joined:', roomData);
+      setCurrentRoom(roomData);
+      if (roomData.gameState) {
+        console.log('SocketContext: Setting game state from room join');
+        setGameState(roomData.gameState);
+      }
     });
 
     newSocket.on('room:ready', () => {
+      if (currentRoom?.players.some(p => p.id === user?.id && p.isHost)) {
+        setCanStartGame(true);
+      }
       toast({
         title: "Room is full",
         description: "Game will start shortly...",
         variant: "default"
       });
+    });
+
+    newSocket.on('game:start', (data: { roomId: string; gameState: GameState }) => {
+      console.log('SocketContext: Received game:start event with data:', {
+        roomId: data.roomId,
+        gameState: {
+          gameStarted: data.gameState.gameStarted,
+          playersCount: data.gameState.players.length,
+          currentPlayerIndex: data.gameState.currentPlayerIndex,
+          hasCards: data.gameState.players.some(p => p.cards && p.cards.length > 0)
+        }
+      });
+      
+      if (!data.gameState) {
+        console.error('SocketContext: Game state is missing in game:start event');
+      return;
+    }
+    
+      console.log('SocketContext: Setting game state...');
+      setGameState(data.gameState);
+      console.log('SocketContext: Game state set successfully');
+      
+      toast({
+        title: "Game Started!",
+        description: "The game has begun. Good luck!",
+        variant: "default"
+      });
+    });
+
+    newSocket.on('game_state_updated', (newGameState: GameState) => {
+      console.log('SocketContext: Received game_state_updated:', {
+        gameStarted: newGameState.gameStarted,
+        playersCount: newGameState.players.length,
+        currentPlayerIndex: newGameState.currentPlayerIndex,
+        hasCards: newGameState.players.some(p => p.cards && p.cards.length > 0)
+      });
+      setGameState(newGameState);
     });
 
     setSocket(newSocket);
@@ -243,10 +317,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     betAmount: number; 
     isPrivate: boolean; 
     password?: string;
-  }): Promise<boolean> => {
+  }): Promise<string | false> => {
     if (!socket || !user) return false;
 
-    return new Promise<boolean>((resolve) => {
+    return new Promise<string | false>((resolve) => {
       socket.emit('create_room', {
         name: roomData.name,
         maxPlayers: roomData.playerCount,
@@ -255,9 +329,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         password: roomData.password,
         userId: user.id,
         hostName: user.username || 'Anonymous'
-      }, (response: { success: boolean; error?: string }) => {
-        if (response.success) {
-          resolve(true);
+      }, (response: { success: boolean; room?: RoomData; error?: string }) => {
+        if (response.success && response.room) {
+          resolve(response.room.id);
         } else {
           console.error('Failed to create room:', response.error);
           resolve(false);
@@ -288,7 +362,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           resolve(false);
         }
       });
-      });
+    });
   };
 
   const leaveRoom = () => {
@@ -305,9 +379,46 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const startGame = () => {
-    if (!socket || !isConnected) return;
+    if (!socket || !isConnected || !currentRoom) {
+      console.log('Cannot start game - prerequisites not met:', { 
+        hasSocket: !!socket, 
+        isConnected, 
+        hasCurrentRoom: !!currentRoom 
+      });
+      toast({
+        title: "Cannot start game",
+        description: "Connection or room not available",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log('Emitting start_game event for room:', currentRoom.id);
+    socket.emit('start_game', currentRoom.id, (response: { success: boolean; error?: string }) => {
+      console.log('Received start_game response:', response);
+      if (!response.success) {
+    toast({
+          title: "Failed to start game",
+          description: response.error || "Unknown error occurred",
+          variant: "destructive"
+        });
+        }
+      });
+  };
 
-    socket.emit('start_game');
+  const shuffleDeck = () => {
+    if (!socket || !isConnected) return;
+    socket.emit('shuffle_deck', { roomId: currentRoom?.id });
+  };
+
+  const kickInactivePlayer = (playerId: string) => {
+    if (!socket || !isConnected) return;
+    socket.emit('kick_player', { roomId: currentRoom?.id, playerId });
+  };
+
+  const endGame = (winnerId: string) => {
+    if (!socket || !isConnected) return;
+    socket.emit('end_game', { roomId: currentRoom?.id, winnerId });
   };
 
   return (
@@ -317,12 +428,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         availableRooms, 
         currentRoom, 
         gameState,
+        canStartGame,
       fetchRooms,
         createRoom,
         joinRoom,
         leaveRoom,
         playCard,
-      startGame
+        startGame,
+      shuffleDeck,
+        kickInactivePlayer,
+        endGame
     }}>
       {children}
     </SocketContext.Provider>

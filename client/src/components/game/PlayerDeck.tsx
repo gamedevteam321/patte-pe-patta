@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Player } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Clock, Coins, Timer } from "lucide-react";
+import { UserCircle, Clock, Coins, Timer, Award, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PlayerDeckProps {
   player: Player;
@@ -10,122 +10,179 @@ interface PlayerDeckProps {
   isUser: boolean;
   position?: "top" | "left" | "right" | "bottom";
   turnTimeRemaining?: number;
+  className?: string;
 }
 
-const PlayerDeck: React.FC<PlayerDeckProps> = ({ 
-  player, 
-  isCurrentPlayer, 
-  isUser, 
+const PlayerDeck: React.FC<PlayerDeckProps> = ({
+  player,
+  isCurrentPlayer,
+  isUser,
   position = "bottom",
-  turnTimeRemaining
+  turnTimeRemaining,
+  className = ""
 }) => {
-  // Get player profile color based on position or status
-  const getProfileColor = () => {
-    if (isUser) return "bg-game-blue text-white";
+  const [showCardStats, setShowCardStats] = useState(false);
+  
+  // Calculate score based on card count (in a real game, this might be more complex)
+  const cardScore = player.cards?.length || 0;
+  const hasCardsInDeck = player.cards && player.cards.length > 0;
+  
+  // Calculate fan effect for cards
+  const getFanAngle = (index: number, total: number) => {
+    if (total <= 1) return 0;
     
+    // For positions with different card layouts
     switch(position) {
-      case "top": return "bg-red-500 text-white";
-      case "left": return "bg-blue-600 text-white";
-      case "right": return "bg-orange-500 text-white";
-      default: return "bg-yellow-600 text-white border-2 border-yellow-400";
+      case "top": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8);
+      case "bottom": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8);
+      case "left": return index * 3;
+      case "right": return index * 3;
+      default: return 0;
     }
   };
 
-  // Layout classes based on position
-  const getContainerClasses = () => {
-    switch(position) {
-      case "top":
-        return "flex flex-col items-center";
-      case "left":
-      case "right":
-        return "flex flex-row items-center";
-      default: // bottom
-        return "flex flex-col items-center";
-    }
-  };
-
-  // Card layout classes based on position
-  const getCardClasses = () => {
+  // Card offset calculation
+  const getCardOffset = (index: number, total: number) => {
+    const baseOffset = total > 5 ? 15 : 20;
     switch(position) {
       case "left":
+        return { x: 0, y: index * baseOffset };
       case "right":
-        return "ml-4"; // Add margin for side positions
+        return { x: 0, y: index * baseOffset };
       default:
-        return "mt-2"; // Add margin for top/bottom positions
+        return { x: 0, y: 0 };
     }
-  };
-
-  // Format time remaining for display
-  const formatTimeRemaining = () => {
-    if (turnTimeRemaining === undefined) return "";
-    return `${Math.ceil(turnTimeRemaining / 1000)}s`;
   };
 
   return (
-    <div className={`${getContainerClasses()} p-2`}>
-      {/* Player Avatar */}
-      <div className={`relative rounded-full w-16 h-16 flex items-center justify-center ${getProfileColor()} ${isCurrentPlayer ? 'ring-2 ring-yellow-400' : ''}`}>
-        <span className="text-2xl font-bold">P</span>
-        {isCurrentPlayer && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center">
-            <Clock className="h-3 w-3 text-black" />
+    <div className={`flex flex-col items-center ${position === "bottom" ? "mt-4" : ""} ${isCurrentPlayer ? "player-active" : ""} ${className}`}>
+      <div className={`flex items-center space-x-2 mb-2 p-2 rounded-full ${isCurrentPlayer ? "bg-blue-500/20 border border-blue-400" : ""}`}>
+        <UserCircle className={`h-5 w-5 ${isCurrentPlayer ? "text-blue-400 animate-pulse" : "text-gray-400"}`} />
+        <div className="flex flex-col">
+          <span className={`text-sm font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
+            {player.username}
+          </span>
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-orange-500/20 text-orange-300">
+              <Award className="h-3 w-3 mr-1 text-yellow-400" />
+              {cardScore} cards
+            </Badge>
+            <button 
+              onClick={() => setShowCardStats(!showCardStats)} 
+              className="text-gray-400 hover:text-gray-300 focus:outline-none"
+            >
+              {showCardStats ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </button>
           </div>
+        </div>
+        {isCurrentPlayer && (
+          <Badge variant="default" className="ml-1 bg-blue-600">
+            <Timer className="h-3 w-3 mr-1" />
+            Current
+          </Badge>
         )}
       </div>
       
-      {/* Player Name */}
-      <div className="text-center text-white mt-1 text-sm font-medium">
-        {player.username} {isUser && "(You)"}
+      {showCardStats && (
+        <div className="mb-2 text-xs text-gray-300 bg-gray-800/50 p-1.5 rounded-md">
+          <div className="flex justify-between gap-4">
+            <span>Cards in deck: <strong className="text-blue-300">{player.cards?.length || 0}</strong></span>
+            <span>Score: <strong className="text-green-300">{cardScore}</strong></span>
+          </div>
+          <div className="mt-1 pt-1 border-t border-gray-700 text-center">
+            <span className="text-xs text-yellow-300">
+              Acquire 3 matching cards to win!
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className={`relative ${isCurrentPlayer ? "scale-105" : ""} transition-all duration-300`}>
+        {hasCardsInDeck ? (
+          <div className={`flex justify-center ${position === "left" || position === "right" ? "flex-col" : "flex-row"}`}>
+            {player.cards.map((card, index) => {
+              const fanAngle = getFanAngle(index, player.cards.length);
+              const offset = getCardOffset(index, player.cards.length);
+              
+              return (
+                <div
+                  key={card.id}
+                  className="relative inline-block card-in-deck"
+                  style={{
+                    transform: `rotate(${fanAngle}deg)`,
+                    marginLeft: position !== "left" && position !== "right" ? (index === 0 ? 0 : -40) : 0,
+                    marginTop: (position === "left" || position === "right") ? (index === 0 ? 0 : -60) : 0,
+                    zIndex: index,
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  <PlayingCard 
+                    card={card} 
+                    isBack={!isUser}
+                    className={`${isCurrentPlayer && index === 0 && isUser ? "first-card-highlight" : ""}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 p-4 border border-dashed border-gray-700 rounded-lg">No cards</div>
+        )}
+        
+        {/* Card count badge */}
+        {hasCardsInDeck && (
+          <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 group">
+            {player.cards.length}
+            <span className="absolute -bottom-8 right-0 hidden group-hover:block bg-black/80 text-white text-xs p-1 rounded whitespace-nowrap">
+              {player.username}'s deck
+            </span>
+          </div>
+        )}
       </div>
-      
-      {/* Turn Timer - Only show for current player */}
-      {isCurrentPlayer && turnTimeRemaining !== undefined && (
-        <div className="mt-1 flex items-center justify-center">
-          <Badge variant="outline" className="text-yellow-300 border-yellow-500/30 flex items-center text-xs">
-            <Timer className="h-3 w-3 mr-1 text-yellow-400" />
-            {formatTimeRemaining()}
+
+      {turnTimeRemaining !== undefined && isCurrentPlayer && (
+        <div className="mt-2">
+          <Badge variant="outline" className={`text-xs ${turnTimeRemaining < 5000 ? "border-red-500 text-red-400 animate-pulse" : "border-green-500 text-green-400"}`}>
+            <Clock className="h-3 w-3 mr-1" />
+            {Math.ceil(turnTimeRemaining / 1000)}s
           </Badge>
         </div>
       )}
       
-      {/* Cards Count Badge */}
-      <div className="flex items-center space-x-2 mt-1">
-        <Badge variant="outline" className="text-white text-xs border-white/20 bg-[#0B0C10]/80">
-          {player.cards.length} cards
-        </Badge>
-        {player.coins !== undefined && (
-          <Badge variant="outline" className="text-yellow-300 border-yellow-500/30 flex items-center text-xs">
-            <Coins className="h-3 w-3 mr-1 text-yellow-400" />
-            {player.coins}
-          </Badge>
-        )}
-      </div>
-      
-      {/* Cards */}
-      <div className={`relative ${getCardClasses()}`}>
-        {(position === "left" || position === "right") ? (
-          // Horizontal layout for left/right positions
-          <div className="h-24 w-16">
-            <PlayingCard isBack={true} />
-          </div>
-        ) : (
-          // Default vertical layout
-          player.cards.length > 0 ? (
-            <div className="h-24">
-              {/* Show up to 3 card backs in a stack */}
-              {[...Array(Math.min(1, player.cards.length))].map((_, i) => (
-                <div key={i} className="absolute" style={{ left: `${i * 5}px`, zIndex: i }}>
-                  <PlayingCard isBack={true} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="h-24 flex items-center justify-center text-white/60">
-              No cards
-            </div>
-          )
-        )}
-      </div>
+      <style>{`
+        .player-active {
+          position: relative;
+        }
+        .player-active::after {
+          content: '';
+          position: absolute;
+          top: -5px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-top: 8px solid #3b82f6;
+          animation: bounce 1s infinite;
+        }
+        .first-card-highlight {
+          box-shadow: 0 0 8px 2px rgba(59, 130, 246, 0.6);
+          transform: translateY(-5px);
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-5px); }
+        }
+        .card-in-deck:hover {
+          transform: translateY(-8px) !important;
+          z-index: 10 !important;
+        }
+      `}</style>
     </div>
   );
 };

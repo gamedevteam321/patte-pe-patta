@@ -513,6 +513,11 @@ const socketHandler = (io) => {
 
         // Verify room is ready to start
         if (room.gameState.status !== 'ready') {
+          console.log('Room not ready to start:', {
+            status: room.gameState.status,
+            players: room.players.length,
+            required: room.gameState.requiredPlayers
+          });
           throw new Error('Room is not ready to start');
         }
 
@@ -523,6 +528,32 @@ const socketHandler = (io) => {
         }
 
         // Initialize game state with deck
+        const createDeck = () => {
+          const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+          const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+          const deck = [];
+
+          for (let suit of suits) {
+            for (let value of values) {
+              deck.push({
+                id: `${value}-${suit}`,
+                suit,
+                value,
+                rank: values.indexOf(value)
+              });
+            }
+          }
+          return deck;
+        };
+
+        const shuffleDeck = (deck) => {
+          for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+          }
+          return deck;
+        };
+
         const deck = shuffleDeck(createDeck());
         const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
         
@@ -530,11 +561,30 @@ const socketHandler = (io) => {
         room.gameState.status = 'in_progress';
         room.gameState.gameStarted = true;
         room.gameState.gameStartTime = Date.now();
-        room.gameState.turnEndTime = Date.now() + (30 * 1000);
+        room.gameState.currentPlayerIndex = 0; // Start with first player
+        room.gameState.turnEndTime = Date.now() + (15 * 1000);
+
+        console.log('Setting initial game state:', {
+          status: room.gameState.status,
+          gameStarted: room.gameState.gameStarted,
+          currentPlayerIndex: room.gameState.currentPlayerIndex,
+          firstPlayerId: room.gameState.players[0].userId,
+          firstPlayerName: room.gameState.players[0].username,
+          allPlayers: room.gameState.players.map(p => ({
+            id: p.id,
+            userId: p.userId,
+            username: p.username
+          }))
+        });
 
         // Distribute cards to players
         room.gameState.players.forEach((player, index) => {
           player.cards = deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer);
+          console.log(`Distributed ${player.cards.length} cards to player:`, {
+            username: player.username,
+            userId: player.userId,
+            isFirstPlayer: index === 0
+          });
         });
 
         // Set remaining cards to central pile
@@ -544,30 +594,30 @@ const socketHandler = (io) => {
         room.status = 'playing';
         rooms.set(roomId, room);
 
-        // Update database
-        await supabase
-          .from('rooms')
-          .update({ 
-            status: 'playing',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', roomId);
+        // Emit an immediate game state update to ensure all clients are in sync
+        io.to(roomId).emit('game:update', {
+          gameState: room.gameState
+        });
 
-        // Notify all players
+        // Notify all players about game start
         io.to(roomId).emit('game:start', {
           roomId,
           gameState: room.gameState
         });
 
+        console.log('Game started successfully:', {
+          roomId,
+          currentPlayerIndex: room.gameState.currentPlayerIndex,
+          firstPlayer: {
+            userId: room.gameState.players[0].userId,
+            username: room.gameState.players[0].username
+          },
+          totalPlayers: room.gameState.players.length
+        });
+
         if (callback) {
           callback({ success: true });
         }
-
-        console.log('Game started successfully:', {
-          roomId,
-          playersCount: room.gameState.players.length,
-          status: room.gameState.status
-        });
       } catch (error) {
         console.error('Error starting game:', error);
         if (callback) {
@@ -613,8 +663,147 @@ const socketHandler = (io) => {
     });
 
     // Handle play card
-    socket.on('play_card', ({ roomId, card }) => {
-      // ... existing code ...
+    socket.on('play_card', ({ id, card, roomId }) => {
+      try {
+        console.log('Play card request received:', { 
+          playerId: id, 
+          roomId, 
+          card: `${card.value}-${card.suit}` 
+        });
+        
+        const room = rooms.get(roomId);
+        if (!room) {
+          console.error('Room not found:', roomId);
+          return;
+        }
+
+        // Validate player's turn
+        const playerIndex = room.gameState.players.findIndex(p => p.id === id);
+        if (room.gameState.currentPlayerIndex !== playerIndex) {
+          console.log('Not player\'s turn:', {
+            currentPlayerIndex: room.gameState.currentPlayerIndex,
+            playerIndex: playerIndex,
+            playerId: id
+          });
+          return;
+        }
+
+        const player = room.gameState.players.find(p => p.id === id);
+        if (!player) {
+          console.error('Player not found:', id);
+          return;
+        }
+
+        // Verify card exists in player's deck
+        const cardIndex = player.cards.findIndex(c => 
+          c.value === card.value && c.suit === card.suit
+        );
+        
+        if (cardIndex === -1) {
+          console.error('Card not found in player\'s deck:', {
+            playerId: id,
+            card,
+            playerCardsCount: player.cards.length
+          });
+          return;
+        }
+
+        console.log('Successfully playing card:', {
+          player: player.username,
+          card: `${card.value}-${card.suit}`,
+          roomId
+        });
+
+        // Remove card from player's deck
+        const [playedCard] = player.cards.splice(cardIndex, 1);
+        
+        // Get the current top card before adding the new one
+        const centralPileLength = room.gameState.centralPile.length;
+        const topCard = centralPileLength > 0 ? room.gameState.centralPile[centralPileLength - 1] : null;
+
+        // Add card to central pile
+        room.gameState.centralPile.push(playedCard);
+
+        // Check for a match with the previous top card only
+        let hasMatch = false;
+        if (topCard && topCard.value === playedCard.value) {
+          hasMatch = true;
+          
+          console.log('Match found with top card:', {
+            playedCard: `${playedCard.value}-${playedCard.suit}`,
+            topCard: `${topCard.value}-${topCard.suit}`,
+            player: player.username
+          });
+          
+          // Handle match animation
+          room.gameState.matchAnimation = {
+            isActive: true,
+            cardId: playedCard.id,
+            playerId: id
+          };
+          
+          // Collect ALL cards from central pile
+          const allCentralPileCards = [...room.gameState.centralPile];
+          const totalCardsCollected = allCentralPileCards.length;
+          
+          console.log('Player collecting all central pile cards:', {
+            player: player.username,
+            totalCardsCollected,
+            matchValue: playedCard.value
+          });
+          
+          // Clear the central pile
+          room.gameState.centralPile = [];
+          
+          // Add all cards to player's deck
+          player.cards.push(...allCentralPileCards);
+          
+          // Emit match event
+          io.to(roomId).emit('card_match', {
+            playerId: id,
+            cards: allCentralPileCards
+          });
+        }
+
+        // Calculate next player index
+        let nextPlayerIndex = (room.gameState.currentPlayerIndex + 1) % room.gameState.players.length;
+        
+        // Skip inactive players
+        while (
+          room.gameState.players[nextPlayerIndex] && 
+          !room.gameState.players[nextPlayerIndex].isActive && 
+          nextPlayerIndex !== room.gameState.currentPlayerIndex
+        ) {
+          nextPlayerIndex = (nextPlayerIndex + 1) % room.gameState.players.length;
+        }
+
+        // Update current player index
+        room.gameState.currentPlayerIndex = nextPlayerIndex;
+        
+        // Set turn end time (15 seconds from now)
+        room.gameState.turnEndTime = Date.now() + 15000;
+        
+        console.log('Turn changed to next player:', {
+          previousPlayerIndex: playerIndex,
+          newPlayerIndex: nextPlayerIndex,
+          newPlayerName: room.gameState.players[nextPlayerIndex].username
+        });
+        
+        // Update game state for all players
+        io.to(roomId).emit('game_state_updated', room.gameState);
+        
+        // Notify players of turn change
+        io.to(roomId).emit('turn_changed', {
+          previousPlayerId: id,
+          currentPlayerIndex: room.gameState.currentPlayerIndex,
+          currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex].id,
+          nextPlayerUsername: room.gameState.players[room.gameState.currentPlayerIndex].username,
+          turnEndTime: room.gameState.turnEndTime
+        });
+
+      } catch (error) {
+        console.error('Error playing card:', error);
+      }
     });
   });
 };

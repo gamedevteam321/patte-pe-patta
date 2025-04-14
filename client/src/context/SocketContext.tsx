@@ -13,6 +13,7 @@ export interface Card {
 
 export interface Player {
   id: string;
+  userId: string;
   username: string;
   avatar?: string;
   cards?: Card[];
@@ -80,7 +81,7 @@ interface SocketContextType {
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
-  playCard: (card: any) => void;
+  playCard: (playerId: string, card: Card) => void;
   shuffleDeck: () => void;
   kickInactivePlayer: (playerId: string) => void;
   endGame: (winnerId: string) => void;
@@ -238,12 +239,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('room:ready', () => {
-      if (currentRoom?.players.some(p => p.id === user?.id && p.isHost)) {
+      console.log('Room ready event received');
+      const isHost = currentRoom?.players[0]?.id === socket.id;
+      console.log('Is host check:', { isHost, currentRoom });
+      if (isHost) {
+        console.log('Setting canStartGame to true for host');
         setCanStartGame(true);
       }
       toast({
-        title: "Room is full",
-        description: "Game will start shortly...",
+        title: "Room is Ready",
+        description: "All players have joined. Host can start the game!",
         variant: "default"
       });
     });
@@ -372,10 +377,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentRoom(null);
   };
 
-  const playCard = (card: any) => {
-    if (!socket || !isConnected) return;
+  const playCard = (playerId: string, card: Card) => {
+    if (!socket || !currentRoom) return;
 
-    socket.emit('play_card', { roomId: currentRoom?.id, card });
+    console.log('Playing card:', {
+      playerId: playerId,
+      currentRoomId: currentRoom.id,
+      card
+    });
+
+    socket.emit('play_card', { 
+      id: playerId, 
+      card,
+      roomId: currentRoom.id 
+    });
   };
 
   const startGame = () => {
@@ -397,14 +412,41 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.emit('start_game', currentRoom.id, (response: { success: boolean; error?: string }) => {
       console.log('Received start_game response:', response);
       if (!response.success) {
-    toast({
+        toast({
           title: "Failed to start game",
           description: response.error || "Unknown error occurred",
           variant: "destructive"
         });
-        }
-      });
+      } else {
+        toast({
+          title: "Game Starting",
+          description: "The game is now starting...",
+        });
+      }
+    });
   };
+
+  // Update the room:ready handler
+  React.useEffect(() => {
+    if (!socket) return;
+
+    socket.on('room:ready', (data) => {
+      console.log('Room is ready:', data);
+      if (currentRoom?.players.some(p => p.id === user?.id && p.isHost)) {
+        console.log('Setting canStartGame to true for host');
+        setCanStartGame(true);
+      }
+      toast({
+        title: "Room is Ready",
+        description: "All players have joined. Host can start the game!",
+        variant: "default"
+      });
+    });
+
+    return () => {
+      socket.off('room:ready');
+    };
+  }, [socket, currentRoom, user]);
 
   const shuffleDeck = () => {
     if (!socket || !isConnected) return;
@@ -421,24 +463,62 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.emit('end_game', { roomId: currentRoom?.id, winnerId });
   };
 
+  React.useEffect(() => {
+    if (!socket) return;
+
+    const handleGameStateUpdate = (newGameState: GameState) => {
+      console.log('Game state updated:', {
+        currentPlayerIndex: newGameState.currentPlayerIndex,
+        currentPlayerId: newGameState.players[newGameState.currentPlayerIndex]?.id,
+        gameStarted: newGameState.gameStarted
+      });
+      setGameState(newGameState);
+    };
+
+    const handleTurnChanged = (data: { 
+      currentPlayerIndex: number;
+      currentPlayerId: string;
+      nextPlayerUsername: string;
+    }) => {
+      console.log('Turn changed:', data);
+      if (gameState) {
+        setGameState(prev => ({
+          ...prev!,
+          currentPlayerIndex: data.currentPlayerIndex
+        }));
+      }
+    };
+
+    socket.on('game_state_updated', handleGameStateUpdate);
+    socket.on('turn_changed', handleTurnChanged);
+
+    return () => {
+      socket.off('game_state_updated', handleGameStateUpdate);
+      socket.off('turn_changed', handleTurnChanged);
+    };
+  }, [socket, gameState]);
+
+  const contextValue = {
+    socket,
+    isConnected,
+    user,
+    gameState,
+    currentRoom,
+    availableRooms,
+    fetchRooms,
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    startGame,
+    playCard,
+    kickInactivePlayer,
+    endGame,
+    shuffleDeck,
+    canStartGame
+  };
+
   return (
-    <SocketContext.Provider value={{
-      socket,
-        isConnected, 
-        availableRooms, 
-        currentRoom, 
-        gameState,
-        canStartGame,
-      fetchRooms,
-        createRoom,
-        joinRoom,
-        leaveRoom,
-        playCard,
-        startGame,
-      shuffleDeck,
-        kickInactivePlayer,
-        endGame
-    }}>
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );

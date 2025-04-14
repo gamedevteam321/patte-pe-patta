@@ -1,50 +1,69 @@
-
 import React from "react";
-import { Card as CardType } from "@/context/SocketContext";
+import { Card } from "@/context/SocketContext";
 
 interface PlayingCardProps {
-  card?: CardType;
+  card?: Card;
   isBack?: boolean;
   className?: string;
   isMatched?: boolean;
 }
 
 const PlayingCard: React.FC<PlayingCardProps> = ({ card, isBack = false, className = "", isMatched = false }) => {
-  // If showing back of card or no card provided, render card back
-  if (isBack || !card) {
+  if (!card && !isBack) {
+    return null;
+  }
+
+  if (isBack) {
     return (
-      <div className={`card-back ${className} bg-[#8B0000] rounded-md w-16 h-24 relative flex items-center justify-center shadow`}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <img 
-            src="/lovable-uploads/bebf358c-ed3c-4e33-90b4-b88a8a430586.png" 
-            alt="Card back" 
-            className="w-full h-full object-cover rounded-md"
-          />
-        </div>
+      <div className={`w-16 h-24 bg-blue-600 rounded-lg shadow-lg border-2 border-white/20 flex items-center justify-center ${className}`}>
+        <div className="text-white text-2xl font-bold">🂠</div>
       </div>
     );
   }
 
-  // Determine card color based on suit
-  const isRed = card.suit === "hearts" || card.suit === "diamonds";
-  const textColor = isRed ? "text-red-500" : "text-black";
-  
-  // Card animation class for matched cards
-  const matchedClass = isMatched ? "animate-card-play" : "";
+  const getSuitColor = (suit: string) => {
+    return suit === "♥" || suit === "♦" || suit === "hearts" || suit === "diamonds" 
+      ? "text-red-500" 
+      : "text-black";
+  };
 
-  // Get suit symbol
-  const suitSymbol = {
-    hearts: "♥",
-    diamonds: "♦",
-    clubs: "♣",
-    spades: "♠"
-  }[card.suit];
+  const getSuitSymbol = (suit: string) => {
+    switch (suit) {
+      case "♥": return "♥";
+      case "♦": return "♦";
+      case "♣": return "♣";
+      case "♠": return "♠";
+      case "hearts": return "♥";
+      case "diamonds": return "♦";
+      case "clubs": return "♣";
+      case "spades": return "♠";
+      default: return suit;
+    }
+  };
 
   return (
-    <div className={`card-front ${className} ${matchedClass} bg-white border border-gray-200 rounded-md w-16 h-24 relative flex items-center justify-center shadow`}>
-      <div className={`absolute top-1 left-1 text-xs font-bold ${textColor}`}>{card.rank}</div>
-      <div className={`text-xl font-bold ${textColor}`}>{suitSymbol}</div>
-      <div className={`absolute bottom-1 right-1 text-xs font-bold rotate-180 ${textColor}`}>{card.rank}</div>
+    <div className={`w-16 h-24 bg-white rounded-lg shadow-lg border-2 border-gray-200 flex flex-col p-1 ${className} ${isMatched ? 'animate-card-match' : ''}`}>
+      <div className="flex justify-between items-start">
+        <div className={`text-sm font-bold ${getSuitColor(card.suit)}`}>
+          {card.value}
+        </div>
+        <div className={`text-sm ${getSuitColor(card.suit)}`}>
+          {getSuitSymbol(card.suit)}
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className={`text-2xl ${getSuitColor(card.suit)}`}>
+          {getSuitSymbol(card.suit)}
+        </div>
+      </div>
+      <div className="flex justify-between items-end">
+        <div className={`text-sm ${getSuitColor(card.suit)}`}>
+          {getSuitSymbol(card.suit)}
+        </div>
+        <div className={`text-sm font-bold ${getSuitColor(card.suit)}`}>
+          {card.value}
+        </div>
+      </div>
     </div>
   );
 };

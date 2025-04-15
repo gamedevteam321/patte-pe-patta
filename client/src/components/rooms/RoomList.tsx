@@ -10,34 +10,43 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users, Coins, RefreshCw } from "lucide-react";
+import { Lock, Users, Coins, RefreshCw, List, Grid } from "lucide-react";
 import { useSocket } from '@/context/SocketContext';
 import { useAuth } from '@/context/AuthContext';
 import JoinRoomDialog from './JoinRoomDialog';
 import { toast } from '@/hooks/use-toast';
+import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
+import { Input } from '../ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { formatDistanceToNow } from 'date-fns';
 
 interface RoomItem {
   id: string;
-  code: string;
+  name: string;
   status: string;
-  created_by: string;
-  max_players: number;
-  player_count: number;
-  amount_stack: number;
-  roomName: string;
+  betAmount: number;
+  maxPlayers: number;
+  playerCount: number;
   hostName: string;
   isPrivate: boolean;
-  isFull: boolean;
+  createdAt: string;
+  players?: Array<{
+    id: string;
+    username: string;
+    isReady: boolean;
+  }>;
 }
 
 const RoomList: React.FC = () => {
   const { availableRooms, fetchRooms, joinRoom } = useSocket();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [password, setPassword] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -59,6 +68,13 @@ const RoomList: React.FC = () => {
     loadRooms();
   }, [fetchRooms]);
 
+  // Add debug logging for room data
+  useEffect(() => {
+    if (availableRooms) {
+      console.log('Available Rooms:', availableRooms);
+    }
+  }, [availableRooms]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -75,12 +91,21 @@ const RoomList: React.FC = () => {
     }
   };
 
-  const handleJoinClick = (roomId: string, isPrivate: boolean) => {
-    if (isPrivate) {
-      setSelectedRoom(roomId);
+  const handleJoinClick = (room: RoomItem) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please login to join a room",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (room.isPrivate) {
+      setSelectedRoom(room);
       setIsDialogOpen(true);
     } else {
-      handleJoinRoom(roomId);
+      handleJoinRoom(room.id, room.betAmount > 0 ? room.betAmount.toString() : undefined);
     }
   };
 
@@ -100,71 +125,178 @@ const RoomList: React.FC = () => {
     }
   };
 
-  // Cast availableRooms to the proper interface
-  const rooms = availableRooms as unknown as RoomItem[];
+  const formatDate = (dateString: string) => {
+    try {
+      // Check if dateString is valid
+      if (!dateString) {
+        return 'Just now';
+      }
+
+      // Try to parse the date
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Just now';
+      }
+
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Just now';
+    }
+  };
+
+  // Cast availableRooms to the proper interface and ensure number values
+  const rooms = (availableRooms as unknown as RoomItem[]).map(room => ({
+    ...room,
+    playerCount: Number(room.playerCount) || 0,
+    maxPlayers: Number(room.maxPlayers) || 2
+  }));
+
+  const calculatePoolMoney = (room: RoomItem) => {
+    const betAmount = Number(room.betAmount) || 0;
+    const joinedPlayers = Number(room.playerCount) || 0;
+    return betAmount * joinedPlayers;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Available Rooms</h2>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh} 
-          disabled={isRefreshing || isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-4">
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(value) => setViewMode(value as 'list' | 'grid')}
+          >
+            <ToggleGroupItem value="list" aria-label="List view">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grid" aria-label="Grid view">
+              <Grid className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      {rooms.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">No rooms available</p>
         </div>
-      ) : rooms.length === 0 ? (
-        <Card className="bg-muted/50">
-          <CardContent className="pt-6 text-center">
-            <p>No rooms available. Create a new room to start playing!</p>
-          </CardContent>
-        </Card>
+      ) : viewMode === 'list' ? (
+        <div className="space-y-4">
+          {rooms.map((room) => (
+            <Card key={room.id} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">{room.name || "Game Room"}</CardTitle>
+                    <CardDescription>
+                      Hosted by {room.hostName || "Anonymous"} • {formatDate(room.createdAt)}
+                    </CardDescription>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span>Players ({room.playerCount || 0}/{room.maxPlayers || 2})</span>
+                    </div>
+                    {room.players && room.players.length > 0 && (
+                      <div className="text-sm text-muted-foreground pl-6">
+                        {room.players.map((player, index) => (
+                          <div key={player.id} className="flex items-center gap-2">
+                            <span>{player.username}</span>
+                            {player.isReady && (
+                              <Badge variant="outline" className="text-xs">Ready</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="font-medium">₹{room.betAmount || 0}</div>
+                      <div className="text-sm text-muted-foreground">Bet Amount</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">₹{calculatePoolMoney(room)}</div>
+                      <div className="text-sm text-muted-foreground">Pool Amount</div>
+                    </div>
+                    <Button
+                      onClick={() => handleJoinClick(room)}
+                      disabled={room.playerCount >= room.maxPlayers}
+                    >
+                      {room.playerCount >= room.maxPlayers ? 'Full' : 'Join'}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {rooms.map((room) => (
-            <Card key={room.id} className={`${room.isFull ? 'opacity-60' : ''}`}>
+            <Card key={room.id} className="hover:bg-accent/50 transition-colors">
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="truncate">{room.roomName || "Game Room"}</CardTitle>
-                  {room.isPrivate && <Lock className="h-4 w-4 text-orange-500" />}
-                </div>
+                <CardTitle className="text-lg">{room.name || "Game Room"}</CardTitle>
                 <CardDescription>
                   Hosted by {room.hostName || "Anonymous"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
-                  <div className="flex items-center text-sm">
-                    <Users className="h-4 w-4 mr-1" />
-                    {room.player_count}/{room.max_players} Players
-                  </div>
-                  {room.amount_stack > 0 && (
-                    <div className="flex items-center text-sm">
-                      <Coins className="h-4 w-4 mr-1" />
-                      {room.amount_stack} Coins
-                    </div>
-                  )}
+                  <span className="text-sm text-muted-foreground">Created</span>
+                  <span className="text-sm">{formatDate(room.createdAt)}</span>
                 </div>
-                <Badge className={room.isFull ? "bg-muted text-muted-foreground" : ""}>
-                  {room.isFull ? "Full" : "Waiting for players"}
-                </Badge>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Bet Amount</span>
+                  <span className="text-sm font-medium">₹{room.betAmount || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Pool Amount</span>
+                  <span className="text-sm font-medium">₹{calculatePoolMoney(room)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Players ({room.playerCount || 0}/{room.maxPlayers || 2})
+                  </span>
+                </div>
+                {room.players && room.players.length > 0 && (
+                  <div className="space-y-1 mt-2 border-t pt-2">
+                    {room.players.map((player, index) => (
+                      <div key={player.id} className="flex items-center justify-between text-sm">
+                        <span>{player.username}</span>
+                        {player.isReady && (
+                          <Badge variant="outline" className="text-xs">Ready</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
               <CardFooter>
-                <Button 
-                  className="w-full" 
-                  disabled={room.isFull}
-                  onClick={() => handleJoinClick(room.id, room.isPrivate)}
+                <Button
+                  className="w-full"
+                  onClick={() => handleJoinClick(room)}
+                  disabled={room.playerCount >= room.maxPlayers}
                 >
-                  {room.isFull ? "Room Full" : "Join Room"}
+                  {room.playerCount >= room.maxPlayers ? 'Full' : 'Join'}
                 </Button>
               </CardFooter>
             </Card>
@@ -173,12 +305,33 @@ const RoomList: React.FC = () => {
       )}
 
       {selectedRoom && (
-        <JoinRoomDialog
-          isOpen={isDialogOpen}
-          setIsOpen={setIsDialogOpen}
-          roomId={selectedRoom}
-          onJoin={handleJoinRoom}
-        />
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Join Private Room</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                type="password"
+                placeholder="Enter room password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (selectedRoom) {
+                    handleJoinRoom(selectedRoom.id, password);
+                    setIsDialogOpen(false);
+                    setPassword('');
+                  }
+                }}
+              >
+                Join Room
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

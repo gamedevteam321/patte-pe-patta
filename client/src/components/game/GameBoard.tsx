@@ -123,18 +123,19 @@ const styles = `
   
   @keyframes card-collect {
     0% {
-      transform: translate(0, 0) rotate(0deg) scale(1);
+      transform: translate(-50%, -50%) scale(1) rotate(0deg);
       opacity: 1;
     }
     100% {
-      transform: translate(var(--collect-x), var(--collect-y)) rotate(360deg) scale(0.2);
+      transform: translate(var(--collect-x), var(--collect-y)) scale(0.2) rotate(360deg);
       opacity: 0;
     }
   }
   
   .card-collect {
+    position: fixed;
     animation: card-collect 1s ease-out forwards;
-    position: absolute;
+    pointer-events: none;
   }
   
   .match-highlight {
@@ -172,6 +173,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [lastMatchPlayer, setLastMatchPlayer] = useState<string | null>(null);
   const [matchedCards, setMatchedCards] = useState<Card[]>([]);
   const [showCardCollection, setShowCardCollection] = useState(false);
+  const [matchingCards, setMatchingCards] = useState<Card[]>([]);
+  const [showMatchingCards, setShowMatchingCards] = useState(false);
 
   const { 
     gameState, 
@@ -482,47 +485,54 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState.centralPile]);
 
-  // Add effect listener for card matches
+  // Update the handleCardMatch function
   useEffect(() => {
     if (!socket) return;
 
     const handleCardMatch = (data: { playerId: string, cards: Card[] }) => {
-      console.log('Card match detected:', {
-        playerId: data.playerId,
-        matchedCards: data.cards.map(c => `${c.value}-${c.suit}`),
-        matchCount: data.cards.length,
-        isUserMatch: data.playerId === userPlayer?.id
-      });
+      // Find the matching cards (the last card played and its match)
+      const matchedCard = data.cards[data.cards.length - 1];
+      const matchingCard = data.cards.find(card => 
+        card.id !== matchedCard.id && card.value === matchedCard.value
+      );
       
-      // Play match animation
-      setShowMatchAnimation(true);
+      // First show matching cards
+      setMatchingCards([matchedCard, matchingCard].filter(Boolean));
+      setShowMatchingCards(true);
       setActionsDisabled(true);
-      setLastMatchPlayer(data.playerId);
+      
+      // Save the matched cards data
       setMatchedCards(data.cards);
+      setLastMatchPlayer(data.playerId);
       
-      // Show which player got the match
-      const matchPlayer = players.find(p => p.id === data.playerId);
-      if (matchPlayer) {
-        toast({
-          title: `Match!`,
-          description: `${matchPlayer.username} matched the top card and collected all ${data.cards.length} cards from the pile!`,
-          variant: "default"
-        });
-      }
-      
-      // Show the match animation first, then the collection animation, then clear both
+      // Show matching cards for 1 second
       setTimeout(() => {
-        setShowMatchAnimation(false);
-        setShowCardCollection(true);
+        setShowMatchingCards(false);
+        setShowMatchAnimation(true);
         
-        // After showing the collection animation, hide it and enable actions
+        // Toast notification
+        const matchPlayer = players.find(p => p.id === data.playerId);
+        if (matchPlayer) {
+          toast({
+            title: `Match!`,
+            description: `${matchPlayer.username} matched ${matchedCard.value} of ${matchedCard.suit} with ${matchingCard?.value} of ${matchingCard?.suit}!`,
+            variant: "default"
+          });
+        }
+        
+        // Show match animation for 0.8 seconds
         setTimeout(() => {
-          setShowCardCollection(false);
-          setMatchedCards([]);
-          setLastMatchPlayer(null);
-          setActionsDisabled(false);
-        }, 1500);
-      }, 1500);
+          setShowMatchAnimation(false);
+          setShowCardCollection(true);
+          
+          // Show card collection for 1.5 seconds
+          setTimeout(() => {
+            setShowCardCollection(false);
+            setActionsDisabled(false);
+            setMatchingCards([]);
+          }, 1500);
+        }, 800);
+      }, 1000);
     };
 
     socket.on('card_match', handleCardMatch);
@@ -841,6 +851,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
+  const positionedPlayers = getPlayerPositions();
+
+  // Debug logging for Hit button conditions
+  console.log('Hit button conditions:', {
+    gameStarted: gameState.gameStarted,
+    hasUserPlayer: !!userPlayer,
+    isUserTurn,
+    actionsDisabled,
+    currentPlayerId: currentPlayer?.id,
+    userPlayerId: userPlayer?.id
+  });
+
+  // Update the card collection animation to move cards toward the player
   const renderCardCollection = () => {
     if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
     
@@ -853,27 +876,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     switch(targetPlayerPosition) {
       case 'top': 
         targetX = 0; 
-        targetY = -200;
+        targetY = -300;
         break;
       case 'bottom': 
         targetX = 0; 
-        targetY = 200;
+        targetY = 300;
         break;
       case 'left': 
-        targetX = -200; 
+        targetX = -300; 
         targetY = 0;
         break;
       case 'right': 
-        targetX = 200; 
+        targetX = 300; 
         targetY = 0;
         break;
     }
     
-    // Show collecting all cards animation with fanning effect
     return (
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <p className="text-green-400 text-xl text-center mb-4 bg-black/80 p-2 rounded">
+            {players.find(p => p.id === lastMatchPlayer)?.username} collects cards!
+          </p>
+        </div>
         {matchedCards.map((card, index) => {
-          // Calculate spread for fanning effect
           const spreadX = (index % 5) * 10 - 20;
           const spreadY = Math.floor(index / 5) * 10 - 10;
           const rotation = (index * 7) % 30 - 15;
@@ -885,17 +911,40 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               style={{
                 '--collect-x': `${targetX}px`,
                 '--collect-y': `${targetY}px`,
-                top: `calc(50% + ${spreadY}px)`,
                 left: `calc(50% + ${spreadX}px)`,
-                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                top: `calc(50% + ${spreadY}px)`,
+                transform: 'translate(-50%, -50%)',
                 animationDelay: `${index * 0.05}s`,
-                zIndex: 1000 + index
+                zIndex: 9999 + index
               } as React.CSSProperties}
             >
               <PlayingCard card={card} />
             </div>
           );
         })}
+      </div>
+    );
+  };
+
+  // Update the matching cards display component
+  const renderMatchingCards = () => {
+    if (!showMatchingCards || matchingCards.length < 2) return null;
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div className="bg-game-card p-8 rounded-lg border-2 border-blue-500">
+          <h3 className="text-center text-xl font-bold text-blue-300 mb-4">Matching Cards!</h3>
+          <div className="flex gap-4 justify-center">
+            {matchingCards.map((card, index) => (
+              <div key={card.id} className={`transform ${index === 0 ? '-rotate-12' : 'rotate-12'}`}>
+                <PlayingCard card={card} className="scale-150" />
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-4 text-white">
+            <span className="text-sm">Both cards are {matchingCards[0].value}s!</span>
+          </div>
+        </div>
       </div>
     );
   };
@@ -955,18 +1004,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       </div>
     );
   }
-
-  const positionedPlayers = getPlayerPositions();
-
-  // Debug logging for Hit button conditions
-  console.log('Hit button conditions:', {
-    gameStarted: gameState.gameStarted,
-    hasUserPlayer: !!userPlayer,
-    isUserTurn,
-    actionsDisabled,
-    currentPlayerId: currentPlayer?.id,
-    userPlayerId: userPlayer?.id
-  });
 
   return (
     <>
@@ -1132,10 +1169,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   {renderCardCollection()}
                 </div>
                 
-                <div className="mt-3 mb-1 text-center">
+                <div className="mt-3 mb-1 text-center flex flex-col gap-1">
                   <Badge variant="outline" className="bg-gray-800/50 text-blue-300 text-xs border-blue-500/30">
-                    {gameState.centralPile.length} cards
+                    {gameState.centralPile.length > 0 
+                      ? `Top Card: ${gameState.centralPile[gameState.centralPile.length - 1].value} of ${gameState.centralPile[gameState.centralPile.length - 1].suit}`
+                      : 'No cards'}
                   </Badge>
+                  {lastPlayedCard && currentPlayer && (
+                    <Badge variant="outline" className="bg-gray-800/50 text-gray-300 text-xs border-gray-500/30">
+                      Played by: {currentPlayer.username}
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="mt-2 w-full">
@@ -1242,6 +1286,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               ))}
           </div>
 
+          {renderMatchingCards()}
           {showDistribution && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
               <div className="text-center">
@@ -1289,6 +1334,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
       </div>
 
+      {renderMatchingCards()}
+      {renderMatchAnimation()}
+      {renderCardCollection()}
       <style>{styles}</style>
     </>
   );

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -125,8 +124,6 @@ const GameRoom: React.FC = () => {
     );
   }
 
-  const hasMultiplePlayers = gameState?.players.length > 1;
-
   return (
     <Layout>
       <div className="container max-w-[1000px] mx-auto px-4 py-4 bg-[#0B0C10] rounded-lg shadow-md">
@@ -149,20 +146,6 @@ const GameRoom: React.FC = () => {
             Leave Room
           </Button>
         </div>
-
-        {hasMultiplePlayers ? (
-          <div className="w-full mb-4 p-2 bg-blue-600/20 border border-blue-500/30 rounded-md text-center">
-            <p className="text-sm text-blue-300">
-              Multiplayer mode active! Other players have joined the game.
-            </p>
-          </div>
-        ) : (
-          <div className="w-full mb-4 p-2 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
-            <p className="text-sm text-yellow-400">
-              Waiting for other players to join. Share the room code to invite friends!
-            </p>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 gap-4">
           <div>

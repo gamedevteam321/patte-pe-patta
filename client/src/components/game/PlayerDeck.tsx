@@ -1,23 +1,25 @@
 import React, { useState } from "react";
-import { Player } from "@/context/SocketContext";
+import { Card, Player } from "../../types/game";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
 import { UserCircle, Clock, Coins, Timer, Award, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PlayerDeckProps {
   player: Player;
-  isCurrentPlayer: boolean;
-  isUser: boolean;
-  position?: "top" | "top-left" | "top-right" | "left" | "right" | "bottom";
+  position?: Player['position'];
+  isCurrentPlayer?: boolean;
+  isUser?: boolean;
+  onCardClick?: (card: Card) => void;
   turnTimeRemaining?: number;
   className?: string;
 }
 
 const PlayerDeck: React.FC<PlayerDeckProps> = ({
   player,
+  position = "bottom",
   isCurrentPlayer,
   isUser,
-  position = "bottom",
+  onCardClick,
   turnTimeRemaining,
   className = ""
 }) => {
@@ -56,8 +58,39 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
     }
   };
 
+  const getPositionStyles = (position: PlayerDeckProps['position']): string => {
+    switch (position) {
+      case 'bottom':
+        return 'bottom-0';
+      case 'top':
+        return 'top-0';
+      case 'top-left':
+        return 'top-0 left-1/4';
+      case 'top-right':
+        return 'top-0 right-1/4';
+      case 'left':
+        return 'left-0 top-1/2 -translate-y-1/2';
+      case 'right':
+        return 'right-0 top-1/2 -translate-y-1/2';
+      default:
+        return 'bottom-0';
+    }
+  };
+
+  const getPositionLabel = (position: PlayerDeckProps['position']): string => {
+    switch (position) {
+      case 'bottom': return 'You';
+      case 'top': return 'Top';
+      case 'top-left': return 'Top-Left';
+      case 'top-right': return 'Top-Right';
+      case 'left': return 'Left';
+      case 'right': return 'Right';
+      default: return '';
+    }
+  };
+
   return (
-    <div className={`flex flex-col items-center ${position === "bottom" ? "mt-4" : ""} ${isCurrentPlayer ? "player-active" : ""} ${className}`}>
+    <div className={`flex flex-col items-center ${getPositionStyles(position)} ${isCurrentPlayer ? "player-active" : ""} ${className}`}>
       <div className={`flex items-center space-x-2 mb-2 p-2 rounded-full ${isCurrentPlayer ? "bg-blue-500/20 border border-blue-400" : ""}`}>
         <UserCircle className={`h-5 w-5 ${isCurrentPlayer ? "text-blue-400 animate-pulse" : "text-gray-400"}`} />
         <div className="flex flex-col">
@@ -87,6 +120,11 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
             Current
           </Badge>
         )}
+        
+        {/* Position indicator */}
+        <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
+          {getPositionLabel(position)}
+        </Badge>
       </div>
       
       {showCardStats && (

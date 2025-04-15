@@ -783,8 +783,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       return;
     }
 
-    setIsPlayingCard(true);
-    setCardInMotion(cardToPlay);
     setActionsDisabled(true);
     setLastPlayedCard(cardToPlay);
 
@@ -794,11 +792,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (hitButton && centerPool) {
       const buttonRect = hitButton.getBoundingClientRect();
       const poolRect = centerPool.getBoundingClientRect();
-      
-      setCardStartPosition({
-        x: buttonRect.left + buttonRect.width / 2,
-        y: buttonRect.top + buttonRect.height / 2
-      });
       
       // Create animated card container
       const cardElement = document.createElement('div');
@@ -828,26 +821,24 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         cardElement.style.transform = 'translate(-50%, -50%) rotate(360deg)';
       });
       
-      // Remove element after shorter animation duration
+      // Remove element after animation
       setTimeout(() => {
         ReactDOM.unmountComponentAtNode(cardRoot);
         document.body.removeChild(cardElement);
       }, 600);
-    }
 
-    // Reduce the delay for server communication
-    setTimeout(() => {
-      const updatedCards = [...userPlayer.cards];
-      updatedCards.shift();
-      userPlayer.cards = updatedCards;
-      playCard(userPlayer.id, cardToPlay);
-      setIsPlayingCard(false);
-      setCardInMotion(null);
-      
+      // Update game state after animation
       setTimeout(() => {
-        setActionsDisabled(false);
-      }, 300);
-    }, 600);
+        const updatedCards = [...userPlayer.cards];
+        updatedCards.shift();
+        userPlayer.cards = updatedCards;
+        playCard(userPlayer.id, cardToPlay);
+        
+        setTimeout(() => {
+          setActionsDisabled(false);
+        }, 300);
+      }, 600);
+    }
   };
 
   // Check if there's a potential match

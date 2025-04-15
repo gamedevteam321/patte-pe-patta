@@ -217,20 +217,21 @@ const styles = `
   }
 
   .empty-player-slot {
-    background-color: rgba(100, 100, 100, 0.2);
-    border: 1px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    padding: 5px;
-    width: 120px;
-    height: 80px;
+    background-color: rgba(100, 100, 100, 0.15);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 3px;
+    width: 90px;
+    height: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.5);
-    transform: scale(0.6);
-    font-size: 10px;
-    opacity: 0.7;
+    color: rgba(255, 255, 255, 0.3);
+    transform: scale(0.5);
+    font-size: 9px;
+    opacity: 0.5;
+    margin: 10px;
   }
 
   .player-name {
@@ -803,14 +804,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   const getPlayerPositions = () => {
-    const userIndex = players.findIndex(p => p.id === userId);
-    if (userIndex === -1) {
-      // If user not found, assign positions based on array index for debugging
+    // Find the player that matches the current user's ID
+    const currentUserPlayer = players.find(p => p.userId === userId);
+    if (!currentUserPlayer) {
+      console.log("Current user player not found in players list:", { userId, playerIds: players.map(p => p.userId) });
+      // Default fallback positioning if user not found
       return players.map((player, index) => {
-        // Assign positions based on index
         let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
         
-        // Simple position assignment for debugging
         if (index === 0) position = "bottom";
         else if (index === 1) position = "top";
         else if (index === 2) position = "right";
@@ -821,57 +822,62 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         return { 
           player, 
           position, 
-          isUser: false 
+          isUser: player.userId === userId 
         };
       });
     }
     
-    // Rest of the original function...
-    const reorderedPlayers = [...players.slice(userIndex), ...players.slice(0, userIndex)];
+    // Reorder players to put current user first
+    const currentUserIndex = players.findIndex(p => p.userId === userId);
+    const reorderedPlayers = [
+      ...players.slice(currentUserIndex, players.length),
+      ...players.slice(0, currentUserIndex)
+    ];
     
+    // Display positions based on how many players there are
     return reorderedPlayers.map((player, index) => {
-      const isUser = player.id === userId;
+      const isCurrentUser = player.userId === userId;
       const totalPlayers = players.length;
       
-      if (isUser) {
+      // Current user is always at the bottom
+      if (isCurrentUser) {
         return { player, position: "bottom" as const, isUser: true };
       }
       
-      // Calculate positions in a circular arrangement
+      // Position other players based on their relative position to the current user
       switch (totalPlayers) {
         case 2:
-        return { player, position: "top" as const, isUser: false };
+          // With 2 players, other player is at the top
+          return { player, position: "top" as const, isUser: false };
+        
         case 3:
-          switch (index) {
-            case 1: return { player, position: "top-left" as const, isUser: false };
-            case 2: return { player, position: "top-right" as const, isUser: false };
-            default: return { player, position: "bottom" as const, isUser: false };
-          }
+          // With 3 players, positions are: bottom (user), top-left, top-right
+          if (index === 1) return { player, position: "top-left" as const, isUser: false };
+          else return { player, position: "top-right" as const, isUser: false };
+        
         case 4:
-          switch (index) {
-            case 1: return { player, position: "left" as const, isUser: false };
-            case 2: return { player, position: "top" as const, isUser: false };
-            case 3: return { player, position: "right" as const, isUser: false };
-            default: return { player, position: "bottom" as const, isUser: false };
-          }
+          // With 4 players, positions are: bottom (user), left, top, right
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+        
         case 5:
-          switch (index) {
-            case 1: return { player, position: "left" as const, isUser: false };
-            case 2: return { player, position: "top-left" as const, isUser: false };
-            case 3: return { player, position: "top-right" as const, isUser: false };
-            case 4: return { player, position: "right" as const, isUser: false };
-            default: return { player, position: "bottom" as const, isUser: false };
-          }
+          // With 5 players, positions are: bottom (user), left, top-left, top-right, right
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
+          else if (index === 3) return { player, position: "top-right" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+        
         case 6:
-          switch (index) {
-            case 1: return { player, position: "left" as const, isUser: false };
-            case 2: return { player, position: "top-left" as const, isUser: false };
-            case 3: return { player, position: "top" as const, isUser: false };
-            case 4: return { player, position: "top-right" as const, isUser: false };
-            case 5: return { player, position: "right" as const, isUser: false };
-            default: return { player, position: "bottom" as const, isUser: false };
-          }
+          // With 6 players, all positions are filled
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
+          else if (index === 3) return { player, position: "top" as const, isUser: false };
+          else if (index === 4) return { player, position: "top-right" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+        
         default:
+          // Default to top for any other number of players
           return { player, position: "top" as const, isUser: false };
       }
     });
@@ -1299,7 +1305,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           .filter(p => p.position === "top")
           .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1}</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
             <PlayerDeck
               player={player}
               isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1323,7 +1333,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "top-left")
             .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1}</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
               <PlayerDeck
                 player={player}
                 isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1347,7 +1361,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "top-right")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1}</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1371,7 +1389,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "left")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1}</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1438,7 +1460,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             .filter(p => p.position === "right")
             .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1}</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
               <PlayerDeck
                 player={player}
                 isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1462,7 +1488,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           .filter(p => p.position === "bottom")
           .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">Player {players.indexOf(player) + 1} (You)</div>
+                    <div className="player-name">
+                      {player.userId === userId 
+                        ? "You" 
+                        : `Player ${players.indexOf(player) + 1}`}
+                    </div>
             <PlayerDeck
               player={player}
               isCurrentPlayer={player.id === currentPlayer?.id}

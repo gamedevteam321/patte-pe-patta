@@ -224,7 +224,7 @@ const socketHandler = (io) => {
             gameStarted: false,
             isGameOver: false,
             gameStartTime: null,
-            roomDuration: 10 * 60 * 1000,
+            roomDuration: 5 * 60 * 1000,
             turnEndTime: null,
             requiredPlayers: roomData.maxPlayers || 2
           }
@@ -232,10 +232,27 @@ const socketHandler = (io) => {
 
         rooms.set(roomId, roomWithPlayers);
 
-        // Join the socket to the room
+        // Broadcast the new room to all connected clients
+        const roomToBroadcast = {
+          id: roomId,
+          name: roomData.name || "Game Room",
+          hostName: roomData.hostName,
+          maxPlayers: roomData.maxPlayers || 2,
+          players: roomWithPlayers.players,
+          isPrivate: roomData.isPrivate || false,
+          password: roomData.password || null,
+          status: 'waiting',
+          betAmount: roomData.betAmount || 0,
+          createdAt: supabaseRoom.created_at
+        };
+
+        // Broadcast to all clients except the creator
+        socket.broadcast.emit('room:created', roomToBroadcast);
+
+        // Join the room
         socket.join(roomId);
 
-        // Emit room creation success with game state
+        // Send room creation success to the creator with full room data
         socket.emit('room:created', roomWithPlayers);
 
         // Also emit room:joined since the creator is automatically added
@@ -421,6 +438,72 @@ const socketHandler = (io) => {
         if (callback) {
           callback({ success: false, error: error.message });
         }
+      }
+    });
+
+    // Handle leave room
+    socket.on('leave_room', async (roomId) => {
+      try {
+        console.log('Player leaving room:', { socketId: socket.id, roomId });
+        
+        const room = rooms.get(roomId);
+        if (!room) {
+          console.log('Room not found for leave_room:', roomId);
+          return;
+        }
+
+        // Find and remove the player
+        const playerIndex = room.players.findIndex(p => p.id === socket.id);
+        if (playerIndex !== -1) {
+          const player = room.players[playerIndex];
+          
+          // Remove player from room
+          room.players.splice(playerIndex, 1);
+          
+          // Update player count in database
+          await supabase
+            .from('rooms')
+            .update({ player_count: room.players.length })
+            .eq('id', roomId);
+
+          // If player was host, assign new host or delete room
+          if (player.isHost && room.players.length > 0) {
+            const newHost = room.players[0];
+            newHost.isHost = true;
+            await supabase
+              .from('rooms')
+              .update({ 
+                host_id: newHost.userId,
+                host_name: newHost.username 
+              })
+              .eq('id', roomId);
+          }
+
+          // If no players left, delete the room
+          if (room.players.length === 0) {
+            await supabase
+              .from('rooms')
+              .delete()
+              .eq('id', roomId);
+            rooms.delete(roomId);
+          }
+
+          // Notify remaining players
+          io.to(roomId).emit('player_left', { 
+            playerId: socket.id,
+            playerName: player.username,
+            isHost: player.isHost
+          });
+
+          // Emit rooms updated to all clients
+          io.emit('rooms_updated');
+        }
+
+        // Leave the socket room
+        socket.leave(roomId);
+        
+      } catch (error) {
+        console.error('Error in leave_room:', error);
       }
     });
 
@@ -677,6 +760,11 @@ const socketHandler = (io) => {
           return;
         }
 
+        // Always reset any previous match animation state first
+        if (room.gameState.matchAnimation) {
+          room.gameState.matchAnimation.isActive = false;
+        }
+
         // Validate player's turn
         const playerIndex = room.gameState.players.findIndex(p => p.id === id);
         if (room.gameState.currentPlayerIndex !== playerIndex) {
@@ -717,6 +805,51 @@ const socketHandler = (io) => {
         // Remove card from player's deck
         const [playedCard] = player.cards.splice(cardIndex, 1);
         
+        // Check if player has no cards left after playing
+        if (player.cards.length === 0) {
+          console.log('Player has no cards left, removing from game:', {
+            playerId: player.id,
+            username: player.username
+          });
+          
+          // Remove player from game state
+          room.gameState.players = room.gameState.players.filter(p => p.id !== player.id);
+          
+          // Check if only one player remains
+          if (room.gameState.players.length === 1) {
+            const lastPlayer = room.gameState.players[0];
+            console.log('Only one player remains, declaring winner:', {
+              winnerId: lastPlayer.id,
+              winnerName: lastPlayer.username
+            });
+            
+            // Set the last player as winner and end the game
+            room.gameState.isGameOver = true;
+            room.gameState.winner = lastPlayer;
+            
+            // Notify all players about the game over
+            io.to(roomId).emit('game_over', {
+              winner: lastPlayer,
+              reason: 'last_player_standing'
+            });
+          } else if (room.gameState.players.length === 0) {
+            room.gameState.isGameOver = true;
+            console.log('All players removed, game over');
+          } else {
+            // Adjust current player index if needed
+            if (room.gameState.currentPlayerIndex >= room.gameState.players.length) {
+              room.gameState.currentPlayerIndex = 0;
+            }
+          }
+          
+          // Notify all players about the player removal
+          io.to(roomId).emit('player_removed', {
+            playerId: player.id,
+            username: player.username,
+            reason: 'no_cards'
+          });
+        }
+        
         // Get the current top card before adding the new one
         const centralPileLength = room.gameState.centralPile.length;
         const topCard = centralPileLength > 0 ? room.gameState.centralPile[centralPileLength - 1] : null;
@@ -739,7 +872,8 @@ const socketHandler = (io) => {
           room.gameState.matchAnimation = {
             isActive: true,
             cardId: playedCard.id,
-            playerId: id
+            playerId: id,
+            timestamp: Date.now() // Add timestamp to track when the match occurred
           };
           
           // Collect ALL cards from central pile
@@ -800,6 +934,17 @@ const socketHandler = (io) => {
           nextPlayerUsername: room.gameState.players[room.gameState.currentPlayerIndex].username,
           turnEndTime: room.gameState.turnEndTime
         });
+
+        // Set a timeout to clear the match animation state after 3 seconds
+        setTimeout(() => {
+          // Only clear if this is still the active match
+          if (room && room.gameState && room.gameState.matchAnimation && 
+              room.gameState.matchAnimation.cardId === playedCard.id) {
+            room.gameState.matchAnimation.isActive = false;
+            // Emit updated game state
+            io.to(roomId).emit('game_state_updated', room.gameState);
+          }
+        }, 3000);
 
       } catch (error) {
         console.error('Error playing card:', error);

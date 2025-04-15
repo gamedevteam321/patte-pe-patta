@@ -59,14 +59,24 @@ export const authService = {
   },
 
   verifyToken: async (token: string): Promise<AuthResponse> => {
+    console.log("Verifying token...");
     try {
       const response = await axios.get(`${API_URL}/auth/verify`, {
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        timeout: 5000 // 5 second timeout
       });
+      console.log("Token verification response:", response.data);
       return response.data;
     } catch (error: any) {
+      console.error("Token verification error:", error);
+      if (error.code === 'ECONNABORTED') {
+        return {
+          status: 'NG',
+          error: 'Connection timed out'
+        };
+      }
       return {
         status: 'NG',
         error: error.response?.data?.error || 'Token verification failed'

@@ -142,10 +142,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Initialize socket connection
   const initializeSocket = React.useCallback(() => {
-    if (!user || isConnecting || (socket && isConnected)) {
-        return;
-      }
-      
+    if (!user) {
+      console.log('No user found, skipping socket initialization');
+      return;
+    }
+
+    if (isConnecting) {
+      console.log('Already connecting, skipping initialization');
+      return;
+    }
+
+    if (socket && isConnected) {
+      console.log('Socket already connected, skipping initialization');
+      return;
+    }
+
     setIsConnecting(true);
     console.log('Initializing socket connection...');
 
@@ -155,7 +166,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         userId: user.id
       },
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
@@ -184,29 +195,61 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setGameState(null);  // Clear game state on disconnect
       
       if (reason === 'io server disconnect') {
-        // Server initiated disconnect, don't attempt reconnection
-        toast({
-          title: "Server Disconnected",
-          description: "The server has closed the connection. Please refresh the page.",
-          variant: "destructive"
-        });
+        // Server initiated disconnect, attempt reconnection
+        console.log('Server initiated disconnect, attempting to reconnect...');
+        newSocket.connect();
         return;
       }
       
-      if (reconnectAttempts < 5) {
-        connectionTimeout = setTimeout(() => {
-          reconnectAttempts++;
-          console.log(`Attempting to reconnect (${reconnectAttempts}/5)...`);
-          newSocket.connect();
-        }, 1000 * reconnectAttempts);
-      } else {
-      toast({
-          title: "Connection Lost",
-          description: "Unable to reconnect. Please refresh the page.",
-        variant: "destructive"
-      });
-    }
+      // For other disconnects, attempt to reconnect
+      connectionTimeout = setTimeout(() => {
+        reconnectAttempts++;
+        console.log(`Attempting to reconnect (${reconnectAttempts})...`);
+        newSocket.connect();
+      }, 1000 * Math.min(reconnectAttempts, 5));
     };
+
+    // Add room:created event handler
+    newSocket.on('room:created', (roomData) => {
+      console.log('SocketContext: Room created:', roomData);
+      
+      // If this is the current user's room (they created it)
+      if (user && roomData.players.some(player => player.userId === user.id)) {
+        console.log('Setting current room for creator');
+        setCurrentRoom(roomData);
+        if (roomData.gameState) {
+          setGameState(roomData.gameState);
+        }
+      } else {
+        // For other clients, just update the available rooms list
+        console.log('Updating available rooms list for other clients');
+        setAvailableRooms(prevRooms => {
+          // Check if room already exists in the list
+          const roomExists = prevRooms.some(room => room.id === roomData.id);
+          if (roomExists) {
+            // Update existing room
+            return prevRooms.map(room => room.id === roomData.id ? roomData : room);
+          } else {
+            // Add new room
+            return [...prevRooms, roomData];
+          }
+        });
+      }
+    });
+
+    // Add room:deleted event handler
+    newSocket.on('room:deleted', (deletedRoomId: string) => {
+      console.log('Room deleted:', deletedRoomId);
+      setAvailableRooms(prevRooms => prevRooms.filter(room => room.id !== deletedRoomId));
+    });
+
+    // Add room:updated event handler
+    newSocket.on('room:updated', (updatedRoom: RoomData) => {
+      console.log('Room updated:', updatedRoom);
+      setAvailableRooms(prevRooms => 
+        prevRooms.map(room => room.id === updatedRoom.id ? updatedRoom : room)
+      );
+    });
 
     newSocket.on('connect', handleConnect);
     newSocket.on('disconnect', handleDisconnect);
@@ -218,15 +261,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         description: "Failed to connect to server. Please try again.",
         variant: "destructive"
       });
-    });
-
-    newSocket.on('room:created', (roomData) => {
-      console.log('SocketContext: Room created:', roomData);
-      setCurrentRoom(roomData);
-      if (roomData.gameState) {
-        console.log('SocketContext: Setting initial game state from room creation');
-        setGameState(roomData.gameState);
-      }
     });
 
     newSocket.on('room:joined', (roomData) => {
@@ -296,13 +330,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (connectionTimeout) {
         clearTimeout(connectionTimeout);
       }
-      newSocket.off('connect', handleConnect);
-      newSocket.off('disconnect', handleDisconnect);
-      newSocket.close();
+      newSocket.disconnect();
     };
-  }, [user, fetchRooms, socket, isConnected, isConnecting]);
+  }, [user, isConnecting, socket, isConnected, fetchRooms]);
 
-  // Initialize socket when user changes
+  // Initialize socket when component mounts or user changes
   React.useEffect(() => {
     initializeSocket();
   }, [initializeSocket]);

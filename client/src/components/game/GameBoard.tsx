@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
 
 // Add these animation styles
 const styles = `
@@ -153,6 +154,7 @@ interface GameBoardProps {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
+  const navigate = useNavigate();
   // Move state declarations inside the component
   const [isPlayingCard, setIsPlayingCard] = useState(false);
   const [cardInMotion, setCardInMotion] = useState<Card | null>(null);
@@ -508,14 +510,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         });
       }
       
-      // Show the match animation first
+      // Show the match animation first, then the collection animation, then clear both
       setTimeout(() => {
         setShowMatchAnimation(false);
         setShowCardCollection(true);
         
-        // After showing the collection animation, hide it
+        // After showing the collection animation, hide it and enable actions
         setTimeout(() => {
           setShowCardCollection(false);
+          setMatchedCards([]);
+          setLastMatchPlayer(null);
           setActionsDisabled(false);
         }, 1500);
       }, 1500);
@@ -527,6 +531,37 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       socket.off('card_match', handleCardMatch);
     };
   }, [socket, players, userPlayer]);
+
+  // Also add an effect to reset match animation state when the game state changes
+  useEffect(() => {
+    // If there's no active match animation from the server, make sure we don't show any
+    if (!gameState?.matchAnimation?.isActive) {
+      setShowMatchAnimation(false);
+      setShowCardCollection(false);
+    }
+  }, [gameState?.matchAnimation?.isActive]);
+
+  // Update useEffect that handles game state changes
+  useEffect(() => {
+    if (gameState) {
+      // Reset animation states when game state changes
+      if (!gameState.matchAnimation?.isActive) {
+        // Only reset if we're not in the middle of showing a match animation
+        if (!showCardCollection) {
+          setShowMatchAnimation(false);
+          setLastMatchPlayer(null);
+          setMatchedCards([]);
+        }
+      }
+      
+      console.log('Match animation state:', {
+        serverMatchActive: gameState.matchAnimation?.isActive,
+        clientShowMatchAnimation: showMatchAnimation,
+        clientShowCardCollection: showCardCollection,
+        lastMatchPlayer
+      });
+    }
+  }, [gameState, showCardCollection]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
@@ -792,22 +827,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return null;
   };
 
-  // Render match potential info
-  const renderMatchInfo = () => {
-    const potentialMatch = checkPotentialMatch();
-    
-    if (!potentialMatch) return null;
-    
-    return (
-      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-yellow-500/80 text-black px-3 py-1 text-xs rounded-full font-medium z-20 whitespace-nowrap">
-        You have a <strong>{potentialMatch.topCardValue}</strong> to match the top card!
-      </div>
-    );
-  };
-
   // Update the match animation UI in the central pile area
   const renderMatchAnimation = () => {
-    if (!showMatchAnimation) return null;
+    // Only show the animation when showMatchAnimation is true AND we have a valid lastMatchPlayer
+    if (!showMatchAnimation || !lastMatchPlayer) return null;
     
     return (
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -819,7 +842,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   const renderCardCollection = () => {
-    if (!showCardCollection || !lastMatchPlayer) return null;
+    if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
     
     // Find target player deck position
     const targetPlayerPosition = positionedPlayers.find(p => p.player.id === lastMatchPlayer)?.position || 'bottom';
@@ -915,7 +938,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           </div>
           <div className="flex justify-center">
             <Button
-              onClick={() => window.location.href = "/lobby"}
+              onClick={() => {
+                // Clean up any game state
+                if (socket) {
+                  socket.emit('leave_room', currentRoom?.id);
+                }
+                // Navigate to lobby using React Router
+                navigate('/lobby');
+              }}
               className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
             >
               Return to Lobby
@@ -1090,9 +1120,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             {gameState.centralPile.length}
                           </div>
                         )}
-                        
-                        {/* Display match info */}
-                        {renderMatchInfo()}
                       </div>
                     ) : (
                       <div className="flex items-center justify-center h-full">
@@ -1107,7 +1134,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 
                 <div className="mt-3 mb-1 text-center">
                   <Badge variant="outline" className="bg-gray-800/50 text-blue-300 text-xs border-blue-500/30">
-                    Central Pile: {gameState.centralPile.length} cards
+                    {gameState.centralPile.length} cards
                   </Badge>
                 </div>
                 

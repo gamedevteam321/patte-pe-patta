@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { authService, AuthResponse } from "@/services/authService";
+import { authService } from "@/services/authService";
 
 type User = {
   id: string;
@@ -65,25 +65,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Function to check if user is logged in
   const checkSession = async (): Promise<boolean> => {
-    const session = getSession();
-    if (!session) return false;
-
-    if (!isSessionValid(session)) {
-      try {
-        const response = await authService.verifyToken(session.access_token);
-        if (response.status === 'NG') {
-          return false;
-        }
-        if (response.user) {
-          setUser(response.user);
-          return true;
-        }
-      } catch (error) {
-        console.error("Error verifying session:", error);
+    console.log("Starting session check...");
+    try {
+      const session = getSession();
+      console.log("Retrieved session:", session ? "exists" : "not found");
+      
+      if (!session) {
+        console.log("No session found in localStorage");
         return false;
       }
+
+      const isValid = isSessionValid(session);
+      console.log("Session validity check:", isValid);
+      
+      if (!isValid) {
+        console.log("Session expired, verifying token");
+        try {
+          const response = await authService.verifyToken(session.access_token);
+          console.log("Token verification response:", response);
+          
+          if (response.status === 'NG') {
+            console.log("Token verification failed");
+            return false;
+          }
+          
+          if (response.user) {
+            console.log("Token verified, updating user");
+            setUser(response.user);
+            saveSession({
+              access_token: response.token || session.access_token,
+              refresh_token: response.token || session.refresh_token,
+              expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60 // 24 hours from now
+            });
+            return true;
+          }
+        } catch (error) {
+          console.error("Error verifying token:", error);
+          return false;
+        }
+      }
+
+      // If we have a valid session but no user in state, try to get it from localStorage
+      if (!user) {
+        console.log("No user in state, checking localStorage");
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          console.log("Restoring user from localStorage");
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            return true;
+          } catch (error) {
+            console.error("Error parsing stored user:", error);
+            return false;
+          }
+        } else {
+          console.log("No user found in localStorage");
+          return false;
+        }
+      }
+
+      console.log("Session check completed successfully");
+      return true;
+    } catch (error) {
+      console.error("Error in checkSession:", error);
+      return false;
     }
-    return true;
   };
 
   // Check session on mount and periodically

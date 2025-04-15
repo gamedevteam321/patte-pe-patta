@@ -41,7 +41,7 @@ const App = () => (
                 path="/lobby"
                 element={
                   <AuthGuard>
-                    <Lobby />
+                  <Lobby />
                   </AuthGuard>
                 }
               />

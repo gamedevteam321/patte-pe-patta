@@ -37,15 +37,42 @@ const RoomList: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchRooms();
+    const loadRooms = async () => {
+      try {
+        setIsLoading(true);
+        await fetchRooms();
+      } catch (error) {
+        console.error('Error loading rooms:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load rooms. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRooms();
   }, [fetchRooms]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    fetchRooms();
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      await fetchRooms();
+    } catch (error) {
+      console.error('Error refreshing rooms:', error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh rooms. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
   };
 
   const handleJoinClick = (roomId: string, isPrivate: boolean) => {
@@ -84,14 +111,18 @@ const RoomList: React.FC = () => {
           variant="outline" 
           size="sm" 
           onClick={handleRefresh} 
-          disabled={isRefreshing}
+          disabled={isRefreshing || isLoading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {rooms.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      ) : rooms.length === 0 ? (
         <Card className="bg-muted/50">
           <CardContent className="pt-6 text-center">
             <p>No rooms available. Create a new room to start playing!</p>

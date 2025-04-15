@@ -1,22 +1,23 @@
-const express = require('express');
-const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
+import express, { Request, Response, Router } from 'express';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
 // Import controllers and middleware
-const gameController = require('../components/game/gameController');
-const authController = require('../components/auth/authController');
-const authMiddleware = require('../middleware/authMiddleware');
+import { gameController } from '../components/game/gameController';
+import { authController } from '../components/auth/authController';
+import { authMiddleware } from '../middleware/authMiddleware';
+
+const router: Router = express.Router();
 
 // Health check endpoint
-router.get('/health', async (req, res) => {
+router.get('/health', async (_req: Request, res: Response) => {
   try {
     const supabase = createClient(
-      process.env.SUPABASE_URL, 
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+      process.env.SUPABASE_URL || '', 
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
       {
         auth: {
           autoRefreshToken: false,
@@ -40,12 +41,21 @@ router.get('/health', async (req, res) => {
     
     res.json(status);
   } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      timestamp: new Date().toISOString(),
-      database: 'disconnected',
-      error: error.message
-    });
+    if (error instanceof Error) {
+      res.status(500).json({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: error.message
+      });
+    } else {
+      res.status(500).json({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: 'An unknown error occurred'
+      });
+    }
   }
 });
 
@@ -61,4 +71,4 @@ router.post('/games', authMiddleware, gameController.createGame);
 router.get('/games/:id', authMiddleware, gameController.getGame);
 router.put('/games/:id', authMiddleware, gameController.updateGame);
 
-module.exports = router; 
+export default router; 

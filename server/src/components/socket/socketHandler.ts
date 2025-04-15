@@ -1,14 +1,71 @@
-const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
-const crypto = require('crypto');
+import { createClient } from '@supabase/supabase-js';
+import { Server, Socket } from 'socket.io';
+import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 // Load environment variables
 dotenv.config();
 
+interface Card {
+  id: string;
+  suit: string;
+  value: string;
+  rank: number;
+}
+
+interface Player {
+  id: string;
+  userId: string;
+  username: string;
+  isHost: boolean;
+  isReady: boolean;
+  cards: Card[];
+  score?: number;
+  isActive?: boolean;
+  autoPlayCount?: number;
+  name?: string;
+}
+
+interface GameState {
+  status: string;
+  players: Player[];
+  currentPlayerIndex: number;
+  centralPile: Card[];
+  gameStarted: boolean;
+  isGameOver: boolean;
+  gameStartTime: number | null;
+  roomDuration: number;
+  turnEndTime: number | null;
+  requiredPlayers: number;
+  matchAnimation?: {
+    isActive: boolean;
+    cardId: string;
+    playerId: string;
+    timestamp: number;
+  };
+  winner?: Player;
+  currentTurn?: string;
+}
+
+interface Room {
+  id: string;
+  roomName: string;
+  hostName: string;
+  isPrivate: boolean;
+  password: string | null;
+  players: Player[];
+  gameState: GameState;
+  status: string;
+  code: string;
+  max_players: number;
+  amount_stack: number;
+  created_at: string;
+}
+
 // Initialize Supabase client with service role key to bypass RLS
 const supabase = createClient(
-  process.env.SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+  process.env.SUPABASE_URL || '', 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
   {
     auth: {
       autoRefreshToken: false,
@@ -18,10 +75,10 @@ const supabase = createClient(
 );
 
 // Store active rooms in memory
-const rooms = new Map();
+const rooms = new Map<string, Room>();
 
 // Function to verify Supabase connection
-async function verifySupabaseConnection() {
+async function verifySupabaseConnection(): Promise<boolean> {
   try {
     const { data, error } = await supabase.from('rooms').select('count').limit(1);
     if (error) {
@@ -31,7 +88,7 @@ async function verifySupabaseConnection() {
     console.log('Successfully connected to Supabase');
     return true;
   } catch (error) {
-    console.error('Failed to connect to Supabase:', error);
+    console.error('Failed to connect to Supabase:', error instanceof Error ? error.message : 'Unknown error');
     return false;
   }
 }
@@ -43,12 +100,12 @@ verifySupabaseConnection().then(connected => {
   }
 });
 
-const socketHandler = (io) => {
-  io.on('connection', (socket) => {
+export const socketHandler = (io: Server): void => {
+  io.on('connection', (socket: Socket) => {
     console.log('New client connected:', socket.id);
 
     // Handle fetch rooms request with retry logic
-    socket.on('fetch_rooms', async (callback) => {
+    socket.on('fetch_rooms', async (callback?: (response: { success: boolean; rooms: Partial<Room>[]; error?: string }) => void) => {
       let retries = 0;
       const maxRetries = 3;
       
@@ -102,7 +159,7 @@ const socketHandler = (io) => {
           }
           return; // Success, exit the retry loop
         } catch (error) {
-          console.error(`Error fetching rooms (attempt ${retries + 1}/${maxRetries}):`, error);
+          console.error(`Error fetching rooms (attempt ${retries + 1}/${maxRetries}):`, error instanceof Error ? error.message : 'Unknown error');
           retries++;
           
           if (retries === maxRetries) {
@@ -119,7 +176,7 @@ const socketHandler = (io) => {
     });
 
     // Handle room creation
-    socket.on('create_room', async (roomData, callback) => {
+    socket.on('create_room', async (roomData: any, callback?: (response: any) => void) => {
       try {
         if (!roomData.userId) {
           socket.emit('room:error', { message: 'Authentication required' });
@@ -128,7 +185,7 @@ const socketHandler = (io) => {
         }
 
         // Generate a unique room code
-        const generateRoomCode = () => {
+        const generateRoomCode = (): string => {
           return Math.floor(100000 + Math.random() * 900000).toString();
         };
 
@@ -263,9 +320,9 @@ const socketHandler = (io) => {
 
         if (callback) callback({ success: true, room: roomWithPlayers });
       } catch (error) {
-        console.error('Error creating room:', error);
-        socket.emit('room:error', { message: `Failed to create room: ${error.message}` });
-        if (callback) callback({ success: false, error: error.message });
+        console.error('Error creating room:', error instanceof Error ? error.message : 'Unknown error');
+        socket.emit('room:error', { message: `Failed to create room: ${error instanceof Error ? error.message : 'Unknown error'}` });
+        if (callback) callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     });
 
@@ -385,7 +442,7 @@ const socketHandler = (io) => {
       } catch (error) {
         console.error('Error in join_room:', error);
         if (callback) {
-          callback({ success: false, error: error.message });
+          callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' });
         }
       }
     });
@@ -436,7 +493,7 @@ const socketHandler = (io) => {
       } catch (error) {
         console.error('Error in player_ready:', error);
         if (callback) {
-          callback({ success: false, error: error.message });
+          callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' });
         }
       }
     });
@@ -535,7 +592,7 @@ const socketHandler = (io) => {
                     .from('rooms')
                     .update({ 
                       host_id: newHost.userId,
-                      host_name: newHost.name 
+                      host_name: newHost.username || newHost.name 
                     })
                     .eq('id', roomId);
                 }
@@ -569,7 +626,7 @@ const socketHandler = (io) => {
             // Notify remaining players
             io.to(roomId).emit('player_left', { 
               playerId: socket.id,
-              playerName: player.name,
+              playerName: player.username || player.name,
               isHost: player.isHost
             });
             
@@ -578,9 +635,14 @@ const socketHandler = (io) => {
           }
         }
       } catch (error) {
-        console.error('Error handling disconnect:', error.message);
-        // Attempt cleanup even if there's an error
-        socket.leaveAll();
+        console.error('Error handling disconnect:', error instanceof Error ? error.message : 'Unknown error');
+        // Socket.leaveAll is private, leave all rooms differently
+        const rooms = [...socket.rooms.values()];
+        rooms.forEach(room => {
+          if (room !== socket.id) {
+            socket.leave(room);
+          }
+        });
       }
     });
 
@@ -611,10 +673,10 @@ const socketHandler = (io) => {
         }
 
         // Initialize game state with deck
-        const createDeck = () => {
+        const createDeck = (): Card[] => {
           const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
           const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-          const deck = [];
+          const deck: Card[] = [];
 
           for (let suit of suits) {
             for (let value of values) {
@@ -629,7 +691,7 @@ const socketHandler = (io) => {
           return deck;
         };
 
-        const shuffleDeck = (deck) => {
+        const shuffleDeck = (deck: Card[]): Card[] => {
           for (let i = deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -706,7 +768,7 @@ const socketHandler = (io) => {
         if (callback) {
           callback({ 
             success: false, 
-            error: error.message || 'Failed to start game' 
+            error: error instanceof Error ? error.message : 'Failed to start game' 
           });
         }
       }
@@ -728,7 +790,7 @@ const socketHandler = (io) => {
         }
 
         // Shuffle the player's cards
-        const shuffleCards = (cards) => {
+        const shuffleCards = (cards: Card[]): Card[] => {
           for (let i = cards.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [cards[i], cards[j]] = [cards[j], cards[i]];
@@ -951,6 +1013,4 @@ const socketHandler = (io) => {
       }
     });
   });
-};
-
-module.exports = socketHandler; 
+}; 

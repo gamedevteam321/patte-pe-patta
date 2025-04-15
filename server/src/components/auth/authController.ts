@@ -1,15 +1,20 @@
-const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
-const jwt = require('jsonwebtoken');
+import { createClient } from '@supabase/supabase-js';
+import { Request, Response } from 'express';
+import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Supabase clients - one with anon key for auth, one with service role for admin operations
-const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL || '', 
+  process.env.SUPABASE_KEY || ''
+);
+
 const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+  process.env.SUPABASE_URL || '', 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
   {
     auth: {
       autoRefreshToken: false,
@@ -19,10 +24,19 @@ const supabaseAdmin = createClient(
 );
 const jwtSecret = process.env.JWT_SECRET || 'secret_2025';
 
-const authController = {
-  login: async (req, res) => {
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+interface RegisterRequest extends LoginRequest {
+  username: string;
+}
+
+export const authController = {
+  login: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { email, password } = req.body;
+      const { email, password } = req.body as LoginRequest;
       
       // Try to sign in
       const { data, error } = await supabaseAuth.auth.signInWithPassword({
@@ -33,10 +47,11 @@ const authController = {
       if (error) {
         console.log(error);
         // Return login failed message with status NG
-        return res.status(401).json({ 
+        res.status(401).json({ 
           status: 'NG',
           error: 'Login failed: Invalid email or password' 
         });
+        return;
       }
       
       // After successful login, check if profile exists
@@ -84,14 +99,14 @@ const authController = {
     } catch (error) {
       res.status(500).json({ 
         status: 'NG',
-        error: error.message 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
       });
     }
   },
 
-  register: async (req, res) => {
+  register: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { username, email, password } = req.body;
+      const { username, email, password } = req.body as RegisterRequest;
       
       const { data, error } = await supabaseAuth.auth.signUp({
         email,
@@ -99,6 +114,11 @@ const authController = {
       });
       
       if (error) throw error;
+
+      // Check if user exists
+      if (!data?.user) {
+        throw new Error('User not found after registration');
+      }
 
       // Create a profile using admin client
       await supabaseAdmin
@@ -131,11 +151,13 @@ const authController = {
         token
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'An unknown error occurred' 
+      });
     }
   },
 
-  logout: async (req, res) => {
+  logout: async (req: Request, res: Response): Promise<void> => {
     try {
       const { error } = await supabaseAuth.auth.signOut();
       
@@ -143,16 +165,19 @@ const authController = {
       
       res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'An unknown error occurred' 
+      });
     }
   },
 
-  verifyToken: async (req, res) => {
+  verifyToken: async (req: Request, res: Response): Promise<void> => {
     try {
       const token = req.headers.authorization?.split(' ')[1];
       
       if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
+        res.status(401).json({ error: 'No token provided' });
+        return;
       }
       
       const decoded = jwt.verify(token, jwtSecret);
@@ -160,8 +185,9 @@ const authController = {
       // Get user data from Supabase
       const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
       
-      if (error) {
-        return res.status(401).json({ error: 'Invalid token' });
+      if (error || !user) {
+        res.status(401).json({ error: 'Invalid token' });
+        return;
       }
       
       // Get profile data
@@ -175,13 +201,13 @@ const authController = {
         user: {
           id: user.id,
           email: user.email,
-          username: profile?.username || user.email.split('@')[0]
+          username: profile?.username || user.email?.split('@')[0] || 'user'
         }
       });
     } catch (error) {
-      res.status(401).json({ error: 'Invalid token' });
+      res.status(401).json({ 
+        error: error instanceof Error ? error.message : 'Invalid token'
+      });
     }
   }
-};
-
-module.exports = authController; 
+}; 

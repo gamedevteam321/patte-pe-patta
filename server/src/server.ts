@@ -1,10 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-const http = require('http');
-const { Server } = require('socket.io');
-const dotenv = require('dotenv');
-const socketHandler = require('./components/socket/socketHandler');
-const { createClient } = require('@supabase/supabase-js');
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import http from 'http';
+import { Server, ServerOptions } from 'socket.io';
+import dotenv from 'dotenv';
+import { socketHandler } from './components/socket/socketHandler';
+import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables
 dotenv.config();
@@ -37,14 +37,13 @@ const io = new Server(server, {
   pingInterval: 25000,
   transports: ['websocket', 'polling'],
   allowUpgrades: true,
-  upgrade: true,
   cookie: false
-});
+} as Partial<ServerOptions>);
 
 // Test Supabase connection before starting server
 const supabase = createClient(
-  process.env.SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY,
+  process.env.SUPABASE_URL || '', 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
   {
     auth: {
       autoRefreshToken: false,
@@ -55,19 +54,15 @@ const supabase = createClient(
 
 // Set fetch timeout for Supabase
 const originalFetch = global.fetch;
-global.fetch = async (...args) => {
+// Use any to avoid TypeScript errors with the fetch types
+global.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<any> {
   const controller = new AbortController();
   const { signal } = controller;
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
   
   try {
-    const newArgs = [...args];
-    if (args[1]) {
-      newArgs[1] = { ...args[1], signal };
-    } else {
-      newArgs[1] = { signal };
-    }
-    const response = await originalFetch(...newArgs);
+    const newInit = init ? { ...init, signal } : { signal };
+    const response = await originalFetch(input, newInit);
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
@@ -77,7 +72,7 @@ global.fetch = async (...args) => {
 };
 
 // Verify Supabase connection before starting server
-async function testSupabaseConnection() {
+async function testSupabaseConnection(): Promise<boolean> {
   try {
     const { data, error } = await supabase.from('rooms').select('count');
     if (error) {
@@ -93,12 +88,13 @@ async function testSupabaseConnection() {
 }
 
 // Routes
-app.get('/', (req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.send('Game Server API is running');
 });
 
 // API Routes
-app.use('/api/v1', require('./routing/api_v1'));
+import apiV1Router from './routing/api_v1';
+app.use('/api/v1', apiV1Router);
 
 // Initialize socket handlers
 socketHandler(io);

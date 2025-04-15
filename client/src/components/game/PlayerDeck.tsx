@@ -8,7 +8,7 @@ interface PlayerDeckProps {
   player: Player;
   isCurrentPlayer: boolean;
   isUser: boolean;
-  position?: "top" | "left" | "right" | "bottom";
+  position?: "top" | "top-left" | "top-right" | "left" | "right" | "bottom";
   turnTimeRemaining?: number;
   className?: string;
 }
@@ -34,6 +34,8 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
     // For positions with different card layouts
     switch(position) {
       case "top": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8);
+      case "top-left": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8) - 15;
+      case "top-right": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8) + 15;
       case "bottom": return (index - (total - 1) / 2) * (total > 5 ? 5 : 8);
       case "left": return index * 3;
       case "right": return index * 3;

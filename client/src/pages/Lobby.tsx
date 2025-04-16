@@ -10,6 +10,7 @@ import { useSocket } from "@/context/SocketContext";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
+import JoinRoomDialog from "@/components/rooms/JoinRoomDialog";
 
 const Lobby: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -107,13 +108,16 @@ const Lobby: React.FC = () => {
                   Rejoin Your Room
                 </Button>
               )}
-              <Button
-                onClick={() => navigate("/room/create")}
-                className="bg-[#4169E1] hover:bg-[#3154B3] text-white"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Room
-              </Button>
+              <div className="flex flex-row gap-2 w-full max-w-md">
+                <Button
+                  onClick={() => navigate("/room/create")}
+                  className="bg-game-green hover:bg-game-green/80 text-white"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Room
+                </Button>
+                <JoinRoomDialog />
+              </div>
             </div>
           </div>
 
@@ -123,7 +127,7 @@ const Lobby: React.FC = () => {
           </div>
 
           {/* Join By Link Section */}
-          <JoinByLink />
+          {/* <JoinByLink /> */}
         </div>
       </div>
     </Layout>

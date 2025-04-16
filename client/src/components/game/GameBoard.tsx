@@ -32,6 +32,7 @@ const styles = `
     transform-origin: center;
     pointer-events: none;
     transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    user-select: none;
   }
   
   .animate-card-play {
@@ -87,6 +88,7 @@ const styles = `
     display: flex;
     justify-content: center;
     align-items: center;
+    user-select: none;
   }
 
   .card-value-display {
@@ -95,6 +97,7 @@ const styles = `
     align-items: center;
     justify-content: center;
     font-family: Arial, sans-serif;
+    user-select: none;
   }
 
   .card-value-display .value {
@@ -217,6 +220,7 @@ const styles = `
     z-index: 10;
     transform: scale(0.85);
     margin: 10px;
+    user-select: none;
   }
 
   /* Timer progress circle styles */
@@ -388,6 +392,10 @@ const styles = `
   .top-right-player {
     right: 20px;
   }
+
+  .hit-button, .shuffle-button {
+    user-select: none;
+  }
 `;
 
 interface GameBoardProps {
@@ -417,7 +425,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showCardCollection, setShowCardCollection] = useState(false);
   const [matchingCards, setMatchingCards] = useState<Card[]>([]);
   const [showMatchingCards, setShowMatchingCards] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(true); // Debug mode enabled by default
+  const [showDebugInfo, setShowDebugInfo] = useState(false); // Debug mode enabled by default
 
   const { 
     gameState, 
@@ -586,7 +594,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             toast({
               title: "Player removed",
               description: `${player.username} was removed for inactivity`,
-              variant: "destructive"
+              variant: "destructive",
+              duration: 3000,
+              className: "top-0"
             });
           }
         });
@@ -759,7 +769,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           toast({
             title: `Match!`,
             description: `${matchPlayer.username} matched ${matchedCard.value} of ${matchedCard.suit} with ${matchingCard?.value} of ${matchingCard?.suit}!`,
-            variant: "default"
+            variant: "default",
+            duration: 3000,
+            className: "top-0"
           });
         }
         
@@ -980,6 +992,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     toast({
       title: "Starting game",
       description: "Initializing game state...",
+      duration: 3000,
+      className: "top-0"
     });
   };
 
@@ -1296,12 +1310,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 Time: {formatTime(gameTimer)}
               </div>
             )}
-            <button 
+            {/* <button 
               onClick={() => setShowDebugInfo(!showDebugInfo)}
               className="px-2 py-1 bg-blue-600 text-white text-xs rounded"
             >
               {showDebugInfo ? "Hide Debug" : "Show Debug"}
-            </button>
+            </button> */}
           </div>
           
           {/* Player deck counts scoreboard */}

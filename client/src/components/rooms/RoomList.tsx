@@ -218,7 +218,7 @@ const RoomList: React.FC = () => {
                       <div className="text-sm text-muted-foreground pl-6">
                         {room.players.map((player, index) => (
                           <div key={player.id} className="flex items-center gap-2">
-                            <span> {'test' + player.username}</span>
+                            <span> {player.username}</span>
                             {player.isReady && (
                               <Badge variant="outline" className="text-xs">Ready</Badge>
                             )}

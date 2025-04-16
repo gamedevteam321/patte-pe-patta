@@ -4,7 +4,7 @@ import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer } from "lucide-react";
+import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, UserCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 import ReactDOM from 'react-dom';
@@ -219,6 +219,31 @@ const styles = `
     margin: 10px;
   }
 
+  /* Timer progress circle styles */
+  .timer-progress {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    width: calc(100% + 20px);
+    height: calc(100% + 20px);
+    transform: rotate(-90deg);
+  }
+
+  .timer-progress circle {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+  }
+
+  .timer-progress .progress-bg {
+    stroke: rgba(59, 130, 246, 0.2);
+  }
+
+  .timer-progress .progress-bar {
+    stroke: #3b82f6;
+    transition: stroke-dashoffset 0.1s linear;
+  }
+
   /* Left and right player containers specific styles */
   .left-player .player-container,
   .right-player .player-container {
@@ -368,6 +393,8 @@ const styles = `
 interface GameBoardProps {
   userId: string;
 }
+
+const MAX_TURN_TIME = 15000; // 15 seconds in milliseconds
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const navigate = useNavigate();
@@ -931,7 +958,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         default:
           // Default to top for any other number of players
-          return { player, position: "top" as const, isUser: false };
+        return { player, position: "top" as const, isUser: false };
       }
     });
   };
@@ -1254,6 +1281,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       <div className="space-y-4">
         <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
           <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium">
+                {userPlayer?.username || "Loading..."}
+              </span>
+            </div>
+            <div className="h-4 w-px bg-gray-600" />
             <div className="text-sm text-gray-300">
               Players: {players.length}/{gameState.requiredPlayers}
             </div>
@@ -1354,39 +1388,75 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           <div className={`game-board ${!gameState.centralPile || gameState.centralPile.length === 0 ? 'game-board-empty-pool' : ''}`}>
             {/* Top player */}
             <div className="top-player flex justify-center">
-              {positionedPlayers
-                .filter(p => p.position === "top")
-                .map(({ player, position, isUser }) => (
+        {positionedPlayers
+          .filter(p => p.position === "top")
+          .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
+            <PlayerDeck
+              player={player}
+              isCurrentPlayer={player.id === currentPlayer?.id}
+              isUser={isUser}
+              position={position}
+              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
-                    />
+            />
                   </div>
-                ))}
-            </div>
+          ))}
+      </div>
 
             {/* Top Left player */}
             <div className="top-left-player">
-              {positionedPlayers
+          {positionedPlayers
                 .filter(p => p.position === "top-left")
-                .map(({ player, position, isUser }) => (
+            .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
+              <PlayerDeck
+                player={player}
+                isCurrentPlayer={player.id === currentPlayer?.id}
+                isUser={isUser}
+                position={position}
+                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
-                    />
+              />
                   </div>
-                ))}
-            </div>
+            ))}
+        </div>
         
             {/* Top Right player */}
             <div className="top-right-player">
@@ -1394,6 +1464,60 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "top-right")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                      className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+            
+            {/* Left player */}
+            <div className="left-player flex items-center justify-end">
+              {positionedPlayers
+                .filter(p => p.position === "left")
+                .map(({ player, position, isUser }) => (
+                  <div key={player.id} className="player-container">
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1406,24 +1530,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 ))}
             </div>
             
-            {/* Left player */}
-            <div className="left-player flex items-center justify-end">
-              {positionedPlayers
-                .filter(p => p.position === "left")
-                .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-                    />
-                  </div>
-                ))}
-            </div>
-          
             {/* Center game area */}
             <div className="center-area flex items-center justify-center">
               {gameState.centralPile && gameState.centralPile.length > 0 ? (
@@ -1436,73 +1542,109 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       
                       <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
                         {gameState.centralPile.length}
-                      </div>
-                    </div>
-                  </div>
-                  
+                </div>
+              </div>
+          </div>
+          
                   <div className="mt-3 mb-1 text-center">
                     <div className="bg-blue-900/50 p-2 rounded text-white">
                       Top Card: {gameState.centralPile[gameState.centralPile.length - 1].value} of {gameState.centralPile[gameState.centralPile.length - 1].suit}
-                    </div>
+              </div>
                     {lastPlayedCard && currentPlayer && (
                       <div className="mt-1 text-gray-300 text-sm">
                         Played by: {currentPlayer.username}
-                      </div>
+            </div>
                     )}
-                  </div>
-                </div>
+            </div>
+          </div>
               ) : (
                 <div className="center-empty-pool">
                   {cardInMotion ? (
                     <div className="card-appear">
                       <PlayingCard card={cardInMotion} />
-                    </div>
+              </div>
                   ) : (
                     <>
                       <div className="text-gray-300 text-lg italic mb-4">Empty Pool</div>
                       <div className="text-white text-xs">No cards in pool</div>
                     </>
                   )}
-                </div>
-              )}
             </div>
+          )}
+        </div>
         
             {/* Right player */}
             <div className="right-player flex items-center justify-start">
-              {positionedPlayers
-                .filter(p => p.position === "right")
-                .map(({ player, position, isUser }) => (
+          {positionedPlayers
+            .filter(p => p.position === "right")
+            .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
+              <PlayerDeck
+                player={player}
+                isCurrentPlayer={player.id === currentPlayer?.id}
+                isUser={isUser}
+                position={position}
+                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
-                    />
+              />
                   </div>
-                ))}
-            </div>
+            ))}
+      </div>
 
             {/* Bottom player (you) */}
             <div className="bottom-player flex justify-center">
-              {positionedPlayers
-                .filter(p => p.position === "bottom")
-                .map(({ player, position, isUser }) => (
+        {positionedPlayers
+          .filter(p => p.position === "bottom")
+          .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                      <svg className="timer-progress" viewBox="0 0 170 170">
+                        <circle
+                          className="progress-bg"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                        />
+                        <circle
+                          className="progress-bar"
+                          cx="85"
+                          cy="85"
+                          r="75"
+                          strokeDasharray={`${2 * Math.PI * 75}`}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                        />
+                      </svg>
+                    )}
+            <PlayerDeck
+              player={player}
+              isCurrentPlayer={player.id === currentPlayer?.id}
+              isUser={isUser}
+              position={position}
+              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
                     />
                     
                     {gameState.gameStarted && userPlayer && (
                       <div className="mt-4 flex justify-center space-x-4">
-                        <Button 
+          <Button 
                           onClick={handlePlayCard}
                           disabled={!isUserTurn || actionsDisabled}
                           className={`hit-button ${
@@ -1513,9 +1655,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Your Turn - Hit!
-                        </Button>
-                        
-                        <Button
+          </Button>
+        
+        <Button
                           onClick={handleShuffleDeck}
                           disabled={!isUserTurn || actionsDisabled}
                           className={`${
@@ -1526,10 +1668,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         >
                           <Shuffle className="h-5 w-5 mr-1" /> 
                           Shuffle
-                        </Button>
-                      </div>
+        </Button>
+      </div>
                     )}
-                  </div>
+    </div>
                 ))}
             </div>
           </div>

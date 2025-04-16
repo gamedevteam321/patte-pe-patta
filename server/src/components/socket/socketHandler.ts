@@ -771,6 +771,17 @@ export const socketHandler = (io: Server): void => {
         room.status = 'playing';
         rooms.set(roomId, room);
 
+        // Update room status in database
+        const { error: updateError } = await supabase
+          .from('rooms')
+          .update({ status: 'playing' })
+          .eq('id', roomId);
+
+        if (updateError) {
+          console.error('Failed to update room status in database:', updateError);
+          throw new Error('Failed to update room status');
+        }
+
         // Emit an immediate game state update to ensure all clients are in sync
         io.to(roomId).emit('game:update', {
           gameState: room.gameState
@@ -781,6 +792,9 @@ export const socketHandler = (io: Server): void => {
           roomId,
           gameState: room.gameState
         });
+
+        // Emit rooms updated to all clients
+        io.emit('rooms_updated');
 
         console.log('Game started successfully:', {
           roomId,
@@ -1042,6 +1056,41 @@ export const socketHandler = (io: Server): void => {
 
       } catch (error) {
         console.error('Error playing card:', error);
+      }
+    });
+
+    socket.on('end_game', async ({ roomId, winnerId }) => {
+      try {
+        const room = rooms.get(roomId);
+        if (!room) {
+          console.error('Room not found:', roomId);
+          return;
+        }
+
+        // Update room status to completed
+        room.status = 'completed';
+        rooms.set(roomId, room);
+
+        // Update room status in database
+        const { error: updateError } = await supabase
+          .from('rooms')
+          .update({ status: 'completed' })
+          .eq('id', roomId);
+
+        if (updateError) {
+          console.error('Failed to update room status:', updateError);
+        }
+
+        // Emit rooms updated to all clients
+        io.emit('rooms_updated');
+
+        // Notify all players about the game over
+        io.to(roomId).emit('game_over', {
+          winner: room.gameState.players.find(p => p.id === winnerId),
+          reason: 'game_ended'
+        });
+      } catch (error) {
+        console.error('Error ending game:', error);
       }
     });
   });

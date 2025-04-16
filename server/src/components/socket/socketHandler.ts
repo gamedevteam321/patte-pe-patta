@@ -150,9 +150,10 @@ export const socketHandler = (io: Server): void => {
               isPrivate: room.is_private || false,
               betAmount: room.amount_stack || 0,
               status: room.status,
-              createdAt: room.created_at
+              createdAt: room.created_at,
+              code: room.code
             };
-          });
+          }).filter(room => room.playerCount < room.maxPlayers); // Only return rooms that aren't full
           
           if (callback) {
             callback({ success: true, rooms: availableRooms });
@@ -227,27 +228,11 @@ export const socketHandler = (io: Server): void => {
           .single();
 
         if (supabaseError) {
-          console.error('Supabase room creation error:', {
-            error: supabaseError,
-            errorMessage: supabaseError.message,
-            errorCode: supabaseError.code,
-            details: supabaseError.details,
-            hint: supabaseError.hint,
-            roomData: {
-              id: roomId,
-              created_by: roomData.userId,
-              status: 'waiting',
-              code: roomCode,
-              max_players: roomData.maxPlayers || 2,
-              amount_stack: roomData.betAmount || 0
-            }
-          });
+          console.error('Supabase room creation error:', supabaseError);
           socket.emit('room:error', { message: `Failed to create room in database: ${supabaseError.message}` });
           if (callback) callback({ success: false, error: supabaseError.message });
           return;
         }
-
-        console.log('Successfully created room in Supabase:', supabaseRoom);
 
         // Add to in-memory storage with additional metadata
         const roomWithPlayers = {
@@ -255,7 +240,7 @@ export const socketHandler = (io: Server): void => {
           roomName: roomData.name,
           hostName: roomData.hostName,
           isPrivate: roomData.isPrivate || false,
-          password: roomData.password || null,
+          password: roomData.passkey || null,
           players: [{
             id: socket.id,
             userId: roomData.userId,
@@ -290,6 +275,9 @@ export const socketHandler = (io: Server): void => {
 
         rooms.set(roomId, roomWithPlayers);
 
+        // Join the room first
+        socket.join(roomId);
+
         // Broadcast the new room to all connected clients
         const roomToBroadcast = {
           id: roomId,
@@ -298,7 +286,7 @@ export const socketHandler = (io: Server): void => {
           maxPlayers: roomData.maxPlayers || 2,
           players: roomWithPlayers.players,
           isPrivate: roomData.isPrivate || false,
-          password: roomData.password || null,
+          password: roomData.passkey || null,
           status: 'waiting',
           betAmount: roomData.betAmount || 0,
           createdAt: supabaseRoom.created_at
@@ -306,9 +294,6 @@ export const socketHandler = (io: Server): void => {
 
         // Broadcast to all clients except the creator
         socket.broadcast.emit('room:created', roomToBroadcast);
-
-        // Join the room
-        socket.join(roomId);
 
         // Send room creation success to the creator with full room data
         socket.emit('room:created', roomWithPlayers);
@@ -330,7 +315,7 @@ export const socketHandler = (io: Server): void => {
     // Handle joining a room
     socket.on('join_room', async (roomData, callback) => {
       try {
-        const { roomId, userId, username } = roomData;
+        const { roomId, userId, username, password } = roomData;
         console.log('Join room request received:', { roomId, userId, username });
         
         if (!userId) {
@@ -361,6 +346,52 @@ export const socketHandler = (io: Server): void => {
             callback({ success: true, room: currentRoom });
           }
           return;
+        }
+
+        // Check if room is private and validate password, but skip for room creator
+        if (currentRoom.isPrivate) {
+          // Fetch the room from database to get the creator and passkey
+          const { data: dbRoom, error: dbError } = await supabase
+            .from('rooms')
+            .select('created_by, passkey, is_private')
+            .eq('id', roomId)
+            .single();
+
+          if (dbError) {
+            console.error('Error fetching room:', dbError);
+            if (callback) {
+              callback({ success: false, error: 'Error validating room' });
+            }
+            return;
+          }
+
+          console.log('Room details:', {
+            roomId,
+            isPrivate: currentRoom.isPrivate,
+            dbIsPrivate: dbRoom.is_private,
+            storedPasskey: dbRoom.passkey,
+            providedPassword: password,
+            isCreator: dbRoom.created_by === userId,
+            passwordMatch: dbRoom.passkey === password,
+            userId,
+            createdBy: dbRoom.created_by
+          });
+
+          // Skip password check if the user is the room creator
+          if (dbRoom.created_by !== userId) {
+            // For private rooms, ensure password matches exactly
+            if (!password || !dbRoom.passkey || password !== dbRoom.passkey) {
+              console.log('Join room failed: Invalid password. Details:', {
+                providedPassword: password,
+                storedPasskey: dbRoom.passkey,
+                match: password === dbRoom.passkey
+              });
+              if (callback) {
+                callback({ success: false, error: 'Invalid password' });
+              }
+              return;
+            }
+          }
         }
 
         // Check if room is full
@@ -426,6 +457,13 @@ export const socketHandler = (io: Server): void => {
         // Emit game state update to all players
         io.to(roomId).emit('game_state_updated', currentRoom.gameState);
 
+        console.log('Player successfully joined room:', {
+          roomId,
+          playerCount: currentRoom.players.length,
+          maxPlayers: currentRoom.max_players,
+          status: currentRoom.gameState.status
+        });
+
         // Send proper callback response
         if (callback) {
           callback({ 
@@ -433,13 +471,6 @@ export const socketHandler = (io: Server): void => {
             room: currentRoom
           });
         }
-
-        console.log('Player successfully joined room:', {
-          roomId,
-          playerCount: currentRoom.players.length,
-          maxPlayers: currentRoom.max_players,
-          status: currentRoom.gameState.status
-        });
       } catch (error) {
         console.error('Error in join_room:', error);
         if (callback) {

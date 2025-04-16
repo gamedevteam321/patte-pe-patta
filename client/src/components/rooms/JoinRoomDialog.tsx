@@ -69,6 +69,9 @@ const JoinRoomDialog = ({ isOpen, setIsOpen, roomId, onJoin }: JoinRoomDialogPro
                 maxLength={6}
                 pattern="\d{6}"
                 title="Please enter a 6-digit code"
+                autoComplete="off"  // Add this line
+  autoCorrect="off"   // Add this line
+  autoCapitalize="off" // Add this line
                 autoFocus
               />
             </div>

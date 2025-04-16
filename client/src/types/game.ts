@@ -39,5 +39,6 @@ export interface Room {
   isPrivate: boolean;
   status: 'waiting' | 'playing' | 'finished';
   createdAt: string;
+  code: string | null;
   players?: Player[];
 } 

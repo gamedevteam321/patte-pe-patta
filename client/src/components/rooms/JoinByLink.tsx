@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,13 @@ const JoinByLink: React.FC = () => {
   const [roomCode, setRoomCode] = useState("");
   const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-  const { joinRoom, availableRooms } = useSocket();
+  const { joinRoom, availableRooms, fetchRooms } = useSocket();
   const navigate = useNavigate();
+
+  // Fetch rooms when component mounts
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
 
   const handleJoinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,9 @@ const JoinByLink: React.FC = () => {
     try {
       console.log("Joining room by link with code:", roomCode.trim());
       
+      // Fetch latest rooms before checking
+      await fetchRooms();
+      
       // Check if room exists and get its ID
       const room = availableRooms.find(room => room.code === roomCode.trim());
       
@@ -44,11 +52,17 @@ const JoinByLink: React.FC = () => {
         setIsJoining(false);
         return;
       }
+
+      console.log("Found room:", { 
+        isPrivate: room.isPrivate, 
+        roomId: room.id,
+        roomCode: room.code,
+        providingPassword: password.trim()
+      });
       
-      // Force a small delay to simulate network request
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const success = await joinRoom(room.id, password.trim() || undefined);
+      // For private rooms, ensure password is exactly 6 digits
+      const cleanPassword = password.trim().replace(/\D/g, '').slice(0, 6);
+      const success = await joinRoom(room.id, cleanPassword);
       
       if (success) {
         toast({
@@ -93,6 +107,9 @@ const JoinByLink: React.FC = () => {
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
               className="input-field"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
             />
           </div>
           

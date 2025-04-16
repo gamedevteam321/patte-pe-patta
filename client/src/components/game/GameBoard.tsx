@@ -563,6 +563,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         
         if (remaining <= 0) {
           clearInterval(interval);
+          // Auto play a card if it's the current player's turn
+          if (currentPlayer && currentPlayer.id === userPlayer?.id) {
+            // Get the first card from the player's hand
+            const cardToPlay = userPlayer.cards[0];
+            if (cardToPlay) {
+              playCard(userPlayer.id, cardToPlay);
+            }
+          }
         }
       }, 1000);
       
@@ -571,7 +579,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // Reset turn timer when not in a turn
       setTurnTimer(null);
     }
-  }, [gameState?.gameStarted, gameState?.turnEndTime]);
+  }, [gameState?.gameStarted, gameState?.turnEndTime, currentPlayer, userPlayer, playCard]);
 
   // Add effect to handle game over state
   useEffect(() => {

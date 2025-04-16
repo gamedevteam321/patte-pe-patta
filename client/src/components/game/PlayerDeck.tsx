@@ -144,30 +144,14 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       <div className={`relative ${isCurrentPlayer ? "scale-105" : ""} transition-all duration-300`}>
         {hasCardsInDeck ? (
           <div className={`flex justify-center ${position === "left" || position === "right" ? "flex-col" : "flex-row"}`}>
-            {player.cards.map((card, index) => {
-              const fanAngle = getFanAngle(index, player.cards.length);
-              const offset = getCardOffset(index, player.cards.length);
-              
-              return (
-                <div
-                  key={card.id}
-                  className="relative inline-block card-in-deck"
-                  style={{
-                    transform: `rotate(${fanAngle}deg)`,
-                    marginLeft: position !== "left" && position !== "right" ? (index === 0 ? 0 : -40) : 0,
-                    marginTop: (position === "left" || position === "right") ? (index === 0 ? 0 : -60) : 0,
-                    zIndex: index,
-                    transition: 'transform 0.3s ease',
-                  }}
-                >
-                  <PlayingCard 
-                    card={card} 
-                    isBack={!isUser}
-                    className={`${isCurrentPlayer && index === 0 && isUser ? "first-card-highlight" : ""}`}
-                  />
-                </div>
-              );
-            })}
+            {/* Show only one card */}
+            <div className="relative inline-block card-in-deck">
+              <PlayingCard 
+                card={player.cards[0]} 
+                isBack={!isUser}
+                className={`${isCurrentPlayer && isUser ? "first-card-highlight" : ""}`}
+              />
+            </div>
           </div>
         ) : (
           <div className="text-sm text-gray-400 p-4 border border-dashed border-gray-700 rounded-lg">No cards</div>

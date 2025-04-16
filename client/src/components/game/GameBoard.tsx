@@ -206,6 +206,7 @@ const styles = `
     border-radius: 8px;
     padding: 10px;
     width: 180px;
+    height: 160px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -214,6 +215,14 @@ const styles = `
     position: relative;
     z-index: 10;
     transform: scale(0.85);
+    margin: 10px;
+  }
+
+  /* Left and right player containers specific styles */
+  .left-player .player-container,
+  .right-player .player-container {
+    transform: scale(0.7);
+    height: 140px;
   }
 
   .empty-player-slot {
@@ -309,6 +318,30 @@ const styles = `
     width: 80px;
     height: 120px;
     pointer-events: none;
+  }
+
+  /* Remove any specific positioning styles for left and right players */
+  .left-player, .right-player {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Update top-left and top-right positioning */
+  .top-left-player, .top-right-player {
+    position: absolute;
+    top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .top-left-player {
+    left: 20px;
+  }
+
+  .top-right-player {
+    right: 20px;
   }
 `;
 
@@ -1328,7 +1361,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       </div>
 
             {/* Top Left player */}
-            <div className="absolute top-20 left-20">
+            <div className="top-left-player">
           {positionedPlayers
                 .filter(p => p.position === "top-left")
             .map(({ player, position, isUser }) => (
@@ -1356,7 +1389,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         </div>
         
             {/* Top Right player */}
-            <div className="absolute top-20 right-20">
+            <div className="top-right-player">
               {positionedPlayers
                 .filter(p => p.position === "top-right")
                 .map(({ player, position, isUser }) => (

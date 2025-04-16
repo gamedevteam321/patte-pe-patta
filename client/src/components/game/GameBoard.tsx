@@ -229,20 +229,28 @@ const styles = `
 
   .empty-player-slot {
     background-color: rgba(100, 100, 100, 0.15);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    padding: 3px;
-    width: 90px;
-    height: 60px;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    padding: 10px;
+    width: 160px;
+    height: 160px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: rgba(255, 255, 255, 0.3);
-    transform: scale(0.5);
-    font-size: 9px;
+    font-size: 12px;
     opacity: 0.5;
     margin: 10px;
+    transform: scale(0.85);
+  }
+
+  /* Left and right empty slots specific styles */
+  .left-player .empty-player-slot,
+  .right-player .empty-player-slot {
+    transform: scale(0.7);
+    width: 140px;
+    height: 140px;
   }
 
   .player-name {
@@ -285,16 +293,26 @@ const styles = `
   .center-empty-pool {
     background-color: #004080;
     border-radius: 6px;
-    padding: 10px;
-    max-width: 200px;
-    min-height: 120px;
+    padding: 20px;
+    width: 100%;
+    min-height: 300px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    transform: scale(0.8);
-    border: 1px solid rgba(100, 149, 237, 0.5);
+    border: 2px solid rgba(100, 149, 237, 0.5);
+  }
+
+  .center-empty-pool .text-gray-300 {
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+
+  .center-empty-pool .text-white {
+    font-size: 14px;
+    opacity: 0.7;
   }
 
   // Add a new animation keyframe for card traveling to pool
@@ -1336,91 +1354,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           <div className={`game-board ${!gameState.centralPile || gameState.centralPile.length === 0 ? 'game-board-empty-pool' : ''}`}>
             {/* Top player */}
             <div className="top-player flex justify-center">
-        {positionedPlayers
-          .filter(p => p.position === "top")
-          .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
-            <PlayerDeck
-              player={player}
-              isCurrentPlayer={player.id === currentPlayer?.id}
-              isUser={isUser}
-              position={position}
-              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-            />
-                  </div>
-          ))}
-              {!positionedPlayers.some(p => p.position === "top") && (
-                <div className="empty-player-slot">
-                  <span>Empty Top Slot</span>
-                </div>
-              )}
-      </div>
-
-            {/* Top Left player */}
-            <div className="top-left-player">
-          {positionedPlayers
-                .filter(p => p.position === "top-left")
-            .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
-              <PlayerDeck
-                player={player}
-                isCurrentPlayer={player.id === currentPlayer?.id}
-                isUser={isUser}
-                position={position}
-                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-              />
-                  </div>
-            ))}
-              {!positionedPlayers.some(p => p.position === "top-left") && (
-                <div className="empty-player-slot">
-                  <span>Empty Top-Left Slot</span>
-                </div>
-              )}
-        </div>
-        
-            {/* Top Right player */}
-            <div className="top-right-player">
               {positionedPlayers
-                .filter(p => p.position === "top-right")
+                .filter(p => p.position === "top")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-                      />
-                    </div>
-                  ))}
-              {!positionedPlayers.some(p => p.position === "top-right") && (
-                <div className="empty-player-slot">
-                  <span>Empty Top-Right Slot</span>
-                </div>
-              )}
-            </div>
-            
-            {/* Left player */}
-            <div className="left-player flex items-center justify-end">
-              {positionedPlayers
-                .filter(p => p.position === "left")
-                .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1429,14 +1366,63 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
                     />
-                </div>
+                  </div>
                 ))}
-              {!positionedPlayers.some(p => p.position === "left") && (
-                <div className="empty-player-slot">
-                  <span>Empty Left Slot</span>
-              </div>
-            )}
-          </div>
+            </div>
+
+            {/* Top Left player */}
+            <div className="top-left-player">
+              {positionedPlayers
+                .filter(p => p.position === "top-left")
+                .map(({ player, position, isUser }) => (
+                  <div key={player.id} className="player-container">
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                      className={`player-deck-${position}`}
+                    />
+                  </div>
+                ))}
+            </div>
+        
+            {/* Top Right player */}
+            <div className="top-right-player">
+              {positionedPlayers
+                .filter(p => p.position === "top-right")
+                .map(({ player, position, isUser }) => (
+                  <div key={player.id} className="player-container">
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                      className={`player-deck-${position}`}
+                    />
+                  </div>
+                ))}
+            </div>
+            
+            {/* Left player */}
+            <div className="left-player flex items-center justify-end">
+              {positionedPlayers
+                .filter(p => p.position === "left")
+                .map(({ player, position, isUser }) => (
+                  <div key={player.id} className="player-container">
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                      className={`player-deck-${position}`}
+                    />
+                  </div>
+                ))}
+            </div>
           
             {/* Center game area */}
             <div className="center-area flex items-center justify-center">
@@ -1450,19 +1436,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       
                       <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
                         {gameState.centralPile.length}
-              </div>
-            </div>
-          </div>
-          
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="mt-3 mb-1 text-center">
                     <div className="bg-blue-900/50 p-2 rounded text-white">
                       Top Card: {gameState.centralPile[gameState.centralPile.length - 1].value} of {gameState.centralPile[gameState.centralPile.length - 1].suit}
-              </div>
+                    </div>
                     {lastPlayedCard && currentPlayer && (
                       <div className="mt-1 text-gray-300 text-sm">
                         Played by: {currentPlayer.username}
-            </div>
-          )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1479,55 +1465,44 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   )}
                 </div>
               )}
-        </div>
+            </div>
         
             {/* Right player */}
             <div className="right-player flex items-center justify-start">
-          {positionedPlayers
-            .filter(p => p.position === "right")
-            .map(({ player, position, isUser }) => (
+              {positionedPlayers
+                .filter(p => p.position === "right")
+                .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
-              <PlayerDeck
-                player={player}
-                isCurrentPlayer={player.id === currentPlayer?.id}
-                isUser={isUser}
-                position={position}
-                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
-              />
+                    />
                   </div>
-            ))}
-              {!positionedPlayers.some(p => p.position === "right") && (
-                <div className="empty-player-slot">
-                  <span>Empty Right Slot</span>
-        </div>
-              )}
-      </div>
+                ))}
+            </div>
 
             {/* Bottom player (you) */}
             <div className="bottom-player flex justify-center">
-        {positionedPlayers
-          .filter(p => p.position === "bottom")
-          .map(({ player, position, isUser }) => (
+              {positionedPlayers
+                .filter(p => p.position === "bottom")
+                .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    {/* <div className="player-name">
-                      {player.username}
-                    </div> */}
-            <PlayerDeck
-              player={player}
-              isCurrentPlayer={player.id === currentPlayer?.id}
-              isUser={isUser}
-              position={position}
-              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                    <PlayerDeck
+                      player={player}
+                      isCurrentPlayer={player.id === currentPlayer?.id}
+                      isUser={isUser}
+                      position={position}
+                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
                     />
                     
                     {gameState.gameStarted && userPlayer && (
                       <div className="mt-4 flex justify-center space-x-4">
-          <Button 
+                        <Button 
                           onClick={handlePlayCard}
                           disabled={!isUserTurn || actionsDisabled}
                           className={`hit-button ${
@@ -1538,9 +1513,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Your Turn - Hit!
-          </Button>
-        
-        <Button
+                        </Button>
+                        
+                        <Button
                           onClick={handleShuffleDeck}
                           disabled={!isUserTurn || actionsDisabled}
                           className={`${
@@ -1551,16 +1526,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         >
                           <Shuffle className="h-5 w-5 mr-1" /> 
                           Shuffle
-        </Button>
-      </div>
+                        </Button>
+                      </div>
                     )}
-    </div>
+                  </div>
                 ))}
-              {!positionedPlayers.some(p => p.position === "bottom") && (
-                <div className="empty-player-slot">
-                  <span>Empty Bottom Slot</span>
-                </div>
-              )}
             </div>
           </div>
         </div>

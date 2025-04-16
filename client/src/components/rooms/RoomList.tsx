@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users, Coins, RefreshCw, List, Grid } from "lucide-react";
+import { Lock, Users, Coins, RefreshCw, List, Grid, Globe, Home } from "lucide-react";
 import { useSocket } from '@/context/SocketContext';
 import { useAuth } from '@/context/AuthContext';
 import JoinRoomDialog from './JoinRoomDialog';
@@ -47,6 +47,7 @@ const RoomList: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [filter, setFilter] = useState<'all' | 'public' | 'private' | 'my'>('all');
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -154,6 +155,20 @@ const RoomList: React.FC = () => {
     maxPlayers: Number(room.maxPlayers) || 2
   }));
 
+  // Filter rooms based on selected filter
+  const filteredRooms = rooms.filter(room => {
+    switch (filter) {
+      case 'public':
+        return !room.isPrivate;
+      case 'private':
+        return room.isPrivate;
+      case 'my':
+        return user && room.hostName === user.username;
+      default:
+        return true;
+    }
+  });
+
   const calculatePoolMoney = (room: RoomItem) => {
     const betAmount = Number(room.betAmount) || 0;
     const joinedPlayers = Number(room.playerCount) || 0;
@@ -170,38 +185,82 @@ const RoomList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Available Rooms</h2>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Available Rooms</h2>
+          <div className="flex items-center gap-4">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(value) => setViewMode(value as 'list' | 'grid')}
+            >
+              <ToggleGroupItem value="list" aria-label="List view">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="grid" aria-label="Grid view">
+                <Grid className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Room Filters */}
+        <div className="flex items-center gap-2">
           <ToggleGroup
             type="single"
-            value={viewMode}
-            onValueChange={(value) => setViewMode(value as 'list' | 'grid')}
+            value={filter}
+            onValueChange={(value) => setFilter(value as 'all' | 'public' | 'private' | 'my')}
+            className="flex-wrap"
           >
-            <ToggleGroupItem value="list" aria-label="List view">
-              <List className="h-4 w-4" />
+            <ToggleGroupItem value="all" aria-label="All rooms">
+              <span className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                All
+              </span>
             </ToggleGroupItem>
-            <ToggleGroupItem value="grid" aria-label="Grid view">
-              <Grid className="h-4 w-4" />
+            <ToggleGroupItem value="public" aria-label="Public rooms">
+              <span className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Public
+              </span>
             </ToggleGroupItem>
+            <ToggleGroupItem value="private" aria-label="Private rooms">
+              <span className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Private
+              </span>
+            </ToggleGroupItem>
+            {user && (
+              <ToggleGroupItem value="my" aria-label="My rooms">
+                <span className="flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  My Rooms
+                </span>
+              </ToggleGroupItem>
+            )}
           </ToggleGroup>
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
         </div>
       </div>
 
-      {rooms.length === 0 ? (
+      {filteredRooms.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">No rooms available</p>
+          <p className="text-muted-foreground">
+            {filter === 'all' ? 'No rooms available' :
+             filter === 'public' ? 'No public rooms available' :
+             filter === 'private' ? 'No private rooms available' :
+             'No rooms created by you'}
+          </p>
         </div>
       ) : viewMode === 'list' ? (
         <div className="space-y-4">
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <Card key={room.id} className="hover:bg-accent/50 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -250,7 +309,7 @@ const RoomList: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <Card key={room.id} className="hover:bg-accent/50 transition-colors">
               <CardHeader>
                 <CardTitle className="text-lg">{room.name || "Game Room"}</CardTitle>

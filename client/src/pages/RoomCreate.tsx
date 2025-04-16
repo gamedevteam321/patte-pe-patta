@@ -31,6 +31,7 @@ const RoomCreate: React.FC = () => {
   const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [passkey, setPasskey] = useState('');
+  const [passkeyError, setPasskeyError] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -62,13 +63,9 @@ const RoomCreate: React.FC = () => {
       return;
     }
 
-    // Validate room code if private
-    if (isPrivate && (!roomCode.trim() || !/^\d{6}$/.test(roomCode))) {
-      toast({
-        title: "Invalid Room Code",
-        description: "Please enter a valid 6-digit room code",
-        variant: "destructive"
-      });
+    // Validate passkey if room is private
+    if (isPrivate && (!passkey || !/^\d{6}$/.test(passkey))) {
+      setPasskeyError("Please enter a valid 6-digit passkey");
       return;
     }
     
@@ -91,24 +88,23 @@ const RoomCreate: React.FC = () => {
         playerCount: parseInt(playerCount),
         betAmount: betAmountNum,
         isPrivate,
-        code: isPrivate ? roomCode : undefined,
-        passkey: isPrivate ? generatePasskey() : null
+        passkey: isPrivate ? passkey : undefined
       };
       
       console.log("Creating room with:", roomConfig);
 
       const result = await createRoom(roomConfig);
       
-      if (result !== false) {
+      if (result.success && result.roomId) {
         toast({
           title: "Success",
-          description: "Room created successfully!"
+          description: `Room created successfully! Room Code: ${result.roomCode}`
         });
-        navigate(`/room/${result}`);
+        navigate(`/room/${result.roomId}`);
       } else {
         toast({
           title: "Error",
-          description: "Failed to create room. Please try again.",
+          description: result.error || "Failed to create room. Please try again.",
           variant: "destructive"
         });
       }
@@ -206,7 +202,7 @@ const RoomCreate: React.FC = () => {
                 </div>
                 
                 {/* Room Code input field - only shown when isPrivate is true */}
-                {isPrivate && (
+                {/* {isPrivate && (
                   <div className="mt-2">
                     <Label htmlFor="room-code">Room Code</Label>
                     <Input
@@ -228,7 +224,7 @@ const RoomCreate: React.FC = () => {
                       Players will need this code to join the room
                     </p>
                   </div>
-                )}
+                )} */}
                 
                 <p className="text-sm text-gray-400">
                   {isPrivate 
@@ -279,6 +275,33 @@ const RoomCreate: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Passkey */}
+              {isPrivate && (
+                <div className="space-y-2">
+                  <Label htmlFor="room-passkey">Room Passkey</Label>
+                  <Input
+                    id="room-passkey"
+                    type="text"
+                    placeholder="Enter 6-digit passkey"
+                    value={passkey}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setPasskey(value);
+                    }}
+                    className="bg-black/50 border-white/20"
+                    maxLength={6}
+                    pattern="[0-9]*"
+                    inputMode="numeric"
+                  />
+                  {passkeyError && (
+                    <p className="text-sm text-red-500">{passkeyError}</p>
+                  )}
+                  {!passkeyError && (
+                    <p className="text-sm text-gray-400">Enter a 6-digit passkey for the room</p>
+                  )}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button
@@ -291,7 +314,7 @@ const RoomCreate: React.FC = () => {
               </Button>
               <Button
                 type="submit"
-                disabled={isCreating || !user || parseInt(betAmount) > user.coins || (isPrivate && !roomCode)}
+                disabled={isCreating || !user || parseInt(betAmount) > user.coins || (isPrivate && !passkey)}
                 className="bg-game-green hover:bg-game-green/80 text-black"
               >
                 {isCreating ? "Creating Room..." : "Create Room"}

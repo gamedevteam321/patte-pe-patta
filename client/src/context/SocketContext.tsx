@@ -78,7 +78,7 @@ interface SocketContextType {
   gameState: GameState | null;
   canStartGame: boolean;
   fetchRooms: () => void;
-  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; password?: string; hostId?: string }) => Promise<string | false>;
+  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; passkey?: string; hostId?: string }) => Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>;
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
@@ -96,7 +96,7 @@ const SocketContext = React.createContext<SocketContextType>({
   gameState: null,
   canStartGame: false,
   fetchRooms: () => {},
-  createRoom: async () => false,
+  createRoom: async () => ({ success: false, error: 'Socket not connected or user not authenticated' }),
   joinRoom: async () => false,
   leaveRoom: () => {},
   startGame: () => {},
@@ -354,25 +354,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     playerCount: number; 
     betAmount: number; 
     isPrivate: boolean; 
-    password?: string;
-  }): Promise<string | false> => {
-    if (!socket || !user) return false;
+    passkey?: string;
+  }): Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }> => {
+    if (!socket || !user) return { success: false, error: 'Socket not connected or user not authenticated' };
 
-    return new Promise<string | false>((resolve) => {
+    return new Promise((resolve) => {
       socket.emit('create_room', {
         name: roomData.name,
         maxPlayers: roomData.playerCount,
         betAmount: roomData.betAmount,
         isPrivate: roomData.isPrivate,
-        password: roomData.password,
+        passkey: roomData.passkey,
         userId: user.id,
         hostName: user.username || 'Anonymous'
       }, (response: { success: boolean; room?: RoomData; error?: string }) => {
         if (response.success && response.room) {
-          resolve(response.room.id);
-    } else {
+          resolve({ 
+            success: true, 
+            roomId: response.room.id,
+            roomCode: response.room.code
+          });
+        } else {
           console.error('Failed to create room:', response.error);
-          resolve(false);
+          resolve({ 
+            success: false, 
+            error: response.error || 'Failed to create room' 
+          });
         }
       });
     });

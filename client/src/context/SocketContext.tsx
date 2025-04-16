@@ -6,9 +6,9 @@ import { toast } from '@/hooks/use-toast';
 // Game-specific types
 export interface Card {
   id: string;
-  suit: string;
+  suit: 'hearts' | 'diamonds' | 'clubs' | 'spades';
   value: string;
-  rank: string;
+  rank: number;
 }
 
 export interface Player {
@@ -16,10 +16,11 @@ export interface Player {
   userId: string;
   username: string;
   avatar?: string;
-  cards?: Card[];
-  isHost?: boolean;
-  isReady?: boolean;
+  cards: Card[];
+  isHost: boolean;
+  isReady: boolean;
   isActive?: boolean;
+  isCurrentTurn: boolean;
   score?: number;
   wins?: number;
   losses?: number;
@@ -144,9 +145,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const initializeSocket = React.useCallback(() => {
     if (!user) {
       console.log('No user found, skipping socket initialization');
-      return;
-    }
-
+        return;
+      }
+      
     if (isConnecting) {
       console.log('Already connecting, skipping initialization');
       return;
@@ -256,11 +257,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       setIsConnecting(false);
-      toast({
+        toast({
         title: "Connection Error",
         description: "Failed to connect to server. Please try again.",
-        variant: "destructive"
-      });
+          variant: "destructive"
+        });
     });
 
     newSocket.on('room:joined', (roomData) => {
@@ -280,7 +281,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         console.log('Setting canStartGame to true for host');
         setCanStartGame(true);
       }
-      toast({
+          toast({
         title: "Room is Ready",
         description: "All players have joined. Host can start the game!",
         variant: "default"
@@ -369,7 +370,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }, (response: { success: boolean; room?: RoomData; error?: string }) => {
         if (response.success && response.room) {
           resolve(response.room.id);
-        } else {
+    } else {
           console.error('Failed to create room:', response.error);
           resolve(false);
         }
@@ -450,12 +451,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           variant: "destructive"
         });
       } else {
-        toast({
+    toast({
           title: "Game Starting",
           description: "The game is now starting...",
         });
-      }
-    });
+        }
+      });
   };
 
   // Update the room:ready handler
@@ -472,9 +473,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         title: "Room is Ready",
         description: "All players have joined. Host can start the game!",
         variant: "default"
+        });
       });
-    });
-
+      
     return () => {
       socket.off('room:ready');
     };
@@ -532,18 +533,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const contextValue = {
     socket,
-    isConnected,
+        isConnected, 
     user,
-    gameState,
+        gameState,
     currentRoom,
     availableRooms,
     fetchRooms,
-    createRoom,
-    joinRoom,
-    leaveRoom,
-    startGame,
+        createRoom,
+        joinRoom,
+        leaveRoom,
+        startGame,
     playCard,
-    kickInactivePlayer,
+        kickInactivePlayer,
     endGame,
     shuffleDeck,
     canStartGame

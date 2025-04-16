@@ -326,30 +326,63 @@ export const socketHandler = (io: Server): void => {
         }
         
         // Check if room exists in memory first
-        const currentRoom = rooms.get(roomId);
+        let currentRoom = rooms.get(roomId);
+        
+        // If not in memory, try to find it in the database
         if (!currentRoom) {
-          console.log('Join room failed: Room not found in memory');
-          if (callback) {
-            callback({ success: false, error: 'Room not found' });
+          console.log('Room not found in memory, checking database...');
+          const { data: dbRoom, error: dbError } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('id', roomId)
+            .single();
+
+          if (dbError || !dbRoom) {
+            console.log('Room not found in database:', dbError);
+            if (callback) {
+              callback({ success: false, error: 'Room not found' });
+            }
+            return;
           }
-          return;
+
+          // Initialize room in memory
+          currentRoom = {
+            ...dbRoom,
+            players: [],
+            gameState: {
+              status: 'waiting',
+              players: [],
+              currentPlayerIndex: 0,
+              centralPile: [],
+              gameStarted: false,
+              isGameOver: false,
+              gameStartTime: null,
+              roomDuration: 5 * 60 * 1000,
+              turnEndTime: null,
+              requiredPlayers: dbRoom.max_players
+            }
+          } as Room;
+          rooms.set(roomId, currentRoom);
         }
 
+        // At this point, currentRoom is guaranteed to be defined
+        const room = currentRoom;
+
         // Check if player is already in the room
-        const existingPlayer = currentRoom.players.find(p => p.userId === userId);
+        const existingPlayer = room.players.find(p => p.userId === userId);
         if (existingPlayer) {
           // Update the socket ID for reconnecting player
           existingPlayer.id = socket.id;
           socket.join(roomId);
           console.log('Reconnecting existing player:', existingPlayer);
           if (callback) {
-            callback({ success: true, room: currentRoom });
+            callback({ success: true, room });
           }
           return;
         }
 
         // Check if room is private and validate password, but skip for room creator
-        if (currentRoom.isPrivate) {
+        if (room.isPrivate) {
           // Fetch the room from database to get the creator and passkey
           const { data: dbRoom, error: dbError } = await supabase
             .from('rooms')
@@ -367,7 +400,7 @@ export const socketHandler = (io: Server): void => {
 
           console.log('Room details:', {
             roomId,
-            isPrivate: currentRoom.isPrivate,
+            isPrivate: room.isPrivate,
             dbIsPrivate: dbRoom.is_private,
             storedPasskey: dbRoom.passkey,
             providedPassword: password,
@@ -395,7 +428,7 @@ export const socketHandler = (io: Server): void => {
         }
 
         // Check if room is full
-        if (currentRoom.players.length >= currentRoom.max_players) {
+        if (room.players.length >= room.max_players) {
           console.log('Join room failed: Room is full');
           if (callback) {
             callback({ success: false, error: 'Room is full' });
@@ -413,11 +446,11 @@ export const socketHandler = (io: Server): void => {
           cards: []
         };
 
-        currentRoom.players.push(newPlayer);
+        room.players.push(newPlayer);
         
         // Add player to game state
-        if (currentRoom.gameState) {
-          currentRoom.gameState.players.push({
+        if (room.gameState) {
+          room.gameState.players.push({
             ...newPlayer,
             cards: [],
             score: 0,
@@ -426,20 +459,20 @@ export const socketHandler = (io: Server): void => {
           });
 
           // Check if we have all required players
-          if (currentRoom.gameState.players.length === currentRoom.gameState.requiredPlayers) {
-            currentRoom.gameState.status = 'ready';
+          if (room.gameState.players.length === room.gameState.requiredPlayers) {
+            room.gameState.status = 'ready';
             // Emit room ready event
             io.to(roomId).emit('room:ready', { roomId });
           }
         }
         
-        rooms.set(roomId, currentRoom);
+        rooms.set(roomId, room);
         socket.join(roomId);
 
         // Update player count in database
         const { error: updateError } = await supabase
           .from('rooms')
-          .update({ player_count: currentRoom.players.length })
+          .update({ player_count: room.players.length })
           .eq('id', roomId);
 
         if (updateError) {
@@ -455,20 +488,20 @@ export const socketHandler = (io: Server): void => {
         io.emit('rooms_updated');
 
         // Emit game state update to all players
-        io.to(roomId).emit('game_state_updated', currentRoom.gameState);
+        io.to(roomId).emit('game_state_updated', room.gameState);
 
         console.log('Player successfully joined room:', {
           roomId,
-          playerCount: currentRoom.players.length,
-          maxPlayers: currentRoom.max_players,
-          status: currentRoom.gameState.status
+          playerCount: room.players.length,
+          maxPlayers: room.max_players,
+          status: room.gameState.status
         });
 
         // Send proper callback response
         if (callback) {
           callback({ 
             success: true,
-            room: currentRoom
+            room
           });
         }
       } catch (error) {

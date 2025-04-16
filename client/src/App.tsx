@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import Lobby from "./pages/Lobby";
 import RoomCreate from "./pages/RoomCreate";
 import GameRoom from "./pages/GameRoom";
+import JoinByCode from "./pages/JoinByCode";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
 import AuthGuard from "./components/AuthGuard";
@@ -41,7 +42,7 @@ const App = () => (
                 path="/lobby"
                 element={
                   <AuthGuard>
-                  <Lobby />
+                    <Lobby />
                   </AuthGuard>
                 }
               />
@@ -58,6 +59,14 @@ const App = () => (
                 element={
                   <AuthGuard>
                     <GameRoom />
+                  </AuthGuard>
+                }
+              />
+              <Route
+                path="/join/:code"
+                element={
+                  <AuthGuard>
+                    <JoinByCode />
                   </AuthGuard>
                 }
               />

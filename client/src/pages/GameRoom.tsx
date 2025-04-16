@@ -6,7 +6,7 @@ import { useSocket } from "@/context/SocketContext";
 import GameBoard from "@/components/game/GameBoard";
 import GameInfo from "@/components/game/GameInfo";
 import { Button } from "@/components/ui/button";
-import { DoorOpen, Loader2 } from "lucide-react";
+import { DoorOpen, Loader2, Share2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const GameRoom: React.FC = () => {
@@ -95,6 +95,37 @@ const GameRoom: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    if (!currentRoom?.code) return;
+
+    const shareData = {
+      title: 'Join my game room!',
+      text: `Join my game room with code: ${currentRoom.code}`,
+      url: `${window.location.origin}/join/${currentRoom.code}`
+    };
+
+    try {
+      if (navigator.share && navigator.canShare(shareData)) {
+        // Use Web Share API if available (mostly mobile)
+        await navigator.share(shareData);
+      } else {
+        // Fallback to copying the room code
+        await navigator.clipboard.writeText(currentRoom.code);
+        toast({
+          title: "Room code copied!",
+          description: "Share this code with your friends to join.",
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      toast({
+        title: "Failed to share",
+        description: "Could not share the room code",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleLeaveRoom = () => {
     leaveRoom();
     navigate("/lobby");
@@ -137,14 +168,25 @@ const GameRoom: React.FC = () => {
             )}
           </div>
           
-          <Button
-            onClick={handleLeaveRoom}
-            variant="outline"
-            className="border-red-500 text-red-400 hover:bg-red-900/20"
-          >
-            <DoorOpen className="mr-2 h-5 w-5" />
-            Leave Room
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleShare}
+              variant="outline"
+              className="border-[#4169E1] text-[#4169E1] hover:bg-[#4169E1]/20"
+            >
+              <Share2 className="mr-2 h-5 w-5" />
+              Share Room
+            </Button>
+            
+            <Button
+              onClick={handleLeaveRoom}
+              variant="outline"
+              className="border-red-500 text-red-400 hover:bg-red-900/20"
+            >
+              <DoorOpen className="mr-2 h-5 w-5" />
+              Leave Room
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4">

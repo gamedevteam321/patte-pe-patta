@@ -244,8 +244,12 @@ const styles = `
   }
 
   .timer-progress .progress-bar {
-    stroke: #3b82f6;
-    transition: stroke-dashoffset 0.1s linear;
+    stroke: #22c55e;
+    transition: stroke-dashoffset 0.1s linear, stroke 0.1s linear;
+  }
+
+  .timer-progress .progress-bar.warning {
+    stroke: #ef4444;
   }
 
   /* Left and right player containers specific styles */
@@ -572,7 +576,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             }
           }
         }
-      }, 1000);
+      }, 50); // Update every 50ms instead of 1000ms for smoother updates
       
       return () => clearInterval(interval);
     } else {
@@ -710,10 +714,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       if (userPlayer && data.currentPlayerId !== userPlayer.id) {
         setActionsDisabled(true);
       } else {
-        // It's the user's turn, enable actions after a short delay
-        setTimeout(() => {
-          setActionsDisabled(false);
-        }, 500);
+        // It's the user's turn, enable actions immediately
+        setActionsDisabled(false);
       }
     };
 
@@ -1423,7 +1425,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"
@@ -1459,7 +1461,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"
@@ -1495,7 +1497,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"
@@ -1511,9 +1513,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       position={position}
                       turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                       className={`player-deck-${position}`}
-                      />
-                    </div>
-                  ))}
+                    />
+                  </div>
+                ))}
                 </div>
             
             {/* Left player */}
@@ -1531,7 +1533,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"
@@ -1610,7 +1612,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"
@@ -1646,7 +1648,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           r="75"
                         />
                         <circle
-                          className="progress-bar"
+                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
                           cx="85"
                           cy="85"
                           r="75"

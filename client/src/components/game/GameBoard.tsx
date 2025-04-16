@@ -203,13 +203,14 @@ const styles = `
 
   .player-container {
     background-color: #e2e2e2;
-    border-radius: 8px;
+    border-radius: 50%;
     padding: 10px;
-    width: 180px;
+    width: 160px;
     height: 160px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
     border: 2px solid #4169E1;
     position: relative;
@@ -222,6 +223,7 @@ const styles = `
   .left-player .player-container,
   .right-player .player-container {
     transform: scale(0.7);
+    width: 140px;
     height: 140px;
   }
 
@@ -244,9 +246,9 @@ const styles = `
   }
 
   .player-name {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     text-align: center;
     color: #000;
   }
@@ -1338,11 +1340,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           .filter(p => p.position === "top")
           .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
             <PlayerDeck
               player={player}
               isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1366,11 +1366,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "top-left")
             .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
               <PlayerDeck
                 player={player}
                 isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1394,11 +1392,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "top-right")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1422,11 +1418,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 .filter(p => p.position === "left")
                 .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
                     <PlayerDeck
                       player={player}
                       isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1493,11 +1487,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             .filter(p => p.position === "right")
             .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
               <PlayerDeck
                 player={player}
                 isCurrentPlayer={player.id === currentPlayer?.id}
@@ -1521,11 +1513,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           .filter(p => p.position === "bottom")
           .map(({ player, position, isUser }) => (
                   <div key={player.id} className="player-container">
-                    <div className="player-name">
-                      {player.userId === userId 
-                        ? "You" 
-                        : `Player ${players.indexOf(player) + 1}`}
-                    </div>
+                    {/* <div className="player-name">
+                      {player.username}
+                    </div> */}
             <PlayerDeck
               player={player}
               isCurrentPlayer={player.id === currentPlayer?.id}

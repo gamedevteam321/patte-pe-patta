@@ -97,7 +97,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           <span className={`text-sm font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
             {player.username}
           </span>
-          <div className="flex items-center gap-1">
+          {/* <div className="flex items-center gap-1">
             <Badge variant="outline" className="text-xs px-1.5 py-0 bg-orange-500/20 text-orange-300">
               <Award className="h-3 w-3 mr-1 text-yellow-400" />
               {cardScore} cards
@@ -112,19 +112,19 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
                 <ChevronDown className="h-3 w-3" />
               )}
             </button>
-          </div>
+          </div> */}
         </div>
-        {isCurrentPlayer && (
+        {/* {isCurrentPlayer && (
           <Badge variant="default" className="ml-1 bg-blue-600">
             <Timer className="h-3 w-3 mr-1" />
             Current
           </Badge>
-        )}
+        )} */}
         
         {/* Position indicator */}
-        <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
+        {/* <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
           {getPositionLabel(position)}
-        </Badge>
+        </Badge> */}
       </div>
       
       {showCardStats && (
@@ -135,7 +135,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           </div>
           <div className="mt-1 pt-1 border-t border-gray-700 text-center">
             <span className="text-xs text-yellow-300">
-              Acquire 3 matching cards to win!
+              Acquire 1 matching cards to win!
             </span>
           </div>
         </div>

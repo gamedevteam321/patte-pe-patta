@@ -220,7 +220,8 @@ export const socketHandler = (io: Server): void => {
             host_name: roomData.hostName,
             player_count: 1,
             is_private: roomData.isPrivate || false,
-            name: roomData.name || "Game Room"
+            name: roomData.name || "Game Room",
+            passkey: roomData.isPrivate ? roomData.passkey : null  // Store passkey only for private rooms
           }])
           .select()
           .single();

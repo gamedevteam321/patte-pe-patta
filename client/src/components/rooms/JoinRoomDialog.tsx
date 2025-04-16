@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KeyRound } from "lucide-react";
 import { useState } from 'react';
+import { toast } from "@/components/ui/use-toast";
 
 interface JoinRoomDialogProps {
   isOpen: boolean;
@@ -29,6 +30,13 @@ const JoinRoomDialog = ({ isOpen, setIsOpen, roomId, onJoin }: JoinRoomDialogPro
     try {
       await onJoin(roomId, code);
       setCode("");
+      setIsOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to join room. Invalid room code.",
+        variant: "destructive",
+      });
     } finally {
       setIsJoining(false);
     }

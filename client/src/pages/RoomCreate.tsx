@@ -30,6 +30,7 @@ const RoomCreate: React.FC = () => {
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [passkey, setPasskey] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -90,7 +91,8 @@ const RoomCreate: React.FC = () => {
         playerCount: parseInt(playerCount),
         betAmount: betAmountNum,
         isPrivate,
-        code: isPrivate ? roomCode : undefined
+        code: isPrivate ? roomCode : undefined,
+        passkey: isPrivate ? generatePasskey() : null
       };
       
       console.log("Creating room with:", roomConfig);
@@ -120,6 +122,10 @@ const RoomCreate: React.FC = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const generatePasskey = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
   const betOptions = [

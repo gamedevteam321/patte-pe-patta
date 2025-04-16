@@ -28,6 +28,7 @@ const RoomCreate: React.FC = () => {
   const [playerCount, setPlayerCount] = useState<string>("4");
   const [betAmount, setBetAmount] = useState<string>("50");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -59,6 +60,16 @@ const RoomCreate: React.FC = () => {
       });
       return;
     }
+
+    // Validate room code if private
+    if (isPrivate && (!roomCode.trim() || !/^\d{6}$/.test(roomCode))) {
+      toast({
+        title: "Invalid Room Code",
+        description: "Please enter a valid 6-digit room code",
+        variant: "destructive"
+      });
+      return;
+    }
     
     const betAmountNum = parseInt(betAmount);
     
@@ -78,7 +89,8 @@ const RoomCreate: React.FC = () => {
         name: roomName.trim() || `${user.username || 'Player'}'s Room`,
         playerCount: parseInt(playerCount),
         betAmount: betAmountNum,
-        isPrivate
+        isPrivate,
+        code: isPrivate ? roomCode : undefined
       };
       
       console.log("Creating room with:", roomConfig);
@@ -156,10 +168,7 @@ const RoomCreate: React.FC = () => {
                     <RadioGroupItem value="2" id="players-2" />
                     <Label htmlFor="players-2">2 Players</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="3" id="players-3" />
-                    <Label htmlFor="players-3">3 Players</Label>
-                  </div>
+                  
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="4" id="players-4" />
                     <Label htmlFor="players-4">4 Players</Label>
@@ -167,7 +176,7 @@ const RoomCreate: React.FC = () => {
                 </RadioGroup>
               </div>
 
-              {/* Private/Public Room Toggle */}
+              {/* Private/Public Room Toggle with Code */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="room-privacy" className="flex items-center space-x-2">
@@ -181,12 +190,43 @@ const RoomCreate: React.FC = () => {
                   <Switch
                     id="room-privacy"
                     checked={isPrivate}
-                    onCheckedChange={setIsPrivate}
+                    onCheckedChange={(checked) => {
+                      setIsPrivate(checked);
+                      if (!checked) {
+                        setRoomCode("");
+                      }
+                    }}
                   />
                 </div>
+                
+                {/* Room Code input field - only shown when isPrivate is true */}
+                {isPrivate && (
+                  <div className="mt-2">
+                    <Label htmlFor="room-code">Room Code</Label>
+                    <Input
+                      id="room-code"
+                      type="text"
+                      placeholder="Enter 6-digit room code"
+                      value={roomCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setRoomCode(value);
+                      }}
+                      className="bg-black/50 border-white/20 mt-1 font-mono tracking-wider"
+                      maxLength={6}
+                      pattern="\d{6}"
+                      title="Please enter a 6-digit code"
+                      required
+                    />
+                    <p className="text-sm text-gray-400 mt-1">
+                      Players will need this code to join the room
+                    </p>
+                  </div>
+                )}
+                
                 <p className="text-sm text-gray-400">
                   {isPrivate 
-                    ? "Only players with the room link can join" 
+                    ? "Only players with the room code can join" 
                     : "Anyone can find and join this room from the lobby"}
                 </p>
               </div>
@@ -245,7 +285,7 @@ const RoomCreate: React.FC = () => {
               </Button>
               <Button
                 type="submit"
-                disabled={isCreating || !user || parseInt(betAmount) > user.coins}
+                disabled={isCreating || !user || parseInt(betAmount) > user.coins || (isPrivate && !roomCode)}
                 className="bg-game-green hover:bg-game-green/80 text-black"
               >
                 {isCreating ? "Creating Room..." : "Create Room"}

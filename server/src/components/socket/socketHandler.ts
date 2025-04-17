@@ -100,6 +100,27 @@ verifySupabaseConnection().then(connected => {
   }
 });
 
+// Add this function at the top level of the file
+async function recordRoomHistory(roomId: string, userId: string, action: 'join' | 'leave' | 'reconnect', socketId: string, metadata: any = {}) {
+  try {
+    const { error } = await supabase
+      .from('room_history')
+      .insert([{
+        room_id: roomId,
+        user_id: userId,
+        action,
+        socket_id: socketId,
+        metadata
+      }]);
+
+    if (error) {
+      console.error('Error recording room history:', error);
+    }
+  } catch (error) {
+    console.error('Error in recordRoomHistory:', error);
+  }
+}
+
 export const socketHandler = (io: Server): void => {
   io.on('connection', (socket: Socket) => {
     console.log('New client connected:', socket.id);
@@ -427,6 +448,13 @@ export const socketHandler = (io: Server): void => {
           existingPlayer.id = socket.id;
           socket.join(roomId);
           console.log('Reconnecting existing player:', existingPlayer);
+          
+          // Record reconnection in history
+          await recordRoomHistory(roomId, userId, 'reconnect', socket.id, {
+            previousSocketId: existingPlayer.id,
+            username: existingPlayer.username
+          });
+          
           if (callback) {
             callback({ success: true, room });
           }
@@ -549,6 +577,13 @@ export const socketHandler = (io: Server): void => {
           status: room.gameState.status
         });
 
+        // Record join in history after successful join
+        await recordRoomHistory(roomId, userId, 'join', socket.id, {
+          username,
+          isPrivate: room.isPrivate,
+          playerCount: room.players.length
+        });
+
         // Send proper callback response
         if (callback) {
           callback({ 
@@ -630,6 +665,13 @@ export const socketHandler = (io: Server): void => {
         const playerIndex = room.players.findIndex(p => p.id === socket.id);
         if (playerIndex !== -1) {
           const player = room.players[playerIndex];
+          
+          // Record leave in history before removing player
+          await recordRoomHistory(roomId, player.userId, 'leave', socket.id, {
+            username: player.username,
+            isHost: player.isHost,
+            playerCount: room.players.length - 1
+          });
           
           // Remove player from room
           room.players.splice(playerIndex, 1);

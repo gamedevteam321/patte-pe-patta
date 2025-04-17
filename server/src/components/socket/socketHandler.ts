@@ -45,6 +45,9 @@ interface GameState {
   };
   winner?: Player;
   currentTurn?: string;
+  waitingTimer: number;
+  waitingStartTime: number;
+  autoStartEnabled: boolean;
 }
 
 interface Room {
@@ -320,7 +323,10 @@ export const socketHandler = (io: Server): void => {
             username: roomData.hostName,
             isHost: true,
             isReady: true,
-            cards: []
+            cards: [],
+            score: 0,
+            isActive: true,
+            autoPlayCount: 0
           }],
           gameState: {
             status: 'waiting',
@@ -333,7 +339,10 @@ export const socketHandler = (io: Server): void => {
               cards: [],
               score: 0,
               isActive: true,
-              autoPlayCount: 0
+              autoPlayCount: 0,
+              waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
+              waitingStartTime: Date.now(),
+              autoStartEnabled: true
             }],
             currentPlayerIndex: 0,
             centralPile: [],
@@ -432,7 +441,10 @@ export const socketHandler = (io: Server): void => {
               gameStartTime: null,
               roomDuration: 5 * 60 * 1000,
               turnEndTime: null,
-              requiredPlayers: dbRoom.max_players
+              requiredPlayers: dbRoom.max_players,
+              waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
+              waitingStartTime: Date.now(),
+              autoStartEnabled: true
             }
           } as Room;
           rooms.set(roomId, currentRoom);
@@ -815,19 +827,24 @@ export const socketHandler = (io: Server): void => {
           throw new Error('Room not found');
         }
 
-        // Verify room is ready to start
-        if (room.gameState.status !== 'ready') {
+        // Check if room is full or waiting timer has expired
+        const isRoomFull = room.players.length >= room.gameState.requiredPlayers;
+        const waitingTimeElapsed = Date.now() - room.gameState.waitingStartTime >= room.gameState.waitingTimer;
+        
+        if (!isRoomFull && !waitingTimeElapsed && !room.gameState.autoStartEnabled) {
           console.log('Room not ready to start:', {
             status: room.gameState.status,
             players: room.players.length,
-            required: room.gameState.requiredPlayers
+            required: room.gameState.requiredPlayers,
+            waitingTimeElapsed,
+            autoStartEnabled: room.gameState.autoStartEnabled
           });
           throw new Error('Room is not ready to start');
         }
 
         // Check if user is host
         const isHost = room.players[0]?.id === socket.id;
-        if (!isHost) {
+        if (!isHost && !isRoomFull && !waitingTimeElapsed) {
           throw new Error('Only host can start the game');
         }
 

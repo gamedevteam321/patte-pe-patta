@@ -1,16 +1,18 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import http from 'http';
+import { createServer } from 'http';
 import { Server, ServerOptions } from 'socket.io';
 import dotenv from 'dotenv';
 import { socketHandler } from './components/socket/socketHandler';
 import { createClient } from '@supabase/supabase-js';
+import { ServerShutdownHandler } from './utils/ServerShutdownHandler';
+import { logInfo } from './utils/logger';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
+const server = createServer(app);
 
 // Configure CORS
 const corsOptions = {
@@ -99,6 +101,10 @@ app.use('/api/v1', apiV1Router);
 // Initialize socket handlers
 socketHandler(io);
 
+// Initialize shutdown handler
+const shutdownHandler = ServerShutdownHandler.getInstance();
+shutdownHandler.initialize(server);
+
 // Start server
 const PORT = process.env.PORT || 3000;
 
@@ -121,6 +127,6 @@ const PORT = process.env.PORT || 3000;
   }
   
   server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    logInfo(`Server running on port ${PORT}`);
   });
 })(); 

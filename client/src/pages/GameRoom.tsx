@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -8,9 +8,16 @@ import GameInfo from "@/components/game/GameInfo";
 import { Button } from "@/components/ui/button";
 import { DoorOpen, Loader2, Share2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { Room } from '../types/game';
+import { Room } from '@/types/game';
 
-const GameRoom: React.FC = () => {
+// Add constant for auto-start time (3 minutes)
+const WAIT_TIME_FOR_GAME_START = 180000; // 3 minutes in milliseconds
+
+interface GameRoomProps {
+  initialRoom?: Room;
+}
+
+const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const { roomId } = useParams<{ roomId: string }>();
   const { isAuthenticated, user } = useAuth();
   const { currentRoom, joinRoom, leaveRoom, gameState, fetchRooms, socket } = useSocket();
@@ -19,9 +26,11 @@ const GameRoom: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [initialJoinComplete, setInitialJoinComplete] = useState(false);
-  const [room, setRoom] = useState<Room | null>(null);
-  const [waitingTimeLeft, setWaitingTimeLeft] = useState<number>(0);
+  const [room, setRoom] = useState<Room | null>(initialRoom || null);
+  const [waitingTimeLeft, setWaitingTimeLeft] = useState<number>(WAIT_TIME_FOR_GAME_START);
   const [isAutoStarting, setIsAutoStarting] = useState<boolean>(false);
+  const [autoStartTimeLeft, setAutoStartTimeLeft] = useState<number>(0);
+  const waitingTimeLeftRef = useRef<NodeJS.Timeout>();
 
   // Initial room join effect
   useEffect(() => {
@@ -184,6 +193,37 @@ const GameRoom: React.FC = () => {
     };
   }, [socket, roomId, room]);
 
+  // Add this after your state declarations
+  useEffect(() => {
+    if (currentRoom) {
+      console.log('Current Room Data:', {
+        room: currentRoom,
+        players: currentRoom.players,
+        gameState: currentRoom.gameState
+      });
+    }
+  }, [currentRoom]);
+
+  // Timer effect for countdown
+  useEffect(() => {
+    if (room?.gameState?.waitingStartTime && room?.gameState?.waitingTimer) {
+      const updateTimer = () => {
+        const now = Date.now();
+        const timeElapsed = now - room.gameState.waitingStartTime;
+        const timeLeft = Math.max(0, room.gameState.waitingTimer - timeElapsed);
+        setWaitingTimeLeft(timeLeft);
+      };
+
+      // Update immediately
+      updateTimer();
+
+      // Update every second
+      const timerId = setInterval(updateTimer, 1000);
+
+      return () => clearInterval(timerId);
+    }
+  }, [room?.gameState?.waitingStartTime, room?.gameState?.waitingTimer]);
+
   const handleResync = () => {
     if (roomId) {
       setRetryCount(prev => prev + 1);
@@ -242,6 +282,46 @@ const GameRoom: React.FC = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Update the status message section
+  const renderRoomStatus = () => {
+    if (!currentRoom || !gameState) return null;
+
+    const playerCount = gameState.players?.length || 0;
+    const requiredPlayers = gameState.requiredPlayers || 2;
+    const isFull = playerCount >= requiredPlayers;
+    
+    const waitingMessage = isFull
+      ? `Game starting in ${formatWaitingTime(autoStartTimeLeft)}`
+      : `Waiting for players (${playerCount}/${requiredPlayers})`;
+
+    return (
+      <div className="room-status">
+        <h3 className="text-yellow-400">{waitingMessage}</h3>
+      </div>
+    );
+  };
+
+  // Update the player list section
+  const renderPlayerList = () => {
+    if (!gameState?.players) return null;
+
+    return (
+      <div className="mt-4">
+        <h3 className="text-lg font-semibold mb-2">Players:</h3>
+        <ul className="space-y-2">
+          {gameState.players.map((player) => (
+            <li key={player.id} className="flex items-center gap-2">
+              <span>{player.username}</span>
+              {player.isHost && (
+                <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Host</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   if (!roomId || !user) {
     return null;
   }
@@ -265,6 +345,16 @@ const GameRoom: React.FC = () => {
       </Layout>
     );
   }
+
+  useEffect(() => {
+    if (waitingTimeLeft > 0) {
+      waitingTimeLeftRef.current = setTimeout(() => {
+        setWaitingTimeLeft((prev) => prev - 1000); // Decrease by 1000ms (1 second)
+      }, 1000);
+    }
+
+    return () => clearTimeout(waitingTimeLeftRef.current);
+  }, [waitingTimeLeft]);
 
   return (
     <Layout>
@@ -303,43 +393,60 @@ const GameRoom: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {room?.gameState.status === 'waiting' && (
-            <div className="bg-[#1A1B1E]/80 p-6 rounded-lg mb-4 text-center">
-              <h2 className="text-2xl font-bold text-yellow-500 mb-4">
-                {room.players.length < room.gameState.requiredPlayers 
-                  ? `Waiting for players to join... (${room.players.length}/${room.gameState.requiredPlayers || 2})`
-                  : "Room is full! Game will start automatically..."
-                }
-              </h2>
-              <p className="text-lg text-yellow-400/80 mb-6">
-                {room.players.length < room.gameState.requiredPlayers 
-                  ? "Share the room code to invite friends!" 
-                  : "Preparing to start the game for all players..."
-                }
-              </p>
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <div className="bg-[#0B0C10] p-4 rounded-lg border border-[#4169E1]/20">
-                  <div className="text-sm text-gray-400 mb-1">
-                    {room.players.length >= room.gameState.requiredPlayers 
-                      ? "Game starting in:" 
-                      : "Auto-start timer:"
-                    }
-                  </div>
-                  <div className="text-3xl font-bold text-[#4169E1]">
-                    {room.players.length >= room.gameState.requiredPlayers 
-                      ? "0:03" // Show countdown when room is full
-                      : formatWaitingTime(waitingTimeLeft)
-                    }
-                  </div>
-                </div>
-                {isAutoStarting && (
-                  <div className="text-sm text-green-400 animate-pulse">
-                    Game is starting automatically...
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+           {/* show auto start timer */}
+          
+           {(!gameState || gameState.status === 'waiting') && (
+             <div className="flex flex-col items-center justify-center p-6 bg-[#1A1B1E] rounded-lg mb-4">
+               <div className="text-lg text-gray-300 mb-4">Game starts in:</div>
+               
+               {/* Countdown Clock */}
+               <div className="relative w-32 h-32 mb-4">
+                 {/* SVG Circle Timer */}
+                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                   {/* Background circle */}
+                   <circle
+                     cx="50"
+                     cy="50"
+                     r="45"
+                     fill="none"
+                     stroke="#2A2B2E"
+                     strokeWidth="8"
+                   />
+                   {/* Progress circle */}
+                   <circle
+                     cx="50"
+                     cy="50"
+                     r="45"
+                     fill="none"
+                     stroke="#4169E1"
+                     strokeWidth="8"
+                     strokeLinecap="round"
+                     strokeDasharray={`${2 * Math.PI * 45}`}
+                     strokeDashoffset={2 * Math.PI * 45 * (1 - waitingTimeLeft / WAIT_TIME_FOR_GAME_START)}
+                     className="transition-all duration-1000 ease-linear"
+                   />
+                 </svg>
+                 {/* Countdown Text */}
+                 <div className="absolute inset-0 flex flex-col items-center justify-center">
+                   <div className="text-4xl font-bold text-white">
+                     {formatWaitingTime(waitingTimeLeft)}
+                   </div>
+                   <div className="text-sm text-gray-400 mt-1">
+                     {gameState?.players?.length || 0}/{gameState?.requiredPlayers || 2} players
+                   </div>
+                 </div>
+               </div>
+
+               {/* Status Message */}
+               <div className="text-center">
+                 {renderRoomStatus()}
+               </div>
+
+               {/* Player List */}
+               {renderPlayerList()}
+             </div>
+           )}
+          
           <div>
             <GameBoard userId={user.id || ""} />
           </div>

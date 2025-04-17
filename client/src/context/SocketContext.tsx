@@ -61,6 +61,7 @@ export interface RoomData {
   betAmount?: number;
   createdAt?: string;
   updatedAt?: string;
+  gameState?: GameState;
 }
 
 interface UserData {

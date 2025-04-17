@@ -911,18 +911,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Handle different game states
   const renderGameStateMessage = () => {
     if (!gameState.gameStarted) {
-      if (gameState.status === 'waiting') {
-        return (
-          <div className="w-full mb-4 p-4 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
-            <p className="text-lg text-yellow-400">
-              Waiting for players to join... ({gameState.players.length}/{gameState.requiredPlayers})
-            </p>
-            <p className="text-sm text-yellow-300 mt-2">
-              Share the room code to invite friends!
-            </p>
-          </div>
-        );
-      } else if (gameState.status === 'ready') {
+      // if (gameState.status === 'waiting') {
+      //   return (
+      //     <div className="w-full mb-4 p-4 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
+            
+      //       <p className="text-lg text-yellow-400">
+      //         Waiting for players to join... ({gameState.players.length}/{gameState.requiredPlayers})
+      //       </p>
+      //       <p className="text-sm text-yellow-300 mt-2">
+      //         Share the room code to invite friends!
+      //       </p>
+      //     </div>
+      //   );
+      // } else
+       if (gameState.status === 'ready') {
         return (
           <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
             <p className="text-lg text-green-400 animate-pulse">
@@ -1332,8 +1334,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   return (
     <>
+    
       <div className="space-y-4">
         <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
+        {gameState.gameStarted && (
           <div className="flex items-center space-x-4">
             <div className="flex items-center gap-2">
               <UserCircle className="h-5 w-5 text-blue-400" />
@@ -1357,7 +1361,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               {showDebugInfo ? "Hide Debug" : "Show Debug"}
             </button> */}
           </div>
-          
+          )}
           {/* Player deck counts scoreboard */}
           {gameState.gameStarted && (
             <div className="flex items-center space-x-4">

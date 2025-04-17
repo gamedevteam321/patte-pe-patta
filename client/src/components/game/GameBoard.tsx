@@ -838,6 +838,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState, showCardCollection]);
 
+  // Add this effect to handle room updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRoomUpdate = (updatedRoom: any) => {
+      console.log('Room updated:', {
+        players: updatedRoom.players.length,
+        required: updatedRoom.requiredPlayers,
+        status: updatedRoom.status
+      });
+
+      if (updatedRoom.players.length >= updatedRoom.requiredPlayers && isHost) {
+        console.log('Room is full from room update, triggering auto-start');
+        startGame();
+      }
+    };
+
+    socket.on('room:update', handleRoomUpdate);
+    
+    return () => {
+      socket.off('room:update', handleRoomUpdate);
+    };
+  }, [socket, isHost, startGame]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -872,350 +896,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Handle different game states
   const renderGameStateMessage = () => {
     if (!gameState.gameStarted) {
-      if (gameState.status === 'waiting') {
+      const playersNeeded = gameState.requiredPlayers - gameState.players.length;
+      
+      if (gameState.players.length >= gameState.requiredPlayers) {
+        return (
+          <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
+            <p className="text-lg text-green-400 animate-pulse">
+              All players have joined! Game starting automatically...
+            </p>
+          </div>
+        );
+      } else {
         return (
           <div className="w-full mb-4 p-4 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
             <p className="text-lg text-yellow-400">
-              Waiting for players to join... ({gameState.players.length}/{gameState.requiredPlayers})
+              Waiting for {playersNeeded} more player{playersNeeded !== 1 ? 's' : ''} to join...
             </p>
             <p className="text-sm text-yellow-300 mt-2">
-              Share the room code to invite friends!
+              ({gameState.players.length}/{gameState.requiredPlayers} players)
             </p>
-          </div>
-        );
-      } else if (gameState.status === 'ready') {
-        return (
-          <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
-            <p className="text-lg text-green-400">
-              All players have joined! Ready to start the game.
-            </p>
-            {isHost && (
-              <Button
-                onClick={handleStartGame}
-                disabled={actionsDisabled}
-                className="mt-2 bg-green-600 hover:bg-green-700 text-white"
-              >
-                Start Game
-              </Button>
-            )}
           </div>
         );
       }
     }
     return null;
-  };
-
-  const getPlayerPositions = () => {
-    // Find the player that matches the current user's ID
-    const currentUserPlayer = players.find(p => p.userId === userId);
-    if (!currentUserPlayer) {
-      console.log("Current user player not found in players list:", { userId, playerIds: players.map(p => p.userId) });
-      // Default fallback positioning if user not found
-      return players.map((player, index) => {
-        let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
-        
-        if (index === 0) position = "bottom";
-        else if (index === 1) position = "top";
-        else if (index === 2) position = "right";
-        else if (index === 3) position = "left";
-        else if (index === 4) position = "top-left";
-        else if (index === 5) position = "top-right";
-        
-        return { 
-          player, 
-          position, 
-          isUser: player.userId === userId 
-        };
-      });
-    }
-    
-    // Reorder players to put current user first
-    const currentUserIndex = players.findIndex(p => p.userId === userId);
-    const reorderedPlayers = [
-      ...players.slice(currentUserIndex, players.length),
-      ...players.slice(0, currentUserIndex)
-    ];
-    
-    // Display positions based on how many players there are
-    return reorderedPlayers.map((player, index) => {
-      const isCurrentUser = player.userId === userId;
-      const totalPlayers = players.length;
-      
-      // Current user is always at the bottom
-      if (isCurrentUser) {
-        return { player, position: "bottom" as const, isUser: true };
-      }
-      
-      // Position other players based on their relative position to the current user
-      switch (totalPlayers) {
-        case 2:
-          // With 2 players, other player is at the top
-          return { player, position: "top" as const, isUser: false };
-        
-        case 3:
-          // With 3 players, positions are: bottom (user), top-left, top-right
-          if (index === 1) return { player, position: "top-left" as const, isUser: false };
-          else return { player, position: "top-right" as const, isUser: false };
-        
-        case 4:
-          // With 4 players, positions are: bottom (user), left, top, right
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-        
-        case 5:
-          // With 5 players, positions are: bottom (user), left, top-left, top-right, right
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
-          else if (index === 3) return { player, position: "top-right" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-        
-        case 6:
-          // With 6 players, all positions are filled
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
-          else if (index === 3) return { player, position: "top" as const, isUser: false };
-          else if (index === 4) return { player, position: "top-right" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-        
-        default:
-          // Default to top for any other number of players
-        return { player, position: "top" as const, isUser: false };
-      }
-    });
-  };
-
-  const handleStartGame = () => {
-    if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
-      console.log('Cannot start game:', {
-        hasGameState: !!gameState,
-        gameStarted: gameState?.gameStarted,
-        hasMultiplePlayers,
-        isHost
-      });
-      return;
-    }
-
-    console.log('Starting game...');
-    setActionsDisabled(true);
-    startGame();
-    toast({
-      title: "Starting game",
-      description: "Initializing game state...",
-      duration: 3000,
-      className: "top-0"
-    });
-  };
-
-  const handleShuffleDeck = () => {
-    if (!isUserTurn || actionsDisabled || !userPlayer) {
-      console.log('Cannot shuffle deck:', {
-        isUserTurn,
-        actionsDisabled,
-        hasUserPlayer: !!userPlayer
-      });
-      return;
-    }
-    
-    setActionsDisabled(true);
-    
-    // Shuffle the player's cards locally first for immediate feedback
-    const shuffledCards = [...userPlayer.cards];
-    for (let i = shuffledCards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
-    }
-    
-    // Update local state
-    userPlayer.cards = shuffledCards;
-    
-    // Send shuffle request to server
-    shuffleDeck();
-    
-    // Re-enable actions after a short delay
-    setTimeout(() => {
-      setActionsDisabled(false);
-    }, 1000);
-  };
-
-  const handlePlayCard = () => {
-    if (!isUserTurn || actionsDisabled || !userPlayer) {
-      return;
-    }
-
-    const cardToPlay = userPlayer.cards[0];
-    if (!cardToPlay) {
-      return;
-    }
-
-    setActionsDisabled(true);
-    setLastPlayedCard(cardToPlay);
-    setCardInMotion(cardToPlay);
-
-    const hitButton = document.querySelector('.hit-button');
-    const poolArea = document.querySelector('.center-area');
-    
-    if (hitButton && poolArea) {
-      const buttonRect = hitButton.getBoundingClientRect();
-      const poolRect = poolArea.getBoundingClientRect();
-      
-      // Create card element for animation
-      const cardElement = document.createElement('div');
-      cardElement.className = 'card-travel';
-      
-      // Position initially at hit button
-      cardElement.style.left = `${buttonRect.left + (buttonRect.width / 2) - 40}px`;
-      cardElement.style.top = `${buttonRect.top - 60}px`;
-      
-      // Create container for ReactDOM
-      const cardContent = document.createElement('div');
-      cardContent.className = 'w-full h-full relative';
-      cardElement.appendChild(cardContent);
-      
-      // Add to body
-      document.body.appendChild(cardElement);
-      
-      // Render card
-      ReactDOM.render(
-        <PlayingCard card={cardToPlay} />,
-        cardContent
-      );
-      
-      // Start animation
-      cardElement.style.transition = `transform 1s ease-out, left 1s ease-out, top 1s ease-out`;
-      
-      // After a small delay, move the card to the pool
-      setTimeout(() => {
-        cardElement.style.left = `${poolRect.left + (poolRect.width / 2) - 40}px`;
-        cardElement.style.top = `${poolRect.top + (poolRect.height / 2) - 60}px`;
-      }, 50);
-      
-      // After animation completes, remove the animated card
-      setTimeout(() => {
-        ReactDOM.unmountComponentAtNode(cardContent);
-        document.body.removeChild(cardElement);
-        
-        // Update player cards
-        const updatedCards = [...userPlayer.cards];
-        updatedCards.shift();
-        userPlayer.cards = updatedCards;
-        
-        // Send play event to server
-        playCard(userPlayer.id, cardToPlay);
-        
-        // Re-enable actions after a delay
-        setTimeout(() => {
-          setCardInMotion(null);
-          setActionsDisabled(false);
-        }, 300);
-      }, 1000);
-    }
-  };
-
-  // Check if there's a potential match
-  const checkPotentialMatch = () => {
-    if (!gameState.centralPile || gameState.centralPile.length < 1) return null;
-    
-    // Get the top card of the center pool
-    const topCard = gameState.centralPile[gameState.centralPile.length - 1];
-    
-    // If the user has a card matching the top card value, it's a potential match
-    const matchingCardInHand = userPlayer?.cards.some(card => card.value === topCard.value);
-    
-    if (matchingCardInHand) {
-      return {
-        topCardValue: topCard.value,
-        hasMatchingCard: true
-      };
-    }
-    
-    return null;
-  };
-
-  // Update the match animation UI in the center pool area
-  const renderMatchAnimation = () => {
-    // Only show the animation when showMatchAnimation is true AND we have a valid lastMatchPlayer
-    if (!showMatchAnimation || !lastMatchPlayer) return null;
-    
-    return (
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="bg-green-500/90 text-white px-8 py-4 rounded-lg text-3xl font-bold animate-bounce match-animation">
-          MATCH! COLLECT ALL!
-        </div>
-      </div>
-    );
-  };
-
-  const positionedPlayers = getPlayerPositions();
-
-  // Debug logging for Hit button conditions
-  console.log('Hit button conditions:', {
-    gameStarted: gameState.gameStarted,
-    hasUserPlayer: !!userPlayer,
-    isUserTurn,
-    actionsDisabled,
-    currentPlayerId: currentPlayer?.id,
-    userPlayerId: userPlayer?.id
-  });
-
-  // Update the card collection animation to move cards toward the player
-  const renderCardCollection = () => {
-    if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
-    
-    // Find target player deck position
-    const targetPlayerPosition = positionedPlayers.find(p => p.player.id === lastMatchPlayer)?.position || 'bottom';
-    
-    let targetX = 0, targetY = 0;
-    
-    // Set target coordinates based on player position
-    switch(targetPlayerPosition) {
-      case 'top': 
-        targetX = 0; 
-        targetY = -300;
-        break;
-      case 'bottom': 
-        targetX = 0; 
-        targetY = 300;
-        break;
-      case 'left': 
-        targetX = -300; 
-        targetY = 0;
-        break;
-      case 'right': 
-        targetX = 300; 
-        targetY = 0;
-        break;
-    }
-    
-    return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <p className="text-green-400 text-xl text-center mb-4 bg-black/80 p-2 rounded">
-            {players.find(p => p.id === lastMatchPlayer)?.username} collects cards!
-          </p>
-        </div>
-        {matchedCards.map((card, index) => {
-          const spreadX = (index % 5) * 10 - 20;
-          const spreadY = Math.floor(index / 5) * 10 - 10;
-          const rotation = (index * 7) % 30 - 15;
-          
-          return (
-            <div 
-              key={card.id}
-              className="card-collect"
-              style={{
-                '--collect-x': `${targetX}px`,
-                '--collect-y': `${targetY}px`,
-                left: `calc(50% + ${spreadX}px)`,
-                top: `calc(50% + ${spreadY}px)`,
-                transform: 'translate(-50%, -50%)',
-                animationDelay: `${index * 0.05}s`,
-                zIndex: 9999 + index
-              } as React.CSSProperties}
-            >
-              <PlayingCard card={card} />
-            </div>
-          );
         })}
       </div>
     );

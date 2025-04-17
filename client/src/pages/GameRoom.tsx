@@ -13,6 +13,9 @@ import { Room } from '@/types/game';
 // Add constant for auto-start time (3 minutes)
 const WAIT_TIME_FOR_GAME_START = 180000; // 3 minutes in milliseconds
 
+// Add this at the top with other constants
+const INITIAL_WAIT_TIME = 180000; // 3 minutes in milliseconds
+
 interface GameRoomProps {
   initialRoom?: Room;
 }
@@ -27,7 +30,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [initialJoinComplete, setInitialJoinComplete] = useState(false);
   const [room, setRoom] = useState<Room | null>(initialRoom || null);
-  const [waitingTimeLeft, setWaitingTimeLeft] = useState<number>(WAIT_TIME_FOR_GAME_START);
+  const [waitingTimeLeft, setWaitingTimeLeft] = useState<number>(INITIAL_WAIT_TIME);
   const [isAutoStarting, setIsAutoStarting] = useState<boolean>(false);
   const [autoStartTimeLeft, setAutoStartTimeLeft] = useState<number>(0);
   const waitingTimeLeftRef = useRef<NodeJS.Timeout>();
@@ -110,7 +113,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       if (updatedRoom.gameState.waitingStartTime && updatedRoom.gameState.waitingTimer) {
         const timeElapsed = Date.now() - updatedRoom.gameState.waitingStartTime;
         const timeLeft = Math.max(0, updatedRoom.gameState.waitingTimer - timeElapsed);
-        setWaitingTimeLeft(timeLeft);
+        setWaitingTimeLeft(timeLeft || INITIAL_WAIT_TIME);
         
         // Check if we should auto-start
         const isRoomFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
@@ -206,23 +209,70 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
   // Timer effect for countdown
   useEffect(() => {
-    if (room?.gameState?.waitingStartTime && room?.gameState?.waitingTimer) {
-      const updateTimer = () => {
+    if (socket && currentRoom?.id) {
+      let lastServerTime = 0;
+      let timeOffset = 0;
+
+      // Listen for timer sync events from server
+      socket.on('timer:sync', (data: { waitingStartTime: number; waitingTimer: number }) => {
+        console.log('Received timer sync:', data);
+        
         const now = Date.now();
-        const timeElapsed = now - room.gameState.waitingStartTime;
-        const timeLeft = Math.max(0, room.gameState.waitingTimer - timeElapsed);
-        setWaitingTimeLeft(timeLeft);
+        const serverTimeElapsed = now - data.waitingStartTime;
+        const serverTimeLeft = Math.max(0, data.waitingTimer - serverTimeElapsed);
+        
+        // Calculate time offset between client and server
+        if (lastServerTime === 0) {
+          lastServerTime = now;
+          timeOffset = Math.abs(serverTimeLeft - waitingTimeLeft);
+        }
+
+        // Only adjust time if the difference is more than 2 seconds
+        if (Math.abs(serverTimeLeft - waitingTimeLeft) > 2000) {
+          console.log('Adjusting timer due to drift:', {
+            serverTime: serverTimeLeft,
+            clientTime: waitingTimeLeft,
+            difference: Math.abs(serverTimeLeft - waitingTimeLeft)
+          });
+          setWaitingTimeLeft(serverTimeLeft);
+        }
+      });
+
+      // Request initial sync
+      socket.emit('timer:request_sync', { roomId: currentRoom.id });
+
+      // Set up more frequent sync (every 3 seconds) to keep times aligned
+      const syncInterval = setInterval(() => {
+        socket.emit('timer:request_sync', { roomId: currentRoom.id });
+      }, 3000);
+
+      return () => {
+        socket.off('timer:sync');
+        clearInterval(syncInterval);
       };
-
-      // Update immediately
-      updateTimer();
-
-      // Update every second
-      const timerId = setInterval(updateTimer, 1000);
-
-      return () => clearInterval(timerId);
     }
-  }, [room?.gameState?.waitingStartTime, room?.gameState?.waitingTimer]);
+  }, [socket, currentRoom?.id, waitingTimeLeft]);
+
+  // Update local timer more frequently for smoother countdown
+  useEffect(() => {
+    if (waitingTimeLeft > 0) {
+      waitingTimeLeftRef.current = setTimeout(() => {
+        const newTime = Math.max(0, waitingTimeLeft - 1000);
+        setWaitingTimeLeft(newTime);
+        
+        if (newTime === 0 && currentRoom?.players[0]?.id === socket?.id) {
+          console.log('Timer completed, notifying server');
+          socket?.emit('timer:complete', { roomId: currentRoom.id });
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (waitingTimeLeftRef.current) {
+        clearTimeout(waitingTimeLeftRef.current);
+      }
+    };
+  }, [waitingTimeLeft, currentRoom?.players, socket, currentRoom?.id]);
 
   const handleResync = () => {
     if (roomId) {
@@ -277,8 +327,10 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
   // Format waiting time
   const formatWaitingTime = (ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
+    if (!ms || isNaN(ms)) return "0:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
@@ -345,16 +397,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       </Layout>
     );
   }
-
-  useEffect(() => {
-    if (waitingTimeLeft > 0) {
-      waitingTimeLeftRef.current = setTimeout(() => {
-        setWaitingTimeLeft((prev) => prev - 1000); // Decrease by 1000ms (1 second)
-      }, 1000);
-    }
-
-    return () => clearTimeout(waitingTimeLeftRef.current);
-  }, [waitingTimeLeft]);
 
   return (
     <Layout>

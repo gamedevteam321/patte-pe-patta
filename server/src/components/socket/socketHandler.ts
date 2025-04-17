@@ -339,10 +339,7 @@ export const socketHandler = (io: Server): void => {
               cards: [],
               score: 0,
               isActive: true,
-              autoPlayCount: 0,
-              waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
-              waitingStartTime: Date.now(),
-              autoStartEnabled: true
+              autoPlayCount: 0
             }],
             currentPlayerIndex: 0,
             centralPile: [],
@@ -351,7 +348,10 @@ export const socketHandler = (io: Server): void => {
             gameStartTime: null,
             roomDuration: 5 * 60 * 1000,
             turnEndTime: null,
-            requiredPlayers: roomData.maxPlayers || 2
+            requiredPlayers: roomData.maxPlayers || 2,
+            waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
+            waitingStartTime: Date.now(), // Set initial start time
+            autoStartEnabled: true
           }
         };
 
@@ -427,7 +427,7 @@ export const socketHandler = (io: Server): void => {
             return;
           }
 
-          // Initialize room in memory
+          // Initialize room in memory with current timestamp
           currentRoom = {
             ...dbRoom,
             players: [],
@@ -442,8 +442,8 @@ export const socketHandler = (io: Server): void => {
               roomDuration: 5 * 60 * 1000,
               turnEndTime: null,
               requiredPlayers: dbRoom.max_players,
-              waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
-              waitingStartTime: Date.now(),
+              waitingTimer: 3 * 60 * 1000,
+              waitingStartTime: Date.now(), // Only set if room is being initialized for first time
               autoStartEnabled: true
             }
           } as Room;
@@ -595,6 +595,14 @@ export const socketHandler = (io: Server): void => {
           isPrivate: room.isPrivate,
           playerCount: room.players.length
         });
+
+        // After successfully joining the room
+        if (room.gameState) {
+          io.to(roomId).emit('timer:sync', {
+            waitingStartTime: room.gameState.waitingStartTime, // Use existing start time
+            waitingTimer: room.gameState.waitingTimer
+          });
+        }
 
         // Send proper callback response
         if (callback) {
@@ -1235,6 +1243,37 @@ export const socketHandler = (io: Server): void => {
         });
       } catch (error) {
         console.error('Error ending game:', error);
+      }
+    });
+
+    socket.on('timer:request_sync', ({ roomId }) => {
+      const room = rooms.get(roomId);
+      if (room && room.gameState) {
+        // Broadcast timer state to all clients in the room instead of just the requesting client
+        io.to(roomId).emit('timer:sync', {
+          waitingStartTime: room.gameState.waitingStartTime,
+          waitingTimer: room.gameState.waitingTimer
+        });
+      }
+    });
+
+    socket.on('timer:complete', ({ roomId }) => {
+      const room = rooms.get(roomId);
+      if (room && room.gameState) {
+        // Notify all clients in the room that timer is complete
+        io.to(roomId).emit('timer:sync', {
+          waitingStartTime: room.gameState.waitingStartTime,
+          waitingTimer: 0
+        });
+
+        // If room is full, emit start_game event
+        if (room.players.length >= room.gameState.requiredPlayers) {
+          socket.emit('start_game', roomId, (response: { success: boolean; error?: string }) => {
+            if (!response.success) {
+              console.error('Failed to start game after timer completion:', response.error);
+            }
+          });
+        }
       }
     });
   });

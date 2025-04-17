@@ -88,13 +88,6 @@ const GameRoom: React.FC = () => {
     if (!socket || !roomId) return;
 
     const handleRoomUpdate = (updatedRoom: Room) => {
-      console.log("Room updated:", {
-        roomId: updatedRoom.id,
-        players: updatedRoom.players.length,
-        required: updatedRoom.gameState.requiredPlayers,
-        status: updatedRoom.gameState.status
-      });
-      
       setRoom(updatedRoom);
       
       // Calculate waiting time left
@@ -107,166 +100,18 @@ const GameRoom: React.FC = () => {
         const isRoomFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
         const waitingTimeExpired = timeLeft <= 0;
         
-        console.log("Auto-start check:", { 
-          isRoomFull, 
-          waitingTimeExpired, 
-          playerCount: updatedRoom.players.length, 
-          requiredPlayers: updatedRoom.gameState.requiredPlayers 
-        });
-        
         if (isRoomFull || waitingTimeExpired) {
-          console.log("Auto-starting game from room update!");
           setIsAutoStarting(true);
           socket.emit('start_game', roomId);
         }
       }
     };
 
-    // Handle when a new player joins the room
-    const handlePlayerJoined = (data: any) => {
-      console.log("Player joined event received:", data);
-      
-      // If we have current room data, check if adding this player makes it full
-      if (room && room.gameState) {
-        // Create a new player count including the player that just joined
-        const newPlayerCount = room.players.length + 1;
-        console.log("Player joined - checking room capacity:", {
-          currentPlayers: room.players.length,
-          newPlayerCount,
-          requiredPlayers: room.gameState.requiredPlayers,
-          isNowFull: newPlayerCount >= room.gameState.requiredPlayers
-        });
-        
-        // If room is now full, auto-start
-        if (newPlayerCount >= room.gameState.requiredPlayers && room.gameState.status === 'waiting') {
-          console.log("Room is now full after player joined, auto-starting game!");
-          setIsAutoStarting(true);
-          
-          // Add a delay to make sure the room state has updated
-          setTimeout(() => {
-            socket.emit('start_game', roomId);
-          }, 1000);
-        }
-      }
-    };
-
-    // Handle when room is ready to start
-    const handleRoomReady = (data: { roomId: string }) => {
-      console.log("Room ready event received:", data);
-      if (data.roomId === roomId) {
-        console.log("Auto-starting game from room:ready event!");
-        setIsAutoStarting(true);
-        socket.emit('start_game', roomId);
-      }
-    };
-
-    // Handle game state updates
-    const handleGameStateUpdate = (gameState: any) => {
-      console.log("Game state updated:", {
-        playerCount: gameState.players.length,
-        requiredPlayers: gameState.requiredPlayers,
-        status: gameState.status
-      });
-      
-      // Check if we should auto-start based on this update
-      if (gameState.status === 'waiting' && 
-          gameState.players.length >= gameState.requiredPlayers) {
-        console.log("Game state indicates room is full, auto-starting game!");
-        setIsAutoStarting(true);
-        socket.emit('start_game', roomId);
-      }
-    };
-
     socket.on('room:update', handleRoomUpdate);
-    socket.on('player_joined', handlePlayerJoined);
-    socket.on('room:ready', handleRoomReady);
-    socket.on('game_state_updated', handleGameStateUpdate);
-    
-    // Initial check if room is full
-    if (room && room.gameState && room.players) {
-      const isRoomFull = room.players.length >= room.gameState.requiredPlayers;
-      console.log("Initial room check:", { isRoomFull, playerCount: room.players.length, requiredPlayers: room.gameState.requiredPlayers });
-      
-      if (isRoomFull && room.gameState.status === 'waiting') {
-        console.log("Room is already full on initial check! Auto-starting game...");
-        setIsAutoStarting(true);
-        socket.emit('start_game', roomId);
-      }
-    }
-    
     return () => {
       socket.off('room:update', handleRoomUpdate);
-      socket.off('player_joined', handlePlayerJoined);
-      socket.off('room:ready', handleRoomReady);
-      socket.off('game_state_updated', handleGameStateUpdate);
     };
-  }, [socket, roomId, room]);
-
-  // Set up socket event listeners for the room
-  useEffect(() => {
-    if (!socket || !roomId) return;
-
-    // Handle game start event from server
-    const handleGameStart = (data: any) => {
-      console.log("Game started event received:", data);
-      setIsAutoStarting(false); // Clear auto-starting state as game has now started
-      
-      // If we have a local room reference, update its status
-      if (room) {
-        setRoom(prev => prev ? {
-          ...prev,
-          gameState: {
-            ...prev.gameState,
-            status: 'playing'
-          }
-        } : null);
-      }
-      
-      // Show toast notification about game starting
-      toast({
-        title: "Game Started!",
-        description: "The game has started. Good luck!",
-      });
-    };
-
-    // Listen for game start events
-    socket.on('game:start', handleGameStart);
-    
-    return () => {
-      // Clean up event listener
-      socket.off('game:start', handleGameStart);
-    };
-  }, [socket, roomId, room, toast]);
-
-  // Auto-start game when room is full
-  useEffect(() => {
-    if (!socket || !roomId || !room) return;
-    
-    // Check if room is full and in waiting state
-    const isRoomFull = room.players && room.players.length >= room.gameState.requiredPlayers;
-    const isWaiting = room.gameState.status === 'waiting';
-    
-    if (isRoomFull && isWaiting && !isAutoStarting) {
-      console.log("Room is full, starting game for all players...");
-      setIsAutoStarting(true);
-      
-      // Only host can start the game
-      if (room.players[0]?.id === socket.id) {
-        console.log("I am host, emitting start_game event");
-        // Add a small delay to ensure all clients are ready
-        setTimeout(() => {
-          socket.emit('start_game', roomId, (response: any) => {
-            if (response && response.success) {
-              console.log("Game start command successful");
-            } else {
-              console.error("Failed to start game:", response?.error || "Unknown error");
-              setIsAutoStarting(false);
-            }
-          });
-        }, 1000);
-      }
-    }
-  }, [socket, roomId, room, isAutoStarting]);
+  }, [socket, roomId]);
 
   const handleResync = () => {
     if (roomId) {
@@ -390,22 +235,30 @@ const GameRoom: React.FC = () => {
           {room?.gameState.status === 'waiting' && (
             <div className="bg-[#1A1B1E]/80 p-6 rounded-lg mb-4 text-center">
               <h2 className="text-2xl font-bold text-yellow-500 mb-4">
-                Room is Ready
+                Waiting for players to join... ({room.players.length}/{room.gameState.requiredPlayers || 2})
               </h2>
               <p className="text-lg text-yellow-400/80 mb-6">
-                All players have joined. Host can start the game!
+                Share the room code to invite friends!
               </p>
               <div className="flex flex-col items-center justify-center space-y-4">
                 <div className="bg-[#0B0C10] p-4 rounded-lg border border-[#4169E1]/20">
-                  <div className="text-sm text-gray-400 mb-1">Players:</div>
+                  <div className="text-sm text-gray-400 mb-1">Game starts in:</div>
                   <div className="text-3xl font-bold text-[#4169E1]">
-                    {room.players.length}/{room.gameState.requiredPlayers || 2}
+                    {formatWaitingTime(waitingTimeLeft)}
                   </div>
                 </div>
-                {isAutoStarting && (
+                {isAutoStarting ? (
                   <div className="text-sm text-green-400 animate-pulse">
                     Game is starting automatically...
                   </div>
+                ) : room.players[0]?.id === socket?.id && (
+                  <Button
+                    onClick={() => socket?.emit('start_game', roomId)}
+                    disabled={room.players.length < (room.gameState.requiredPlayers || 2)}
+                    className="bg-[#4169E1] hover:bg-[#4169E1]/80 text-white"
+                  >
+                    Start Game Now
+                  </Button>
                 )}
               </div>
             </div>

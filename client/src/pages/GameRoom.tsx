@@ -88,6 +88,13 @@ const GameRoom: React.FC = () => {
     if (!socket || !roomId) return;
 
     const handleRoomUpdate = (updatedRoom: Room) => {
+      console.log("Room updated:", {
+        roomId: updatedRoom.id,
+        players: updatedRoom.players.length,
+        required: updatedRoom.gameState.requiredPlayers,
+        status: updatedRoom.gameState.status
+      });
+      
       setRoom(updatedRoom);
       
       // Calculate waiting time left
@@ -100,18 +107,82 @@ const GameRoom: React.FC = () => {
         const isRoomFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
         const waitingTimeExpired = timeLeft <= 0;
         
-        if (isRoomFull || waitingTimeExpired) {
+        console.log("Auto-start check:", { 
+          isRoomFull, 
+          waitingTimeExpired, 
+          playerCount: updatedRoom.players.length, 
+          requiredPlayers: updatedRoom.gameState.requiredPlayers 
+        });
+        
+        if (isRoomFull) {
+          console.log("Room is full! Auto-starting game...");
+          setIsAutoStarting(true);
+          // Add a short delay to make sure all clients are ready
+          setTimeout(() => {
+            socket.emit('start_game', roomId);
+          }, 2000);
+        } else if (waitingTimeExpired && updatedRoom.players[0]?.id === socket.id) {
+          // If timer expired and current player is host, they can start the game
+          console.log("Waiting time expired and current player is host! Auto-starting game...");
           setIsAutoStarting(true);
           socket.emit('start_game', roomId);
         }
       }
     };
 
+    // Handle when a new player joins the room
+    const handlePlayerJoined = (data: any) => {
+      console.log("Player joined event received:", data);
+      
+      // If we have current room data, check if adding this player makes it full
+      if (room && room.gameState) {
+        // Create a new player count including the player that just joined
+        const newPlayerCount = room.players.length + 1;
+        const isNowFull = newPlayerCount >= room.gameState.requiredPlayers;
+        
+        console.log("Player joined - checking room capacity:", {
+          currentPlayers: room.players.length,
+          newPlayerCount,
+          requiredPlayers: room.gameState.requiredPlayers,
+          isNowFull
+        });
+        
+        // If room is now full, auto-start
+        if (isNowFull) {
+          console.log("Room is now full after player joined, auto-starting game!");
+          setIsAutoStarting(true);
+          
+          // Add a short delay before starting
+          setTimeout(() => {
+            socket.emit('start_game', roomId);
+          }, 2000);
+        }
+      }
+    };
+
+    // Handle when room is ready to start
+    const handleRoomReady = (data: { roomId: string }) => {
+      console.log("Room ready event received:", data);
+      if (data.roomId === roomId) {
+        console.log("Room is ready, auto-starting game!");
+        setIsAutoStarting(true);
+        // Add a short delay before starting
+        setTimeout(() => {
+          socket.emit('start_game', roomId);
+        }, 2000);
+      }
+    };
+
     socket.on('room:update', handleRoomUpdate);
+    socket.on('player_joined', handlePlayerJoined);
+    socket.on('room:ready', handleRoomReady);
+    
     return () => {
       socket.off('room:update', handleRoomUpdate);
+      socket.off('player_joined', handlePlayerJoined);
+      socket.off('room:ready', handleRoomReady);
     };
-  }, [socket, roomId]);
+  }, [socket, roomId, room]);
 
   const handleResync = () => {
     if (roomId) {
@@ -235,30 +306,36 @@ const GameRoom: React.FC = () => {
           {room?.gameState.status === 'waiting' && (
             <div className="bg-[#1A1B1E]/80 p-6 rounded-lg mb-4 text-center">
               <h2 className="text-2xl font-bold text-yellow-500 mb-4">
-                Waiting for players to join... ({room.players.length}/{room.gameState.requiredPlayers || 2})
+                {room.players.length < room.gameState.requiredPlayers 
+                  ? `Waiting for players to join... (${room.players.length}/${room.gameState.requiredPlayers || 2})`
+                  : "Room is full! Game will start automatically..."
+                }
               </h2>
               <p className="text-lg text-yellow-400/80 mb-6">
-                Share the room code to invite friends!
+                {room.players.length < room.gameState.requiredPlayers 
+                  ? "Share the room code to invite friends!" 
+                  : "Preparing to start the game for all players..."
+                }
               </p>
               <div className="flex flex-col items-center justify-center space-y-4">
                 <div className="bg-[#0B0C10] p-4 rounded-lg border border-[#4169E1]/20">
-                  <div className="text-sm text-gray-400 mb-1">Game starts in:</div>
+                  <div className="text-sm text-gray-400 mb-1">
+                    {room.players.length >= room.gameState.requiredPlayers 
+                      ? "Game starting in:" 
+                      : "Auto-start timer:"
+                    }
+                  </div>
                   <div className="text-3xl font-bold text-[#4169E1]">
-                    {formatWaitingTime(waitingTimeLeft)}
+                    {room.players.length >= room.gameState.requiredPlayers 
+                      ? "0:03" // Show countdown when room is full
+                      : formatWaitingTime(waitingTimeLeft)
+                    }
                   </div>
                 </div>
-                {isAutoStarting ? (
+                {isAutoStarting && (
                   <div className="text-sm text-green-400 animate-pulse">
                     Game is starting automatically...
                   </div>
-                ) : room.players[0]?.id === socket?.id && (
-                  <Button
-                    onClick={() => socket?.emit('start_game', roomId)}
-                    disabled={room.players.length < (room.gameState.requiredPlayers || 2)}
-                    className="bg-[#4169E1] hover:bg-[#4169E1]/80 text-white"
-                  >
-                    Start Game Now
-                  </Button>
                 )}
               </div>
             </div>

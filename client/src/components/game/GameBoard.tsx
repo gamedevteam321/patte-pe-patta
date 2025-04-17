@@ -838,6 +838,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState, showCardCollection]);
 
+  // Add this effect to handle automatic game start when status changes to 'ready'
+  useEffect(() => {
+    if (gameState?.status === 'ready' && isHost && !gameState.gameStarted) {
+      console.log('Game status is ready, auto-starting game...');
+      setTimeout(() => {
+        startGame();
+        
+        toast({
+          title: "Starting game",
+          description: "Game is starting automatically...",
+          duration: 3000,
+          className: "top-0"
+        });
+      }, 1500); // Short delay for visual feedback
+    }
+  }, [gameState?.status, isHost, startGame, gameState?.gameStarted]);
+
+  // Add effect to track room state changes specifically for auto-start
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRoomReadyEvent = ({ roomId }: { roomId: string }) => {
+      console.log('Room ready event received in GameBoard:', { roomId, isHost });
+      
+      if (isHost && !gameState.gameStarted) {
+        console.log('Host detected room ready event, auto-starting game...');
+        setTimeout(() => {
+          startGame();
+        }, 1500);
+      }
+    };
+
+    socket.on('room:ready', handleRoomReadyEvent);
+
+    return () => {
+      socket.off('room:ready', handleRoomReadyEvent);
+    };
+  }, [socket, isHost, startGame, gameState?.gameStarted]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -886,18 +925,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       } else if (gameState.status === 'ready') {
         return (
           <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
-            <p className="text-lg text-green-400">
-              All players have joined! Ready to start the game.
+            <p className="text-lg text-green-400 animate-pulse">
+              All players have joined! Game starting automatically...
             </p>
-            {isHost && (
-              <Button
-                onClick={handleStartGame}
-                disabled={actionsDisabled}
-                className="mt-2 bg-green-600 hover:bg-green-700 text-white"
-              >
-                Start Game
-              </Button>
-            )}
           </div>
         );
       }

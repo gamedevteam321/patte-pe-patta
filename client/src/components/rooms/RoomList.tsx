@@ -30,6 +30,7 @@ interface RoomItem {
   hostName: string;
   isPrivate: boolean;
   createdAt: string;
+  code: string;
   players?: Array<{
     id: string;
     username: string;
@@ -37,7 +38,17 @@ interface RoomItem {
   }>;
 }
 
-const RoomList: React.FC = () => {
+interface RoomListProps {
+  initialFilter?: 'all' | 'public' | 'private' | 'my';
+  filterByCode?: string;
+  showFilters?: boolean;
+}
+
+const RoomList: React.FC<RoomListProps> = ({ 
+  initialFilter = 'all',
+  filterByCode,
+  showFilters = true
+}) => {
   const { availableRooms, fetchRooms, joinRoom } = useSocket();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,7 +58,7 @@ const RoomList: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [filter, setFilter] = useState<'all' | 'public' | 'private' | 'my'>('all');
+  const [filter, setFilter] = useState<'all' | 'public' | 'private' | 'my'>(initialFilter);
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -155,8 +166,14 @@ const RoomList: React.FC = () => {
     maxPlayers: Number(room.maxPlayers) || 2
   }));
 
-  // Filter rooms based on selected filter
+  // Filter rooms based on selected filter and room code
   const filteredRooms = rooms.filter(room => {
+    // First filter by room code if provided
+    if (filterByCode && room.code !== filterByCode) {
+      return false;
+    }
+
+    // Then apply the selected filter
     switch (filter) {
       case 'public':
         return !room.isPrivate;
@@ -212,41 +229,43 @@ const RoomList: React.FC = () => {
         </div>
 
         {/* Room Filters */}
-        <div className="flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            value={filter}
-            onValueChange={(value) => setFilter(value as 'all' | 'public' | 'private' | 'my')}
-            className="flex-wrap"
-          >
-            <ToggleGroupItem value="all" aria-label="All rooms">
-              <span className="flex items-center gap-2">
-                <List className="h-4 w-4" />
-                All
-              </span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="public" aria-label="Public rooms">
-              <span className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Public
-              </span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="private" aria-label="Private rooms">
-              <span className="flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Private
-              </span>
-            </ToggleGroupItem>
-            {user && (
-              <ToggleGroupItem value="my" aria-label="My rooms">
+        {showFilters && (
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={filter}
+              onValueChange={(value) => setFilter(value as 'all' | 'public' | 'private' | 'my')}
+              className="flex-wrap"
+            >
+              <ToggleGroupItem value="all" aria-label="All rooms">
                 <span className="flex items-center gap-2">
-                  <Home className="h-4 w-4" />
-                  My Rooms
+                  <List className="h-4 w-4" />
+                  All
                 </span>
               </ToggleGroupItem>
-            )}
-          </ToggleGroup>
-        </div>
+              <ToggleGroupItem value="public" aria-label="Public rooms">
+                <span className="flex items-center gap-2">
+                  <Globe className="h-4 w-4" />
+                  Public
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="private" aria-label="Private rooms">
+                <span className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Private
+                </span>
+              </ToggleGroupItem>
+              {user && (
+                <ToggleGroupItem value="my" aria-label="My rooms">
+                  <span className="flex items-center gap-2">
+                    <Home className="h-4 w-4" />
+                    My Rooms
+                  </span>
+                </ToggleGroupItem>
+              )}
+            </ToggleGroup>
+          </div>
+        )}
       </div>
 
       {filteredRooms.length === 0 ? (

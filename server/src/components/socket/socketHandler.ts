@@ -111,9 +111,11 @@ export const socketHandler = (io: Server): void => {
       
       while (retries < maxRetries) {
         try {
+          console.log('Fetching rooms from database...');
           // Verify Supabase connection before querying
           const isConnected = await verifySupabaseConnection();
           if (!isConnected) {
+            console.error('Supabase connection not available');
             throw new Error('Supabase connection not available');
           }
 
@@ -123,10 +125,23 @@ export const socketHandler = (io: Server): void => {
             .select('*')
             .eq('status', 'waiting');
           
-          if (error) throw error;
+          if (error) {
+            console.error('Supabase query error:', error);
+            throw error;
+          }
+          
+          console.log('Raw rooms data from database:', roomsData?.map(room => ({
+            id: room.id,
+            code: room.code,
+            status: room.status,
+            name: room.name,
+            player_count: room.player_count,
+            max_players: room.max_players
+          })));
           
           // If no rooms data, return empty array
           if (!roomsData) {
+            console.log('No rooms found in database');
             if (callback) {
               callback({ success: true, rooms: [] });
             }
@@ -135,25 +150,62 @@ export const socketHandler = (io: Server): void => {
           
           // Ensure roomsData is always an array
           const roomsArray = Array.isArray(roomsData) ? roomsData : [roomsData];
+          console.log('Processed rooms array:', roomsArray.map(room => ({
+            id: room.id,
+            code: room.code,
+            status: room.status,
+            name: room.name,
+            player_count: room.player_count,
+            max_players: room.max_players
+          })));
           
           // Filter out full rooms and add in-memory data including player count
           const availableRooms = roomsArray.map(room => {
             const inMemoryRoom = rooms.get(room.id) || { players: [] };
             const playerCount = inMemoryRoom.players ? inMemoryRoom.players.length : 0;
             
+            console.log('Processing room:', {
+              roomId: room.id,
+              roomCode: room.code,
+              roomName: room.name,
+              status: room.status,
+              playerCount,
+              maxPlayers: room.max_players,
+              isInMemory: rooms.has(room.id)
+            });
+            
             return {
               id: room.id,
               name: room.name || "Game Room",
               hostName: room.host_name,
               maxPlayers: room.max_players || 2,
-              playerCount: playerCount,
+              players: inMemoryRoom.players || [],
               isPrivate: room.is_private || false,
               betAmount: room.amount_stack || 0,
               status: room.status,
               createdAt: room.created_at,
               code: room.code
             };
-          }).filter(room => room.playerCount < room.maxPlayers); // Only return rooms that aren't full
+          }).filter(room => {
+            const isAvailable = room.players.length < room.maxPlayers;
+            console.log('Room availability check:', {
+              roomId: room.id,
+              roomCode: room.code,
+              roomName: room.name,
+              playerCount: room.players.length,
+              maxPlayers: room.maxPlayers,
+              isAvailable
+            });
+            return isAvailable;
+          });
+          
+          console.log('Final available rooms after filtering:', availableRooms.map(room => ({
+            id: room.id,
+            code: room.code,
+            name: room.name,
+            playerCount: room.players.length,
+            maxPlayers: room.maxPlayers
+          })));
           
           if (callback) {
             callback({ success: true, rooms: availableRooms });

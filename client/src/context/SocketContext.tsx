@@ -122,22 +122,29 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchRooms = React.useCallback(() => {
     const now = Date.now();
     if (now - lastFetchTime < 2000) {
-        return;
-      }
+      console.log('Skipping fetch due to rate limit');
+      return;
+    }
       
     if (socket && isConnected) {
+      console.log('Fetching rooms from server...');
       setLastFetchTime(now);
       socket.emit('fetch_rooms', (response: { success: boolean; rooms: RoomData[] }) => {
+        console.log('Received rooms response:', response);
         if (response.success) {
+          console.log('Setting available rooms:', response.rooms);
           setAvailableRooms(response.rooms);
         } else {
-            toast({
-          title: "Error",
+          console.error('Failed to fetch rooms:', response);
+          toast({
+            title: "Error",
             description: "Failed to fetch rooms. Please try again.",
-              variant: "destructive"
-            });
+            variant: "destructive"
+          });
         }
       });
+    } else {
+      console.log('Cannot fetch rooms - socket not connected:', { socket, isConnected });
     }
   }, [socket, isConnected, lastFetchTime]);
 

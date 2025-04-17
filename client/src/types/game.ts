@@ -29,16 +29,33 @@ export interface GameState {
 }
 
 // Room related types
-export interface Room {
+export interface RoomData {
   id: string;
   name: string;
   hostName: string;
+  maxPlayers: number;
+  playerCount: number;
+  isPrivate: boolean;
+  betAmount: number;
+  status: string;
+  createdAt: string;
+  code: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  status: string;
+  betAmount: number;
+  hostName: string;
+  isPrivate: boolean;
   playerCount: number;
   maxPlayers: number;
-  betAmount: number;
-  isPrivate: boolean;
-  status: 'waiting' | 'playing' | 'finished';
   createdAt: string;
-  code: string | null;
-  players?: Player[];
+  code: string;
+  players?: {
+    id: string;
+    username: string;
+    isReady: boolean;
+  }[];
 } 

@@ -443,7 +443,7 @@ export const socketHandler = (io: Server): void => {
               turnEndTime: null,
               requiredPlayers: dbRoom.max_players,
               waitingTimer: 3 * 60 * 1000,
-              waitingStartTime: Date.now(), // Only set if room is being initialized for first time
+              waitingStartTime: Date.now(),
               autoStartEnabled: true
             }
           } as Room;
@@ -469,6 +469,15 @@ export const socketHandler = (io: Server): void => {
           
           if (callback) {
             callback({ success: true, room });
+          }
+          return;
+        }
+
+        // Check if game has already started - prevent new players from joining
+        if (room.gameState && room.gameState.status !== 'waiting') {
+          console.log('Join room failed: Game has already started');
+          if (callback) {
+            callback({ success: false, error: 'Game has already started. Cannot join now.' });
           }
           return;
         }
@@ -599,7 +608,7 @@ export const socketHandler = (io: Server): void => {
         // After successfully joining the room
         if (room.gameState) {
           io.to(roomId).emit('timer:sync', {
-            waitingStartTime: room.gameState.waitingStartTime, // Use existing start time
+            waitingStartTime: room.gameState.waitingStartTime,
             waitingTimer: room.gameState.waitingTimer
           });
         }
@@ -1274,6 +1283,62 @@ export const socketHandler = (io: Server): void => {
             }
           });
         }
+      }
+    });
+
+    // Add check for waiting timer expiration
+    socket.on('check_waiting_timer', async (roomId) => {
+      try {
+        const room = rooms.get(roomId);
+        if (!room) {
+          console.log('Room not found for timer check:', roomId);
+          return;
+        }
+
+        const waitingTimeElapsed = Date.now() - room.gameState.waitingStartTime >= room.gameState.waitingTimer;
+        
+        if (waitingTimeElapsed) {
+          console.log('Waiting timer expired for room:', roomId);
+          
+          if (room.players.length > 1) {
+            // Auto-start the game if more than one player
+            console.log('Auto-starting game with multiple players');
+            room.gameState.autoStartEnabled = true;
+            socket.emit('start_game', roomId);
+          } else {
+            // Close room and kick the single player if only one player
+            console.log('Closing room due to insufficient players');
+            
+            // Notify the player
+            io.to(roomId).emit('room_closed', {
+              reason: 'Insufficient players when timer expired'
+            });
+
+            // Remove player from room
+            const player = room.players[0];
+            if (player) {
+              socket.leave(roomId);
+            }
+
+            // Delete room from memory
+            rooms.delete(roomId);
+
+            // Update room status in database
+            const { error: updateError } = await supabase
+              .from('rooms')
+              .update({ status: 'finished' })
+              .eq('id', roomId);
+
+            if (updateError) {
+              console.error('Failed to update room status in database:', updateError);
+            }
+
+            // Emit rooms updated to all clients
+            io.emit('rooms_updated');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking waiting timer:', error);
       }
     });
   });

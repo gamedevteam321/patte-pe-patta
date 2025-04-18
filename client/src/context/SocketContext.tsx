@@ -45,6 +45,8 @@ export interface GameState {
     cardId: string;
     playerId: string;
   };
+  waitingStartTime: number;
+  waitingTimer: number;
 }
 
 // Database schema types

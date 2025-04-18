@@ -431,15 +431,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showMatchingCards, setShowMatchingCards] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false); // Debug mode enabled by default
 
-  const { 
-    gameState, 
+  const {
+    gameState,
     currentRoom,
-    playCard, 
-    shuffleDeck, 
-    joinRoom, 
-    startGame, 
-    kickInactivePlayer, 
-    endGame, 
+    playCard,
+    shuffleDeck,
+    joinRoom,
+    startGame,
+    kickInactivePlayer,
+    endGame,
     canStartGame: canStart,
     socket
   } = useSocket();
@@ -447,7 +447,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const players = gameState.players;
   const userPlayer = players.find(p => p.userId === userId);
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  
+
   // Add debug logging for game state
   console.log('Game state:', {
     currentPlayerIndex: gameState.currentPlayerIndex,
@@ -465,7 +465,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     centerPool: gameState.centralPile?.length || 0,
     centerPoolCards: gameState.centralPile?.map(c => `${c.value}-${c.suit}`)
   });
-  
+
   const isUserTurn = gameState.gameStarted && currentPlayer?.id === userPlayer?.id;
   const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId;
   const hasMultiplePlayers = players.length > 1;
@@ -496,7 +496,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         handleRefreshGameState();
       }
     }, syncRate);
-    
+
     return () => clearInterval(refreshInterval);
   }, [gameState, syncRate]);
 
@@ -513,14 +513,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (gameState?.gameStarted && !distributionComplete) {
       setShowDistribution(true);
       console.log("Showing distribution animation");
-      
+
       // Show distribution animation for 3 seconds
       const timer = setTimeout(() => {
         setShowDistribution(false);
         setDistributionComplete(true);
         console.log("Distribution animation complete");
       }, 3000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [gameState?.gameStarted, distributionComplete]);
@@ -538,21 +538,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         const now = Date.now();
         const elapsed = now - gameState.gameStartTime;
         const remaining = Math.max(0, gameState.roomDuration - elapsed);
-        
+
         setGameTimer(Math.floor(remaining / 1000));
-        
+
         if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
           // When time is up, determine winner based on most cards
-          const timeUpWinner = gameState.players.reduce((prev, current) => 
+          const timeUpWinner = gameState.players.reduce((prev, current) =>
             (prev.cards.length > current.cards.length) ? prev : current
           );
-          
+
           // End the game with the time up winner
           endGame(timeUpWinner.id);
         }
       }, 1000);
-      
+
       return () => clearInterval(interval);
     }
   }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame]);
@@ -562,9 +562,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       const interval = setInterval(() => {
         const now = Date.now();
         const remaining = Math.max(0, gameState.turnEndTime - now);
-        
+
         setTurnTimer(remaining);
-        
+
         if (remaining <= 0) {
           clearInterval(interval);
           // Auto play a card if it's the current player's turn
@@ -577,7 +577,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           }
         }
       }, 50); // Update every 50ms instead of 1000ms for smoother updates
-      
+
       return () => clearInterval(interval);
     } else {
       // Reset turn timer when not in a turn
@@ -597,12 +597,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   useEffect(() => {
     if (gameState?.players) {
       const inactivePlayers = gameState.players.filter(p => p.autoPlayCount >= 2);
-      
+
       if (inactivePlayers.length > 0) {
         inactivePlayers.forEach(player => {
           if (gameState.players[0].id === userId) {
             kickInactivePlayer(player.id);
-            
+
             toast({
               title: "Player removed",
               description: `${player.username} was removed for inactivity`,
@@ -621,13 +621,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       console.log("Match animation started, disabling actions");
       setShowMatchAnimation(true);
       setActionsDisabled(true);
-      
+
       const timer = setTimeout(() => {
         console.log("Match animation ended, enabling actions");
         setShowMatchAnimation(false);
         setActionsDisabled(false);
       }, 2000);
-      
+
       return () => {
         console.log("Cleaning up match animation timer");
         clearTimeout(timer);
@@ -709,7 +709,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           playerElement.classList.remove('turn-flash');
         }, 1000);
       }
-      
+
       // Disable actions if it's not the user's turn
       if (userPlayer && data.currentPlayerId !== userPlayer.id) {
         setActionsDisabled(true);
@@ -739,7 +739,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       if (newCard && (!lastPlayedCard || newCard.id !== lastPlayedCard.id)) {
         setLastPlayedCard(newCard);
         setIsAnimating(true);
-        
+
         // Reset animation after it completes
         setTimeout(() => {
           setIsAnimating(false);
@@ -755,24 +755,24 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     const handleCardMatch = (data: { playerId: string, cards: Card[] }) => {
       // Find the matching cards (the last card played and its match)
       const matchedCard = data.cards[data.cards.length - 1];
-      const matchingCard = data.cards.find(card => 
+      const matchingCard = data.cards.find(card =>
         card.id !== matchedCard.id && card.value === matchedCard.value
       );
-      
+
       // First show matching cards
       setMatchingCards([matchedCard, matchingCard].filter(Boolean));
       setShowMatchingCards(true);
       setActionsDisabled(true);
-      
+
       // Save the matched cards data
       setMatchedCards(data.cards);
       setLastMatchPlayer(data.playerId);
-      
+
       // Show matching cards for 1 second
       setTimeout(() => {
         setShowMatchingCards(false);
         setShowMatchAnimation(true);
-        
+
         // Toast notification
         const matchPlayer = players.find(p => p.id === data.playerId);
         if (matchPlayer) {
@@ -784,12 +784,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             className: "top-0"
           });
         }
-        
+
         // Show match animation for 0.8 seconds
         setTimeout(() => {
           setShowMatchAnimation(false);
           setShowCardCollection(true);
-          
+
           // Show card collection for 1.5 seconds
           setTimeout(() => {
             setShowCardCollection(false);
@@ -801,7 +801,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     };
 
     socket.on('card_match', handleCardMatch);
-    
+
     return () => {
       socket.off('card_match', handleCardMatch);
     };
@@ -828,7 +828,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           setMatchedCards([]);
         }
       }
-      
+
       console.log('Match animation state:', {
         serverMatchActive: gameState.matchAnimation?.isActive,
         clientShowMatchAnimation: showMatchAnimation,
@@ -844,7 +844,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       console.log('Game status is ready, auto-starting game...');
       setTimeout(() => {
         startGame();
-        
+
         toast({
           title: "Starting game",
           description: "Game is starting automatically...",
@@ -861,7 +861,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     const handleRoomReadyEvent = ({ roomId }: { roomId: string }) => {
       console.log('Room ready event received in GameBoard:', { roomId, isHost });
-      
+
       if (isHost && !gameState.gameStarted) {
         console.log('Host detected room ready event, auto-starting game...');
         setTimeout(() => {
@@ -914,7 +914,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // if (gameState.status === 'waiting') {
       //   return (
       //     <div className="w-full mb-4 p-4 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
-            
+
       //       <p className="text-lg text-yellow-400">
       //         Waiting for players to join... ({gameState.players.length}/{gameState.requiredPlayers})
       //       </p>
@@ -924,7 +924,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       //     </div>
       //   );
       // } else
-       if (gameState.status === 'ready') {
+      if (gameState.status === 'ready') {
         return (
           <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
             <p className="text-lg text-green-400 animate-pulse">
@@ -945,63 +945,63 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // Default fallback positioning if user not found
       return players.map((player, index) => {
         let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
-        
+
         if (index === 0) position = "bottom";
         else if (index === 1) position = "top";
         else if (index === 2) position = "right";
         else if (index === 3) position = "left";
         else if (index === 4) position = "top-left";
         else if (index === 5) position = "top-right";
-        
-        return { 
-          player, 
-          position, 
-          isUser: player.userId === userId 
+
+        return {
+          player,
+          position,
+          isUser: player.userId === userId
         };
       });
     }
-    
+
     // Reorder players to put current user first
     const currentUserIndex = players.findIndex(p => p.userId === userId);
     const reorderedPlayers = [
       ...players.slice(currentUserIndex, players.length),
       ...players.slice(0, currentUserIndex)
     ];
-    
+
     // Display positions based on how many players there are
     return reorderedPlayers.map((player, index) => {
       const isCurrentUser = player.userId === userId;
       const totalPlayers = players.length;
-      
+
       // Current user is always at the bottom
       if (isCurrentUser) {
         return { player, position: "bottom" as const, isUser: true };
       }
-      
+
       // Position other players based on their relative position to the current user
       switch (totalPlayers) {
         case 2:
           // With 2 players, other player is at the top
           return { player, position: "top" as const, isUser: false };
-        
+
         case 3:
           // With 3 players, positions are: bottom (user), top-left, top-right
           if (index === 1) return { player, position: "top-left" as const, isUser: false };
           else return { player, position: "top-right" as const, isUser: false };
-        
+
         case 4:
           // With 4 players, positions are: bottom (user), left, top, right
           if (index === 1) return { player, position: "left" as const, isUser: false };
           else if (index === 2) return { player, position: "top" as const, isUser: false };
           else return { player, position: "right" as const, isUser: false };
-        
+
         case 5:
           // With 5 players, positions are: bottom (user), left, top-left, top-right, right
           if (index === 1) return { player, position: "left" as const, isUser: false };
           else if (index === 2) return { player, position: "top-left" as const, isUser: false };
           else if (index === 3) return { player, position: "top-right" as const, isUser: false };
           else return { player, position: "right" as const, isUser: false };
-        
+
         case 6:
           // With 6 players, all positions are filled
           if (index === 1) return { player, position: "left" as const, isUser: false };
@@ -1009,10 +1009,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           else if (index === 3) return { player, position: "top" as const, isUser: false };
           else if (index === 4) return { player, position: "top-right" as const, isUser: false };
           else return { player, position: "right" as const, isUser: false };
-        
+
         default:
           // Default to top for any other number of players
-        return { player, position: "top" as const, isUser: false };
+          return { player, position: "top" as const, isUser: false };
       }
     });
   };
@@ -1048,22 +1048,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       });
       return;
     }
-    
+
     setActionsDisabled(true);
-    
+
     // Shuffle the player's cards locally first for immediate feedback
     const shuffledCards = [...userPlayer.cards];
     for (let i = shuffledCards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
     }
-    
+
     // Update local state
     userPlayer.cards = shuffledCards;
-    
+
     // Send shuffle request to server
     shuffleDeck();
-    
+
     // Re-enable actions after a short delay
     setTimeout(() => {
       setActionsDisabled(false);
@@ -1086,55 +1086,55 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     const hitButton = document.querySelector('.hit-button');
     const poolArea = document.querySelector('.center-area');
-    
+
     if (hitButton && poolArea) {
       const buttonRect = hitButton.getBoundingClientRect();
       const poolRect = poolArea.getBoundingClientRect();
-      
+
       // Create card element for animation
       const cardElement = document.createElement('div');
       cardElement.className = 'card-travel';
-      
+
       // Position initially at hit button
       cardElement.style.left = `${buttonRect.left + (buttonRect.width / 2) - 40}px`;
       cardElement.style.top = `${buttonRect.top - 60}px`;
-      
+
       // Create container for ReactDOM
       const cardContent = document.createElement('div');
       cardContent.className = 'w-full h-full relative';
       cardElement.appendChild(cardContent);
-      
+
       // Add to body
       document.body.appendChild(cardElement);
-      
+
       // Render card
       ReactDOM.render(
         <PlayingCard card={cardToPlay} />,
         cardContent
       );
-      
+
       // Start animation
       cardElement.style.transition = `transform 1s ease-out, left 1s ease-out, top 1s ease-out`;
-      
+
       // After a small delay, move the card to the pool
       setTimeout(() => {
         cardElement.style.left = `${poolRect.left + (poolRect.width / 2) - 40}px`;
         cardElement.style.top = `${poolRect.top + (poolRect.height / 2) - 60}px`;
       }, 50);
-      
+
       // After animation completes, remove the animated card
       setTimeout(() => {
         ReactDOM.unmountComponentAtNode(cardContent);
         document.body.removeChild(cardElement);
-        
+
         // Update player cards
         const updatedCards = [...userPlayer.cards];
         updatedCards.shift();
         userPlayer.cards = updatedCards;
-        
+
         // Send play event to server
         playCard(userPlayer.id, cardToPlay);
-        
+
         // Re-enable actions after a delay
         setTimeout(() => {
           setCardInMotion(null);
@@ -1147,20 +1147,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Check if there's a potential match
   const checkPotentialMatch = () => {
     if (!gameState.centralPile || gameState.centralPile.length < 1) return null;
-    
+
     // Get the top card of the center pool
     const topCard = gameState.centralPile[gameState.centralPile.length - 1];
-    
+
     // If the user has a card matching the top card value, it's a potential match
     const matchingCardInHand = userPlayer?.cards.some(card => card.value === topCard.value);
-    
+
     if (matchingCardInHand) {
       return {
         topCardValue: topCard.value,
         hasMatchingCard: true
       };
     }
-    
+
     return null;
   };
 
@@ -1168,7 +1168,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const renderMatchAnimation = () => {
     // Only show the animation when showMatchAnimation is true AND we have a valid lastMatchPlayer
     if (!showMatchAnimation || !lastMatchPlayer) return null;
-    
+
     return (
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="bg-green-500/90 text-white px-8 py-4 rounded-lg text-3xl font-bold animate-bounce match-animation">
@@ -1193,32 +1193,32 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Update the card collection animation to move cards toward the player
   const renderCardCollection = () => {
     if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
-    
+
     // Find target player deck position
     const targetPlayerPosition = positionedPlayers.find(p => p.player.id === lastMatchPlayer)?.position || 'bottom';
-    
+
     let targetX = 0, targetY = 0;
-    
+
     // Set target coordinates based on player position
-    switch(targetPlayerPosition) {
-      case 'top': 
-        targetX = 0; 
+    switch (targetPlayerPosition) {
+      case 'top':
+        targetX = 0;
         targetY = -300;
         break;
-      case 'bottom': 
-        targetX = 0; 
+      case 'bottom':
+        targetX = 0;
         targetY = 300;
         break;
-      case 'left': 
-        targetX = -300; 
+      case 'left':
+        targetX = -300;
         targetY = 0;
         break;
-      case 'right': 
-        targetX = 300; 
+      case 'right':
+        targetX = 300;
         targetY = 0;
         break;
     }
-    
+
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center">
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -1230,9 +1230,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           const spreadX = (index % 5) * 10 - 20;
           const spreadY = Math.floor(index / 5) * 10 - 10;
           const rotation = (index * 7) % 30 - 15;
-          
+
           return (
-            <div 
+            <div
               key={card.id}
               className="card-collect"
               style={{
@@ -1256,7 +1256,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Update the matching cards display component
   const renderMatchingCards = () => {
     if (!showMatchingCards || matchingCards.length < 2) return null;
-    
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
         <div className="bg-game-card p-8 rounded-lg border-2 border-blue-500">
@@ -1279,7 +1279,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
-    
+
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
@@ -1297,11 +1297,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             {gameState.players.map((player) => (
               <div
                 key={player.id}
-                className={`p-4 rounded-lg ${
-                  player.id === winner?.id
-                    ? "bg-green-500/20 border-2 border-green-500"
-                    : "bg-gray-800/50"
-                }`}
+                className={`p-4 rounded-lg ${player.id === winner?.id
+                  ? "bg-green-500/20 border-2 border-green-500"
+                  : "bg-gray-800/50"
+                  }`}
               >
                 <div className="text-lg font-semibold text-white">
                   {player.username}
@@ -1334,408 +1333,404 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   return (
     <>
-    
-      <div className="space-y-4">
-        <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
-        {gameState.gameStarted && (
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center gap-2">
-              <UserCircle className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">
-                {userPlayer?.username || "Loading..."}
-              </span>
-            </div>
-            <div className="h-4 w-px bg-gray-600" />
-            <div className="text-sm text-gray-300">
-              Players: {players.length}/{gameState.requiredPlayers}
-            </div>
-            {gameTimer !== null && (
-              <div className="text-sm text-gray-300">
-                Time: {formatTime(gameTimer)}
+      {gameState.gameStarted && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
+
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5 text-blue-400" />
+                <span className="text-white font-medium">
+                  {userPlayer?.username || "Loading..."}
+                </span>
               </div>
-            )}
-            {/* <button 
+              <div className="h-4 w-px bg-gray-600" />
+              <div className="text-sm text-gray-300">
+                Players: {players.length}/{gameState.requiredPlayers}
+              </div>
+              {gameTimer !== null && (
+                <div className="text-sm text-gray-300">
+                  Time: {formatTime(gameTimer)}
+                </div>
+              )}
+              {/* <button 
               onClick={() => setShowDebugInfo(!showDebugInfo)}
               className="px-2 py-1 bg-blue-600 text-white text-xs rounded"
             >
               {showDebugInfo ? "Hide Debug" : "Show Debug"}
             </button> */}
-          </div>
-          )}
-          {/* Player deck counts scoreboard */}
-          {gameState.gameStarted && (
+            </div>
+
+            {/* Player deck counts scoreboard */}
+
             <div className="flex items-center space-x-4">
               <div className="text-sm font-semibold text-white">
                 Card Counts:
               </div>
               <div className="flex space-x-2">
                 {players.map((player) => (
-                  <div 
-                    key={player.id} 
-                    className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 ${
-                      currentPlayer?.id === player.id 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-700 text-gray-200'
-                    }`}
+                  <div
+                    key={player.id}
+                    className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 ${currentPlayer?.id === player.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-200'
+                      }`}
                   >
                     <span className="font-medium">{player.username}:</span>
-                    <Badge 
-                      variant="outline" 
-                      className={`ml-1 ${
-                        player.cards.length > 10 
-                          ? 'bg-green-900/50 text-green-300 border-green-500/30' 
-                          : player.cards.length > 5 
-                            ? 'bg-blue-900/50 text-blue-300 border-blue-500/30'
-                            : 'bg-red-900/50 text-red-300 border-red-500/30'
-                      }`}
+                    <Badge
+                      variant="outline"
+                      className={`ml-1 ${player.cards.length > 10
+                        ? 'bg-green-900/50 text-green-300 border-green-500/30'
+                        : player.cards.length > 5
+                          ? 'bg-blue-900/50 text-blue-300 border-blue-500/30'
+                          : 'bg-red-900/50 text-red-300 border-red-500/30'
+                        }`}
                     >
                       {player.cards.length}
                     </Badge>
                   </div>
                 ))}
               </div>
-          </div>
-        )}
-      </div>
-
-        {/* Debug info panel */}
-        {showDebugInfo && (
-          <div className="bg-black/80 p-3 rounded border border-blue-500 mb-4">
-            <h3 className="text-white text-lg mb-2">Debug Info</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-blue-300 font-medium">Players ({players.length}):</h4>
-                <ul className="text-white text-sm">
-                  {players.map((player, idx) => (
-                    <li key={player.id} className="mb-1">
-                      Player {idx+1}: {player.username} 
-                      {player.id === userId ? " (YOU)" : ""} - 
-                      Cards: {player.cards.length}, 
-                      isHost: {player.isHost.toString()}, 
-                      isReady: {player.isReady.toString()}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h4 className="text-blue-300 font-medium">Game State:</h4>
-                <ul className="text-white text-sm">
-                  <li>Game Started: {gameState.gameStarted.toString()}</li>
-                  <li>Current Player: {currentPlayer?.username || "None"}</li>
-                  <li>Is Your Turn: {isUserTurn.toString()}</li>
-                  <li>Central Pile Cards: {gameState.centralPile?.length || 0}</li>
-                  <li>Status: {gameState.status}</li>
-                </ul>
-                
-                <h4 className="text-blue-300 font-medium mt-3">Positioned Players:</h4>
-                <ul className="text-white text-sm">
-                  {positionedPlayers.map(({player, position}, idx) => (
-                    <li key={player.id}>
-                      {position}: {player.username} {player.id === userId ? " (YOU)" : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
+
           </div>
-        )}
 
-        {renderGameStateMessage()}
-
-        <div className={`relative bg-[#0B0C10] border border-blue-900/20 rounded-lg p-4`}>
-          <div className={`game-board ${!gameState.centralPile || gameState.centralPile.length === 0 ? 'game-board-empty-pool' : ''}`}>
-            {/* Top player */}
-            <div className="top-player flex justify-center">
-        {positionedPlayers
-          .filter(p => p.position === "top")
-          .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
-                        />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
-                    )}
-            <PlayerDeck
-              player={player}
-              isCurrentPlayer={player.id === currentPlayer?.id}
-              isUser={isUser}
-              position={position}
-              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-            />
-                  </div>
-          ))}
-      </div>
-
-            {/* Top Left player */}
-            <div className="top-left-player">
-          {positionedPlayers
-                .filter(p => p.position === "top-left")
-            .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
-                        />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
-                    )}
-              <PlayerDeck
-                player={player}
-                isCurrentPlayer={player.id === currentPlayer?.id}
-                isUser={isUser}
-                position={position}
-                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-              />
-                  </div>
-            ))}
-        </div>
-        
-            {/* Top Right player */}
-            <div className="top-right-player">
-              {positionedPlayers
-                .filter(p => p.position === "top-right")
-                .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
-                        />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
-                    )}
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-                    />
-                  </div>
-                ))}
+          {/* Debug info panel */}
+          {showDebugInfo && (
+            <div className="bg-black/80 p-3 rounded border border-blue-500 mb-4">
+              <h3 className="text-white text-lg mb-2">Debug Info</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-blue-300 font-medium">Players ({players.length}):</h4>
+                  <ul className="text-white text-sm">
+                    {players.map((player, idx) => (
+                      <li key={player.id} className="mb-1">
+                        Player {idx + 1}: {player.username}
+                        {player.id === userId ? " (YOU)" : ""} -
+                        Cards: {player.cards.length},
+                        isHost: {player.isHost.toString()},
+                        isReady: {player.isReady.toString()}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-            
-            {/* Left player */}
-            <div className="left-player flex items-center justify-end">
-              {positionedPlayers
-                .filter(p => p.position === "left")
-                .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
-                        />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
-                    )}
-                    <PlayerDeck
-                      player={player}
-                      isCurrentPlayer={player.id === currentPlayer?.id}
-                      isUser={isUser}
-                      position={position}
-                      turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-                    />
-                  </div>
-                ))}
-            </div>
-            
-            {/* Center game area */}
-            <div className="center-area flex items-center justify-center">
-              {gameState.centralPile && gameState.centralPile.length > 0 ? (
-                <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
-                  <div className="flex-1 flex flex-col justify-center items-center">
-                    <div className="relative">
-                      <PlayingCard 
-                        card={gameState.centralPile[gameState.centralPile.length - 1]} 
-                      />
-                      
-                      <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
-                        {gameState.centralPile.length}
+                <div>
+                  <h4 className="text-blue-300 font-medium">Game State:</h4>
+                  <ul className="text-white text-sm">
+                    <li>Game Started: {gameState.gameStarted.toString()}</li>
+                    <li>Current Player: {currentPlayer?.username || "None"}</li>
+                    <li>Is Your Turn: {isUserTurn.toString()}</li>
+                    <li>Central Pile Cards: {gameState.centralPile?.length || 0}</li>
+                    <li>Status: {gameState.status}</li>
+                  </ul>
+
+                  <h4 className="text-blue-300 font-medium mt-3">Positioned Players:</h4>
+                  <ul className="text-white text-sm">
+                    {positionedPlayers.map(({ player, position }, idx) => (
+                      <li key={player.id}>
+                        {position}: {player.username} {player.id === userId ? " (YOU)" : ""}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-          </div>
-          
-                  <div className="mt-3 mb-1 text-center">
-                    <div className="bg-blue-900/50 p-2 rounded text-white">
-                      Top Card: {gameState.centralPile[gameState.centralPile.length - 1].value} of {gameState.centralPile[gameState.centralPile.length - 1].suit}
-              </div>
-                    {lastPlayedCard && currentPlayer && (
-                      <div className="mt-1 text-gray-300 text-sm">
-                        Played by: {currentPlayer.username}
-            </div>
-                    )}
-            </div>
-          </div>
-              ) : (
-                <div className="center-empty-pool">
-                  {cardInMotion ? (
-                    <div className="card-appear">
-                      <PlayingCard card={cardInMotion} />
-              </div>
-                  ) : (
-                    <>
-                      <div className="text-gray-300 text-lg italic mb-4">Empty Pool</div>
-                      <div className="text-white text-xs">No cards in pool</div>
-                    </>
-                  )}
             </div>
           )}
-        </div>
-        
-            {/* Right player */}
-            <div className="right-player flex items-center justify-start">
-          {positionedPlayers
-            .filter(p => p.position === "right")
-            .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
-                        />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
-                    )}
-              <PlayerDeck
-                player={player}
-                isCurrentPlayer={player.id === currentPlayer?.id}
-                isUser={isUser}
-                position={position}
-                turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-              />
-                  </div>
-            ))}
-      </div>
 
-            {/* Bottom player (you) */}
-            <div className="bottom-player flex justify-center">
-        {positionedPlayers
-          .filter(p => p.position === "bottom")
-          .map(({ player, position, isUser }) => (
-                  <div key={player.id} className="player-container">
-                    {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                      <svg className="timer-progress" viewBox="0 0 170 170">
-                        <circle
-                          className="progress-bg"
-                          cx="85"
-                          cy="85"
-                          r="75"
+          {renderGameStateMessage()}
+
+          <div className={`relative bg-[#0B0C10] border border-blue-900/20 rounded-lg p-4`}>
+            <div className={`game-board ${!gameState.centralPile || gameState.centralPile.length === 0 ? 'game-board-empty-pool' : ''}`}>
+              {/* Top player */}
+              <div className="top-player flex justify-center">
+                {positionedPlayers
+                  .filter(p => p.position === "top")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+              </div>
+
+              {/* Top Left player */}
+              <div className="top-left-player">
+                {positionedPlayers
+                  .filter(p => p.position === "top-left")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+              </div>
+
+              {/* Top Right player */}
+              <div className="top-right-player">
+                {positionedPlayers
+                  .filter(p => p.position === "top-right")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+              </div>
+
+              {/* Left player */}
+              <div className="left-player flex items-center justify-end">
+                {positionedPlayers
+                  .filter(p => p.position === "left")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+              </div>
+
+              {/* Center game area */}
+              <div className="center-area flex items-center justify-center">
+                {gameState.centralPile && gameState.centralPile.length > 0 ? (
+                  <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
+                    <div className="flex-1 flex flex-col justify-center items-center">
+                      <div className="relative">
+                        <PlayingCard
+                          card={gameState.centralPile[gameState.centralPile.length - 1]}
                         />
-                        <circle
-                          className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
-                          cx="85"
-                          cy="85"
-                          r="75"
-                          strokeDasharray={`${2 * Math.PI * 75}`}
-                          strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
-                        />
-                      </svg>
+
+                        <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
+                          {gameState.centralPile.length}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 mb-1 text-center">
+                      <div className="bg-blue-900/50 p-2 rounded text-white">
+                        Top Card: {gameState.centralPile[gameState.centralPile.length - 1].value} of {gameState.centralPile[gameState.centralPile.length - 1].suit}
+                      </div>
+                      {lastPlayedCard && currentPlayer && (
+                        <div className="mt-1 text-gray-300 text-sm">
+                          Played by: {currentPlayer.username}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="center-empty-pool">
+                    {cardInMotion ? (
+                      <div className="card-appear">
+                        <PlayingCard card={cardInMotion} />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-gray-300 text-lg italic mb-4">Empty Pool</div>
+                        <div className="text-white text-xs">No cards in pool</div>
+                      </>
                     )}
-            <PlayerDeck
-              player={player}
-              isCurrentPlayer={player.id === currentPlayer?.id}
-              isUser={isUser}
-              position={position}
-              turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
-                      className={`player-deck-${position}`}
-                    />
-                    
-                    {gameState.gameStarted && userPlayer && (
-                      <div className="mt-4 flex justify-center space-x-4">
-          <Button 
-                          onClick={handlePlayCard}
-                          disabled={!isUserTurn || actionsDisabled}
-                          className={`hit-button ${
-                            isUserTurn && !actionsDisabled
+                  </div>
+                )}
+              </div>
+
+              {/* Right player */}
+              <div className="right-player flex items-center justify-start">
+                {positionedPlayers
+                  .filter(p => p.position === "right")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+                    </div>
+                  ))}
+              </div>
+
+              {/* Bottom player (you) */}
+              <div className="bottom-player flex justify-center">
+                {positionedPlayers
+                  .filter(p => p.position === "bottom")
+                  .map(({ player, position, isUser }) => (
+                    <div key={player.id} className="player-container">
+                      {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
+                        <svg className="timer-progress" viewBox="0 0 170 170">
+                          <circle
+                            className="progress-bg"
+                            cx="85"
+                            cy="85"
+                            r="75"
+                          />
+                          <circle
+                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            cx="85"
+                            cy="85"
+                            r="75"
+                            strokeDasharray={`${2 * Math.PI * 75}`}
+                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                          />
+                        </svg>
+                      )}
+                      <PlayerDeck
+                        player={player}
+                        isCurrentPlayer={player.id === currentPlayer?.id}
+                        isUser={isUser}
+                        position={position}
+                        turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
+                        className={`player-deck-${position}`}
+                      />
+
+                      {gameState.gameStarted && userPlayer && (
+                        <div className="mt-4 flex justify-center space-x-4">
+                          <Button
+                            onClick={handlePlayCard}
+                            disabled={!isUserTurn || actionsDisabled}
+                            className={`hit-button ${isUserTurn && !actionsDisabled
                               ? 'bg-green-600 hover:bg-green-700'
                               : 'bg-gray-600'
-                          } text-white transition-colors duration-200`}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Your Turn - Hit!
-          </Button>
-        
-        <Button
-                          onClick={handleShuffleDeck}
-                          disabled={!isUserTurn || actionsDisabled}
-                          className={`${
-                            isUserTurn && !actionsDisabled
+                              } text-white transition-colors duration-200`}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Your Turn - Hit!
+                          </Button>
+
+                          <Button
+                            onClick={handleShuffleDeck}
+                            disabled={!isUserTurn || actionsDisabled}
+                            className={`${isUserTurn && !actionsDisabled
                               ? 'bg-[#4169E1] hover:bg-[#3158c4]'
                               : 'bg-gray-600'
-                          } text-white`}
-                        >
-                          <Shuffle className="h-5 w-5 mr-1" /> 
-                          Shuffle
-        </Button>
-      </div>
-                    )}
-    </div>
-                ))}
+                              } text-white`}
+                          >
+                            <Shuffle className="h-5 w-5 mr-1" />
+                            Shuffle
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
+      )}
       {renderMatchingCards()}
       {renderMatchAnimation()}
       {renderCardCollection()}

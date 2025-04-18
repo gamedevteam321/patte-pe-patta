@@ -227,8 +227,8 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           timeOffset = Math.abs(serverTimeLeft - waitingTimeLeft);
         }
 
-        // Only adjust time if the difference is more than 2 seconds
-        if (Math.abs(serverTimeLeft - waitingTimeLeft) > 2000) {
+        // Only adjust time if the difference is more than 1 seconds
+        if (Math.abs(serverTimeLeft - waitingTimeLeft) > 1000) {
           console.log('Adjusting timer due to drift:', {
             serverTime: serverTimeLeft,
             clientTime: waitingTimeLeft,
@@ -260,9 +260,10 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         const newTime = Math.max(0, waitingTimeLeft - 1000);
         setWaitingTimeLeft(newTime);
         
-        if (newTime === 0 && currentRoom?.players[0]?.id === socket?.id) {
-          console.log('Timer completed, notifying server');
-          socket?.emit('timer:complete', { roomId: currentRoom.id });
+        // Check if timer has expired and there are players in the room
+        if (newTime === 0 && currentRoom?.players && currentRoom.players.length > 0) {
+          console.log('Timer completed with players present, starting game');
+          socket?.emit('start_game', currentRoom.id);
         }
       }, 1000);
     }
@@ -273,6 +274,51 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       }
     };
   }, [waitingTimeLeft, currentRoom?.players, socket, currentRoom?.id]);
+
+  // Update waiting timer effect
+  useEffect(() => {
+    if (!socket || !roomId || !currentRoom) return;
+
+    // Clear any existing interval
+    if (waitingTimeLeftRef.current) {
+      clearInterval(waitingTimeLeftRef.current);
+    }
+
+    // Set up interval to check waiting time
+    waitingTimeLeftRef.current = setInterval(() => {
+      if (currentRoom.gameState.waitingStartTime && currentRoom.gameState.waitingTimer) {
+        const timeElapsed = Date.now() - currentRoom.gameState.waitingStartTime;
+        const timeLeft = Math.max(0, currentRoom.gameState.waitingTimer - timeElapsed);
+        setWaitingTimeLeft(timeLeft);
+
+        // If timer has expired, emit check_waiting_timer event
+        if (timeLeft === 0) {
+          console.log('Waiting timer expired, checking room status...');
+          socket.emit('check_waiting_timer', roomId);
+        }
+      }
+    }, 1000);
+
+    // Handle room closure event
+    const handleRoomClosed = (data: { reason: string }) => {
+      console.log('Room closed:', data.reason);
+      toast({
+        title: "Room Closed",
+        description: data.reason,
+        variant: "destructive"
+      });
+      navigate('/lobby');
+    };
+
+    socket.on('room_closed', handleRoomClosed);
+
+    return () => {
+      if (waitingTimeLeftRef.current) {
+        clearInterval(waitingTimeLeftRef.current);
+      }
+      socket.off('room_closed', handleRoomClosed);
+    };
+  }, [socket, roomId, currentRoom, navigate]);
 
   const handleResync = () => {
     if (roomId) {
@@ -344,7 +390,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     
     const waitingMessage = isFull
       ? `Game starting in ${formatWaitingTime(autoStartTimeLeft)}`
-      : `Waiting for players (${playerCount}/${requiredPlayers})`;
+      : `Waiting for players `;
 
     return (
       <div className="room-status">
@@ -363,6 +409,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         <ul className="space-y-2">
           {gameState.players.map((player) => (
             <li key={player.id} className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
               <span>{player.username}</span>
               {player.isHost && (
                 <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Host</span>

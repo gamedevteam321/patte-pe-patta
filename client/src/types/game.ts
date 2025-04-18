@@ -20,23 +20,26 @@ export interface Player {
 }
 
 export interface GameState {
-  roomId: string;
-  players: {
-    id: string;
-    username: string;
-    avatar: string;
-    cards: number[];
-    coins: number;
-  }[];
-  currentPlayer: string;
-  status: 'waiting' | 'playing' | 'finished';
-  winner?: string;
+  players: Player[];
+  currentPlayerIndex: number;
+  centralPile: Card[];
+  lastMatchWinner?: string;
+  isGameOver: boolean;
+  winner?: Player;
+  gameStarted: boolean;
+  gameStartTime?: number;
+  turnEndTime?: number;
+  roomDuration?: number;
+  status: 'waiting' | 'ready' | 'in_progress';
+  requiredPlayers: number;
+  matchAnimation?: {
+    isActive: boolean;
+    cardId: string;
+    playerId: string;
+  };
   waitingStartTime: number;
   waitingTimer: number;
-  requiredPlayers: number;
   autoStartEnabled: boolean;
-  centralPile?: Card[];
-  lastPlayedCard?: Card;
 }
 
 // Room related types
@@ -64,23 +67,7 @@ export interface Room {
   maxPlayers: number;
   createdAt: string;
   code: string;
-  gameState: {
-    roomId: string;
-    players: {
-      id: string;
-      username: string;
-      avatar: string;
-      cards: number[];
-      coins: number;
-    }[];
-    currentPlayer: string;
-    status: 'waiting' | 'playing' | 'finished';
-    winner?: string;
-    waitingStartTime: number;
-    waitingTimer: number;
-    requiredPlayers: number;
-    autoStartEnabled: boolean;
-  };
+  gameState: GameState;
   players?: {
     id: string;
     username: string;

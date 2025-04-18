@@ -260,6 +260,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       );
     });
 
+    // Add rooms_updated event handler to refresh room list
+    newSocket.on('rooms_updated', () => {
+      console.log('Rooms updated event received, fetching latest rooms...');
+      fetchRooms();
+    });
+
     newSocket.on('connect', handleConnect);
     newSocket.on('disconnect', handleDisconnect);
     newSocket.on('connect_error', (error) => {

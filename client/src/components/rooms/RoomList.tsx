@@ -162,7 +162,7 @@ const RoomList: React.FC<RoomListProps> = ({
   // Cast availableRooms to the proper interface and ensure number values
   const rooms = (availableRooms as unknown as RoomItem[]).map(room => ({
     ...room,
-    playerCount: Number(room.playerCount) || 0,
+    playerCount: room.players?.length || 0,
     maxPlayers: Number(room.maxPlayers) || 2
   }));
 

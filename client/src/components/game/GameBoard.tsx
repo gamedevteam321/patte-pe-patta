@@ -407,7 +407,7 @@ interface GameBoardProps {
 }
 
 const MAX_TURN_TIME = 15000; // 15 seconds in milliseconds
-
+const MAX_SHUFFLE_COUNT = 2;
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const navigate = useNavigate();
   // Move state declarations inside the component
@@ -877,6 +877,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     };
   }, [socket, isHost, startGame, gameState?.gameStarted]);
 
+  // Add effect to reset shuffle count when it's the player's turn
+  useEffect(() => {
+    if (isUserTurn && userPlayer) {
+      // Reset shuffle count when it's the player's turn
+      userPlayer.shuffleCount = 0;
+    }
+  }, [isUserTurn, userPlayer]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -1049,7 +1057,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       return;
     }
 
+    // Check if player has reached shuffle limit
+    if (userPlayer.shuffleCount >= MAX_SHUFFLE_COUNT) {
+      toast({
+        title: "Shuffle Limit Reached",
+        description: "You have reached the maximum number of shuffles for this chance",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setActionsDisabled(true);
+
+    // Increment shuffle count
+    userPlayer.shuffleCount = (userPlayer.shuffleCount || 0) + 1;
 
     // Shuffle the player's cards locally first for immediate feedback
     const shuffledCards = [...userPlayer.cards];
@@ -1713,14 +1734,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
                           <Button
                             onClick={handleShuffleDeck}
-                            disabled={!isUserTurn || actionsDisabled}
-                            className={`${isUserTurn && !actionsDisabled
+                            disabled={!isUserTurn || actionsDisabled || (userPlayer?.shuffleCount ?? 0) >= 2}
+                            className={`${isUserTurn && !actionsDisabled && (userPlayer?.shuffleCount ?? 0) < 2
                               ? 'bg-[#4169E1] hover:bg-[#3158c4]'
                               : 'bg-gray-600'
                               } text-white`}
                           >
                             <Shuffle className="h-5 w-5 mr-1" />
-                            Shuffle
+                            Shuffle ({MAX_SHUFFLE_COUNT - (userPlayer?.shuffleCount ?? 0)} left)
                           </Button>
                         </div>
                       )}

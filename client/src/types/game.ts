@@ -10,13 +10,13 @@ export interface Card {
 
 export interface Player {
   id: string;
+  userId: string;
   username: string;
-  isReady: boolean;
-  isHost: boolean;
   cards: Card[];
-  position?: 'top' | 'top-left' | 'top-right' | 'left' | 'right' | 'bottom';
-  isCurrentTurn: boolean;
-  score?: number;
+  isReady: boolean;
+  score: number;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right';
+  shuffleCount: number;
 }
 
 export interface GameState {

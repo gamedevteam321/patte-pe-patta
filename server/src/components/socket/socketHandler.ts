@@ -24,6 +24,7 @@ interface Player {
   isActive?: boolean;
   autoPlayCount?: number;
   name?: string;
+  shuffleCount: number;
 }
 
 interface GameState {
@@ -326,7 +327,8 @@ export const socketHandler = (io: Server): void => {
             cards: [],
             score: 0,
             isActive: true,
-            autoPlayCount: 0
+            autoPlayCount: 0,
+            shuffleCount: 0
           }],
           gameState: {
             status: 'waiting',
@@ -339,7 +341,8 @@ export const socketHandler = (io: Server): void => {
               cards: [],
               score: 0,
               isActive: true,
-              autoPlayCount: 0
+              autoPlayCount: 0,
+              shuffleCount: 0
             }],
             currentPlayerIndex: 0,
             centralPile: [],
@@ -544,7 +547,8 @@ export const socketHandler = (io: Server): void => {
           username: username,
           isHost: false,
           isReady: false,
-          cards: []
+          cards: [],
+          shuffleCount: 0
         };
 
         room.players.push(newPlayer);
@@ -918,10 +922,12 @@ export const socketHandler = (io: Server): void => {
         // Distribute cards to players
         room.gameState.players.forEach((player, index) => {
           player.cards = deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer);
+          player.shuffleCount = 0; // Reset shuffle count for new chance
           console.log(`Distributed ${player.cards.length} cards to player:`, {
             username: player.username,
             userId: player.userId,
-            isFirstPlayer: index === 0
+            isFirstPlayer: index === 0,
+            shuffleCount: player.shuffleCount
           });
         });
 
@@ -996,6 +1002,13 @@ export const socketHandler = (io: Server): void => {
           return;
         }
 
+        // Check if player has reached shuffle limit
+        if (player.shuffleCount >= 2) {
+          console.log('Player has reached maximum shuffle limit');
+          socket.emit('error', { message: 'You have reached the maximum number of shuffles for this chance' });
+          return;
+        }
+
         // Shuffle the player's cards
         const shuffleCards = (cards: Card[]): Card[] => {
           for (let i = cards.length - 1; i > 0; i--) {
@@ -1006,6 +1019,7 @@ export const socketHandler = (io: Server): void => {
         };
 
         player.cards = shuffleCards([...player.cards]);
+        player.shuffleCount += 1; // Increment shuffle count
 
         // Emit the updated game state
         io.to(roomId).emit('game_state_updated', room.gameState);

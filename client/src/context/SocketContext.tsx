@@ -25,6 +25,7 @@ export interface Player {
   wins?: number;
   losses?: number;
   autoPlayCount?: number;
+  shuffleCount: number;
 }
 
 export interface GameState {

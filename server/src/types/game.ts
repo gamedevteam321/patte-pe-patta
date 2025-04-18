@@ -7,10 +7,13 @@ export interface Card {
 
 export interface Player {
   id: string;
-  name: string;
+  userId: string;
+  username: string;
   cards: Card[];
   isReady: boolean;
   score: number;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right';
+  shuffleCount: number;
 }
 
 export interface GameState {

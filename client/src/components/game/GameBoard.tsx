@@ -1091,6 +1091,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }, 1000);
   };
 
+  const animateCardToPool = (card: Card, startPosition: { x: number, y: number }, endPosition: { x: number, y: number }) => {
+    // Create card element for animation
+    const cardElement = document.createElement('div');
+    cardElement.className = 'card-travel';
+
+    // Position initially at start position
+    cardElement.style.left = `${startPosition.x}px`;
+    cardElement.style.top = `${startPosition.y}px`;
+
+    // Create container for ReactDOM
+    const cardContent = document.createElement('div');
+    cardContent.className = 'w-full h-full relative';
+    cardElement.appendChild(cardContent);
+
+    // Add to body
+    document.body.appendChild(cardElement);
+
+    // Render card
+    ReactDOM.render(
+      <PlayingCard card={card} />,
+      cardContent
+    );
+
+    // Start animation
+    cardElement.style.transition = `transform 0.5s ease-out, left 0.5s ease-out, top 0.5s ease-out`;
+
+    // After a small delay, move the card to the pool
+    setTimeout(() => {
+      cardElement.style.left = `${endPosition.x}px`;
+      cardElement.style.top = `${endPosition.y}px`;
+    }, 10);
+
+    // After animation completes, remove the animated card
+    setTimeout(() => {
+      ReactDOM.unmountComponentAtNode(cardContent);
+      document.body.removeChild(cardElement);
+    }, 500);
+  };
+
   const handlePlayCard = () => {
     if (!isUserTurn || actionsDisabled || !userPlayer) {
       return;
@@ -1105,49 +1144,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setLastPlayedCard(cardToPlay);
     setCardInMotion(cardToPlay);
 
-    const hitButton = document.querySelector('.hit-button');
+    // Get the current player's deck element
+    const playerPosition = positionedPlayers.find(p => p.player.id === userPlayer.id)?.position;
+    const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
     const poolArea = document.querySelector('.center-area');
 
-    if (hitButton && poolArea) {
-      const buttonRect = hitButton.getBoundingClientRect();
+    if (playerDeck && poolArea) {
+      const deckRect = playerDeck.getBoundingClientRect();
       const poolRect = poolArea.getBoundingClientRect();
 
-      // Create card element for animation
-      const cardElement = document.createElement('div');
-      cardElement.className = 'card-travel';
+      // Calculate start and end positions
+      const startPosition = {
+        x: deckRect.left + (deckRect.width / 2) - 40,
+        y: deckRect.top + (deckRect.height / 2) - 60
+      };
+      const endPosition = {
+        x: poolRect.left + (poolRect.width / 2) - 40,
+        y: poolRect.top + (poolRect.height / 2) - 60
+      };
 
-      // Position initially at hit button
-      cardElement.style.left = `${buttonRect.left + (buttonRect.width / 2) - 40}px`;
-      cardElement.style.top = `${buttonRect.top - 60}px`;
+      // Animate the card
+      animateCardToPool(cardToPlay, startPosition, endPosition);
 
-      // Create container for ReactDOM
-      const cardContent = document.createElement('div');
-      cardContent.className = 'w-full h-full relative';
-      cardElement.appendChild(cardContent);
-
-      // Add to body
-      document.body.appendChild(cardElement);
-
-      // Render card
-      ReactDOM.render(
-        <PlayingCard card={cardToPlay} />,
-        cardContent
-      );
-
-      // Start animation
-      cardElement.style.transition = `transform 1s ease-out, left 1s ease-out, top 1s ease-out`;
-
-      // After a small delay, move the card to the pool
+      // After animation completes, update game state
       setTimeout(() => {
-        cardElement.style.left = `${poolRect.left + (poolRect.width / 2) - 40}px`;
-        cardElement.style.top = `${poolRect.top + (poolRect.height / 2) - 60}px`;
-      }, 50);
-
-      // After animation completes, remove the animated card
-      setTimeout(() => {
-        ReactDOM.unmountComponentAtNode(cardContent);
-        document.body.removeChild(cardElement);
-
         // Update player cards
         const updatedCards = [...userPlayer.cards];
         updatedCards.shift();
@@ -1160,8 +1180,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         setTimeout(() => {
           setCardInMotion(null);
           setActionsDisabled(false);
-        }, 300);
-      }, 1000);
+        }, 200);
+      }, 500);
     }
   };
 

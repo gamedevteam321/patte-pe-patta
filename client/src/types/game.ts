@@ -13,7 +13,10 @@ export interface Player {
   userId: string;
   username: string;
   cards: Card[];
-  isReady: boolean;
+  isHost?: boolean;
+  isReady?: boolean;
+  isActive?: boolean;
+  autoPlayCount?: number;
   score: number;
   position?: 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right';
   shuffleCount: number;

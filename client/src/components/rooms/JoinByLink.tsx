@@ -14,6 +14,7 @@ const JoinByLink: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const { joinRoom, availableRooms, fetchRooms } = useSocket();
   const navigate = useNavigate();
+  const [error, setError] = useState("");
 
   // Fetch rooms when component mounts
   useEffect(() => {
@@ -86,6 +87,26 @@ const JoinByLink: React.FC = () => {
       });
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleJoinByLink = async () => {
+    try {
+      const roomCode = roomCodeRef.current?.value;
+      if (!roomCode) {
+        setError('Please enter a room code');
+        return;
+      }
+
+      const room = await roomService.getRoomByCode(roomCode.trim());
+      if (!room) {
+        setError('Room not found');
+        return;
+      }
+
+      navigate(`/room/${room.id}`);
+    } catch (error) {
+      setError('Failed to join room');
     }
   };
 

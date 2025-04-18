@@ -1,21 +1,11 @@
-[] server
-    [] User login and logout
-        []
-        {
-        "email": "test@example.com",
-        "password": "yourpassword"
-        }
-        {
-        "email": "shobhit.rawat@saathi.in",
-        "password": "demopassword"
-        }
-    [] room management
-        []two type of room public and private
-        [] player can create room
-        [] server can create room
-        [] User can share room
-        [] private room join with password
-    [] game management
-        []player auto play and kick out after 2 chance
+[] Game Timer End game
+[] Who wins play card again
+[] Kick out player after two chance autoplay
+[] Card animation of other player
+[] suffle only 1 time per chance
 
-    [] money management
+
+
+
+
+

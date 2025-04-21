@@ -451,6 +451,87 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const isUserTurn = gameState.gameStarted && currentPlayer?.id === userPlayer?.id;
   const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId;
   const hasMultiplePlayers = players.length > 1;
+  //const positionedPlayers = getPlayerPositions();
+  const getPlayerPositions = () => {
+    // Find the player that matches the current user's ID
+    const currentUserPlayer = players.find(p => p.userId === userId);
+    if (!currentUserPlayer) {
+      // Default fallback positioning if user not found
+      return players.map((player, index) => {
+        let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
+
+        if (index === 0) position = "bottom";
+        else if (index === 1) position = "top";
+        else if (index === 2) position = "right";
+        else if (index === 3) position = "left";
+        else if (index === 4) position = "top-left";
+        else if (index === 5) position = "top-right";
+
+        return {
+          player,
+          position,
+          isUser: player.userId === userId
+        };
+      });
+    }
+
+    // Reorder players to put current user first
+    const currentUserIndex = players.findIndex(p => p.userId === userId);
+    const reorderedPlayers = [
+      ...players.slice(currentUserIndex, players.length),
+      ...players.slice(0, currentUserIndex)
+    ];
+
+    // Display positions based on how many players there are
+    return reorderedPlayers.map((player, index) => {
+      const isCurrentUser = player.userId === userId;
+      const totalPlayers = players.length;
+
+      // Current user is always at the bottom
+      if (isCurrentUser) {
+        return { player, position: "bottom" as const, isUser: true };
+      }
+
+      // Position other players based on their relative position to the current user
+      switch (totalPlayers) {
+        case 2:
+          // With 2 players, other player is at the top
+          return { player, position: "top" as const, isUser: false };
+
+        case 3:
+          // With 3 players, positions are: bottom (user), top-left, top-right
+          if (index === 1) return { player, position: "top-left" as const, isUser: false };
+          else return { player, position: "top-right" as const, isUser: false };
+
+        case 4:
+          // With 4 players, positions are: bottom (user), left, top, right
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+
+        case 5:
+          // With 5 players, positions are: bottom (user), left, top-left, top-right, right
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
+          else if (index === 3) return { player, position: "top-right" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+
+        case 6:
+          // With 6 players, all positions are filled
+          if (index === 1) return { player, position: "left" as const, isUser: false };
+          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
+          else if (index === 3) return { player, position: "top" as const, isUser: false };
+          else if (index === 4) return { player, position: "top-right" as const, isUser: false };
+          else return { player, position: "right" as const, isUser: false };
+
+        default:
+          // Default to top for any other number of players
+          return { player, position: "top" as const, isUser: false };
+      }
+    });
+  };
+
+  const positionedPlayers = getPlayerPositions();
 
   useEffect(() => {
     if (gameState?.gameStarted && currentPlayer) {
@@ -505,13 +586,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
         if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
-          // When time is up, determine winner based on most cards
-          const timeUpWinner = gameState.players.reduce((prev, current) =>
+          
+          // Find player with maximum cards
+          const maxCardsPlayer = gameState.players.reduce((prev, current) => 
             (prev.cards.length > current.cards.length) ? prev : current
           );
-
-          // End the game with the time up winner
-          endGame(timeUpWinner.id);
+          
+          // End the game with the player who has most cards
+          endGame(maxCardsPlayer.id);
+          
+          // Show toast notification
+          toast({
+            title: "Time's Up!",
+            description: `${maxCardsPlayer.username} wins with ${maxCardsPlayer.cards.length} cards!`,
+            variant: "default",
+            duration: 5000,
+            className: "top-0"
+          });
         }
       }, 1000);
 
@@ -658,12 +749,64 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
     };
 
+    // Listen for card play events from other players
+    const handlePlayCardEvent = (data: { playerId: string, card: Card }) => {
+      console.log('handlePlayCardEvent called with data:', data);
+      console.log('Current players:', players);
+      console.log('Current player:', currentPlayer);
+
+      // Find the player who played the card
+      const player = players.find(p => p.id === data.playerId);
+      console.log('Found player:', player);
+
+      if (!player) {
+        console.log('Player not found for ID:', data.playerId);
+        return;
+      }
+
+      // Get the player's position and deck element
+      const playerPosition = positionedPlayers.find(p => p.player.id === player.id)?.position;
+      console.log('Player position:', playerPosition);
+
+      const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
+      const poolArea = document.querySelector('.center-area');
+
+      console.log('Found elements:', {
+        playerDeck: !!playerDeck,
+        poolArea: !!poolArea
+      });
+
+      if (playerDeck && poolArea) {
+        const deckRect = playerDeck.getBoundingClientRect();
+        const poolRect = poolArea.getBoundingClientRect();
+
+        // Calculate start and end positions
+        const startPosition = {
+          x: deckRect.left + (deckRect.width / 2) - 40,
+          y: deckRect.top + (deckRect.height / 2) - 60
+        };
+        const endPosition = {
+          x: poolRect.left + (poolRect.width / 2) - 40,
+          y: poolRect.top + (poolRect.height / 2) - 60
+        };
+
+        console.log('Animation positions:', { startPosition, endPosition });
+
+        // Animate the card
+        animateCardToPool(data.card, startPosition, endPosition);
+      } else {
+        console.log('Missing required DOM elements for animation');
+      }
+    };
+
     socket.on('turn_changed', handleTurnChange);
+    socket.on('play_card', handlePlayCardEvent);
 
     return () => {
       socket.off('turn_changed', handleTurnChange);
+      socket.off('play_card', handlePlayCardEvent);
     };
-  }, [socket, userPlayer]);
+  }, [socket, userPlayer, players, positionedPlayers]);
 
   // Reset actionsDisabled when game starts
   useEffect(() => {
@@ -859,86 +1002,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return null;
   };
 
-  const getPlayerPositions = () => {
-    // Find the player that matches the current user's ID
-    const currentUserPlayer = players.find(p => p.userId === userId);
-    if (!currentUserPlayer) {
-      // Default fallback positioning if user not found
-      return players.map((player, index) => {
-        let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
 
-        if (index === 0) position = "bottom";
-        else if (index === 1) position = "top";
-        else if (index === 2) position = "right";
-        else if (index === 3) position = "left";
-        else if (index === 4) position = "top-left";
-        else if (index === 5) position = "top-right";
-
-        return {
-          player,
-          position,
-          isUser: player.userId === userId
-        };
-      });
-    }
-
-    // Reorder players to put current user first
-    const currentUserIndex = players.findIndex(p => p.userId === userId);
-    const reorderedPlayers = [
-      ...players.slice(currentUserIndex, players.length),
-      ...players.slice(0, currentUserIndex)
-    ];
-
-    // Display positions based on how many players there are
-    return reorderedPlayers.map((player, index) => {
-      const isCurrentUser = player.userId === userId;
-      const totalPlayers = players.length;
-
-      // Current user is always at the bottom
-      if (isCurrentUser) {
-        return { player, position: "bottom" as const, isUser: true };
-      }
-
-      // Position other players based on their relative position to the current user
-      switch (totalPlayers) {
-        case 2:
-          // With 2 players, other player is at the top
-          return { player, position: "top" as const, isUser: false };
-
-        case 3:
-          // With 3 players, positions are: bottom (user), top-left, top-right
-          if (index === 1) return { player, position: "top-left" as const, isUser: false };
-          else return { player, position: "top-right" as const, isUser: false };
-
-        case 4:
-          // With 4 players, positions are: bottom (user), left, top, right
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-
-        case 5:
-          // With 5 players, positions are: bottom (user), left, top-left, top-right, right
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
-          else if (index === 3) return { player, position: "top-right" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-
-        case 6:
-          // With 6 players, all positions are filled
-          if (index === 1) return { player, position: "left" as const, isUser: false };
-          else if (index === 2) return { player, position: "top-left" as const, isUser: false };
-          else if (index === 3) return { player, position: "top" as const, isUser: false };
-          else if (index === 4) return { player, position: "top-right" as const, isUser: false };
-          else return { player, position: "right" as const, isUser: false };
-
-        default:
-          // Default to top for any other number of players
-          return { player, position: "top" as const, isUser: false };
-      }
-    });
-  };
-
-  const positionedPlayers = getPlayerPositions();
 
   const handleStartGame = () => {
     if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
@@ -1048,44 +1112,44 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setCardInMotion(cardToPlay);
 
     // Get the current player's deck element
-    const playerPosition = positionedPlayers.find(p => p.player.id === userPlayer.id)?.position;
-    const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
-    const poolArea = document.querySelector('.center-area');
+    // const playerPosition = positionedPlayers.find(p => p.player.id === userPlayer.id)?.position;
+    // const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
+    // const poolArea = document.querySelector('.center-area');
 
-    if (playerDeck && poolArea) {
-      const deckRect = playerDeck.getBoundingClientRect();
-      const poolRect = poolArea.getBoundingClientRect();
+    // if (playerDeck && poolArea) {
+    //   const deckRect = playerDeck.getBoundingClientRect();
+    //   const poolRect = poolArea.getBoundingClientRect();
 
-      // Calculate start and end positions
-      const startPosition = {
-        x: deckRect.left + (deckRect.width / 2) - 40,
-        y: deckRect.top + (deckRect.height / 2) - 60
-      };
-      const endPosition = {
-        x: poolRect.left + (poolRect.width / 2) - 40,
-        y: poolRect.top + (poolRect.height / 2) - 60
-      };
+    //   // Calculate start and end positions
+    //   const startPosition = {
+    //     x: deckRect.left + (deckRect.width / 2) - 40,
+    //     y: deckRect.top + (deckRect.height / 2) - 60
+    //   };
+    //   const endPosition = {
+    //     x: poolRect.left + (poolRect.width / 2) - 40,
+    //     y: poolRect.top + (poolRect.height / 2) - 60
+    //   };
 
-      // Animate the card
-      animateCardToPool(cardToPlay, startPosition, endPosition);
+    //   // Animate the card
+    //   //animateCardToPool(cardToPlay, startPosition, endPosition);
+    // }
+    // After animation completes, update game state
+    setTimeout(() => {
+      // Update player cards
+      const updatedCards = [...userPlayer.cards];
+      updatedCards.shift();
+      userPlayer.cards = updatedCards;
 
-      // After animation completes, update game state
+      // Send play event to server
+      playCard(userPlayer.id, cardToPlay);
+
+      // Re-enable actions after a delay
       setTimeout(() => {
-        // Update player cards
-        const updatedCards = [...userPlayer.cards];
-        updatedCards.shift();
-        userPlayer.cards = updatedCards;
+        setCardInMotion(null);
+        setActionsDisabled(false);
+      }, 200);
+    }, 500);
 
-        // Send play event to server
-        playCard(userPlayer.id, cardToPlay);
-
-        // Re-enable actions after a delay
-        setTimeout(() => {
-          setCardInMotion(null);
-          setActionsDisabled(false);
-        }, 200);
-      }, 500);
-    }
   };
 
   // Check if there's a potential match
@@ -1122,8 +1186,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
-  const positionedPlayers = getPlayerPositions();
-  // Update the card collection animation to move cards toward the player
   const renderCardCollection = () => {
     if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
 

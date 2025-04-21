@@ -1,8 +1,8 @@
-[] Game Timer End game
-[] Who wins play card again
+[x] Game Timer End game
+[x] Who wins play card again
 [] Kick out player after two chance autoplay
-[] Card animation of other player
-[] suffle only 1 time per chance
+[x] Card animation of other player
+[x] suffle only 1 time per chance
 
 
 

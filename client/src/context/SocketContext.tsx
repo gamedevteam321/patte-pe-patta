@@ -9,6 +9,7 @@ export interface Card {
   suit: 'hearts' | 'diamonds' | 'clubs' | 'spades';
   value: string;
   rank: number;
+  isHitButton?: boolean; // Flag to indicate if card was played via hit button
 }
 
 export interface Player {

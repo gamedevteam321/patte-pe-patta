@@ -958,7 +958,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           // Show card collection for 1.5 seconds
           setTimeout(() => {
             setShowCardCollection(false);
-            setActionsDisabled(false);
+            
+            // If the current user is the one who matched, enable actions immediately
+            if (userPlayer && userPlayer.id === data.playerId) {
+              setActionsDisabled(false);
+            }
+            
             setMatchingCards([]);
           }, 1500);
         }, 800);
@@ -1194,28 +1199,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setLastPlayedCard(cardToPlay);
     setCardInMotion(cardToPlay);
 
-    // Get the current player's deck element
-    // const playerPosition = positionedPlayers.find(p => p.player.id === userPlayer.id)?.position;
-    // const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
-    // const poolArea = document.querySelector('.center-area');
-
-    // if (playerDeck && poolArea) {
-    //   const deckRect = playerDeck.getBoundingClientRect();
-    //   const poolRect = poolArea.getBoundingClientRect();
-
-    //   // Calculate start and end positions
-    //   const startPosition = {
-    //     x: deckRect.left + (deckRect.width / 2) - 40,
-    //     y: deckRect.top + (deckRect.height / 2) - 60
-    //   };
-    //   const endPosition = {
-    //     x: poolRect.left + (poolRect.width / 2) - 40,
-    //     y: poolRect.top + (poolRect.height / 2) - 60
-    //   };
-
-    //   // Animate the card
-    //   //animateCardToPool(cardToPlay, startPosition, endPosition);
-    // }
     // After animation completes, update game state
     setTimeout(() => {
       // Update player cards
@@ -1223,8 +1206,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       updatedCards.shift();
       userPlayer.cards = updatedCards;
 
-      // Send play event to server
-      playCard(userPlayer.id, cardToPlay);
+      // Send play event to server with isHitButton flag
+      playCard(userPlayer.id, { ...cardToPlay, isHitButton: true });
 
       // Re-enable actions after a delay
       setTimeout(() => {
@@ -1232,7 +1215,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         setActionsDisabled(false);
       }, 200);
     }, 500);
-
   };
 
   // Check if there's a potential match

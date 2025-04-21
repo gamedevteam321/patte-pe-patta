@@ -6,6 +6,7 @@ export interface Card {
   rank: number;  // Numeric rank value
   id: string;    // Unique identifier for the card
   value: string; // String representation of the card value
+  isHitButton?: boolean; // Flag to indicate if card was played via hit button
 }
 
 export interface Player {

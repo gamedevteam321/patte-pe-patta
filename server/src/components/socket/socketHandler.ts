@@ -11,6 +11,7 @@ interface Card {
   suit: string;
   value: string;
   rank: number;
+  isHitButton?: boolean;
 }
 
 interface Player {
@@ -25,6 +26,7 @@ interface Player {
   autoPlayCount?: number;
   name?: string;
   shuffleCount: number;
+  lastPlayTime?: number;
 }
 
 interface GameState {
@@ -65,6 +67,20 @@ interface Room {
   amount_stack: number;
   created_at: string;
 }
+
+// Maximum number of auto-plays allowed before auto-exit
+const MAX_AUTO_PLAY_COUNT = 3;
+
+// Function to detect auto-play
+const isAutoPlay = (player: Player, card: Card): boolean => {
+  // Initialize autoPlayCount if it doesn't exist
+  if (player.autoPlayCount === undefined) {
+    player.autoPlayCount = 0;
+  }
+  
+  // Auto-play is only allowed if count is less than max
+  return player.autoPlayCount < MAX_AUTO_PLAY_COUNT;
+};
 
 // Initialize Supabase client with service role key to bypass RLS
 const supabase = createClient(
@@ -126,6 +142,43 @@ async function recordRoomHistory(roomId: string, userId: string, action: 'join' 
 }
 
 export const socketHandler = (io: Server): void => {
+  const handleAutoPlayLimit = (socket: Socket, room: Room, player: Player) => {
+    if (player.autoPlayCount === MAX_AUTO_PLAY_COUNT) {
+      // Disable the player
+      player.isActive = false;
+      
+      // Remove player from the room
+      room.players = room.players.filter(p => p.id !== player.id);
+      
+      // Notify all players about the auto-exit
+      io.to(room.id).emit('player_auto_exited', {
+        playerId: player.id,
+        username: player.username,
+        reason: `${player.username} was removed for excessive auto-play`
+      });
+
+      // Force disconnect from room
+      socket.leave(room.id);
+      
+      // Update game state
+      if (room.gameState.currentTurn === player.id) {
+        // Move to next player if it was their turn
+        const nextPlayerIndex = (room.gameState.currentPlayerIndex + 1) % room.players.length;
+        room.gameState.currentPlayerIndex = nextPlayerIndex;
+        room.gameState.currentTurn = room.players[nextPlayerIndex]?.id;
+        
+        // Emit turn change
+        io.to(room.id).emit('turn_changed', {
+          nextPlayerId: room.gameState.currentTurn,
+          gameState: room.gameState
+        });
+      }
+
+      // Update room state for remaining players
+      io.to(room.id).emit('game_state_updated', room.gameState);
+    }
+  };
+
   io.on('connection', (socket: Socket) => {
     console.log('New client connected:', socket.id);
 
@@ -1029,7 +1082,7 @@ export const socketHandler = (io: Server): void => {
     });
 
     // Handle play card
-    socket.on('play_card', ({ id, card, roomId }) => {
+    socket.on('play_card', async ({ id, card, roomId }) => {
       try {
         console.log('Play card request received:', { 
           playerId: id, 
@@ -1041,6 +1094,38 @@ export const socketHandler = (io: Server): void => {
         if (!room) {
           console.error('Room not found:', roomId);
           return;
+        }
+
+        // Find the player
+        const player = room.gameState.players.find(p => p.id === id);
+        if (!player) {
+          console.error('Player not found:', id);
+          return;
+        }
+
+        // Initialize auto-play count if not exists
+        if (player.autoPlayCount === undefined) {
+          player.autoPlayCount = 0;
+        }
+
+        // Check for auto-play - only increment if it's not a hit button click
+        if (isAutoPlay(player, card) && !card.isHitButton) {
+          player.autoPlayCount++;
+          console.log('Auto-play detected:', {
+            playerId: id,
+            username: player.username,
+            autoPlayCount: player.autoPlayCount
+          });
+
+          // Notify the player about their auto-play count
+          socket.emit('auto_play_warning', {
+            count: player.autoPlayCount,
+            maxCount: MAX_AUTO_PLAY_COUNT,
+            message: `Warning: Auto-play detected (${player.autoPlayCount}/${MAX_AUTO_PLAY_COUNT})`
+          });
+
+          // Check if player should be auto-exited
+          handleAutoPlayLimit(socket, room, player);
         }
 
         // Always reset any previous match animation state first
@@ -1056,12 +1141,6 @@ export const socketHandler = (io: Server): void => {
             playerIndex: playerIndex,
             playerId: id
           });
-          return;
-        }
-
-        const player = room.gameState.players.find(p => p.id === id);
-        if (!player) {
-          console.error('Player not found:', id);
           return;
         }
 
@@ -1194,20 +1273,29 @@ export const socketHandler = (io: Server): void => {
           nextPlayerIndex = (nextPlayerIndex + 1) % room.gameState.players.length;
         }
 
-        // Update current player index
-        room.gameState.currentPlayerIndex = nextPlayerIndex;
+        // Update current player index - only change if there was no match
+        if (!hasMatch) {
+          room.gameState.currentPlayerIndex = nextPlayerIndex;
+        }
         
         // Set turn end time (15 seconds from now)
         room.gameState.turnEndTime = Date.now() + 15000;
         
         console.log('Turn changed to next player:', {
           previousPlayerIndex: playerIndex,
-          newPlayerIndex: nextPlayerIndex,
-          newPlayerName: room.gameState.players[nextPlayerIndex].username
+          newPlayerIndex: room.gameState.currentPlayerIndex,
+          newPlayerName: room.gameState.players[room.gameState.currentPlayerIndex].username,
+          hadMatch: hasMatch
         });
         
         // Update game state for all players
-        io.to(roomId).emit('game_state_updated', room.gameState);
+        io.to(roomId).emit('game_state_updated', {
+          ...room.gameState,
+          players: room.gameState.players.map(p => ({
+            ...p,
+            autoPlayCount: p.autoPlayCount || 0
+          }))
+        });
         
         // Notify players of turn change
         io.to(roomId).emit('turn_changed', {

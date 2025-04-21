@@ -97,36 +97,41 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           <span className={`text-sm font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
             {player.username}
           </span>
-          {/* <div className="flex items-center gap-1">
-            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-orange-500/20 text-orange-300">
-              <Award className="h-3 w-3 mr-1 text-yellow-400" />
-              {cardScore} cards
+          {player.autoPlayCount && player.autoPlayCount > 0 && (
+            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-500/20 text-red-300 mt-1">
+              Auto-play: {player.autoPlayCount}/2
             </Badge>
-            <button 
-              onClick={() => setShowCardStats(!showCardStats)} 
-              className="text-gray-400 hover:text-gray-300 focus:outline-none"
-            >
-              {showCardStats ? (
-                <ChevronUp className="h-3 w-3" />
-              ) : (
-                <ChevronDown className="h-3 w-3" />
-              )}
-            </button>
-          </div> */}
+          )}
         </div>
-        {/* {isCurrentPlayer && (
-          <Badge variant="default" className="ml-1 bg-blue-600">
-            <Timer className="h-3 w-3 mr-1" />
-            Current
+        {/* <div className="flex items-center gap-1">
+          <Badge variant="outline" className="text-xs px-1.5 py-0 bg-orange-500/20 text-orange-300">
+            <Award className="h-3 w-3 mr-1 text-yellow-400" />
+            {cardScore} cards
           </Badge>
-        )} */}
-        
-        {/* Position indicator */}
-        {/* <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
-          {getPositionLabel(position)}
-        </Badge> */}
+          <button 
+            onClick={() => setShowCardStats(!showCardStats)} 
+            className="text-gray-400 hover:text-gray-300 focus:outline-none"
+          >
+            {showCardStats ? (
+              <ChevronUp className="h-3 w-3" />
+            ) : (
+              <ChevronDown className="h-3 w-3" />
+            )}
+          </button>
+        </div> */}
       </div>
+      {/* {isCurrentPlayer && (
+        <Badge variant="default" className="ml-1 bg-blue-600">
+          <Timer className="h-3 w-3 mr-1" />
+          Current
+        </Badge>
+      )} */}
       
+      {/* Position indicator */}
+      {/* <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
+        {getPositionLabel(position)}
+      </Badge> */}
+
       {showCardStats && (
         <div className="mb-2 text-xs text-gray-300 bg-gray-800/50 p-1.5 rounded-md">
           <div className="flex justify-between gap-4">

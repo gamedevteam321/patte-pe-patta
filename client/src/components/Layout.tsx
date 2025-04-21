@@ -55,9 +55,9 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
               {isAuthenticated && (
                 <div className="flex items-center space-x-4">
                   
-                <span className="text-white font-medium">
+                {/* <span className="text-white font-medium">
                   {user?.username}
-                </span>
+                </span> */}
             
                   {isMobile ? (
                     <Button

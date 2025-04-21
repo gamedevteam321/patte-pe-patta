@@ -448,45 +448,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const userPlayer = players.find(p => p.userId === userId);
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
-  // Add debug logging for game state
-  console.log('Game state:', {
-    currentPlayerIndex: gameState.currentPlayerIndex,
-    currentPlayer,
-    userPlayer,
-    userId,
-    gameStarted: gameState.gameStarted,
-    players: gameState.players.map(p => ({
-      id: p.id,
-      userId: p.userId,
-      username: p.username,
-      cards: p.cards?.length || 0,
-      cardDetails: p.cards?.map(c => `${c.value}-${c.suit}`)
-    })),
-    centerPool: gameState.centralPile?.length || 0,
-    centerPoolCards: gameState.centralPile?.map(c => `${c.value}-${c.suit}`)
-  });
-
   const isUserTurn = gameState.gameStarted && currentPlayer?.id === userPlayer?.id;
   const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId;
   const hasMultiplePlayers = players.length > 1;
 
-  // Log the result of turn check
-  console.log('Turn check result:', {
-    isUserTurn,
-    gameStarted: gameState.gameStarted,
-    currentPlayerId: currentPlayer?.id,
-    userPlayerId: userPlayer?.id,
-    match: currentPlayer?.id === userPlayer?.id
-  });
-
   useEffect(() => {
     if (gameState?.gameStarted && currentPlayer) {
-      console.log('Current turn:', {
-        currentPlayer: currentPlayer.username,
-        isUserTurn,
-        userId,
-        currentPlayerUserId: currentPlayer.id
-      });
     }
   }, [gameState?.currentPlayerIndex, currentPlayer, isUserTurn, userId]);
 
@@ -502,9 +469,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState && gameState.players.length > 1) {
-      console.log(`Game has ${gameState.players.length} players`);
-      const playerNames = gameState.players.map(p => `${p.username} (${p.id})`).join(", ");
-      console.log(`Current players: ${playerNames}`);
       setSyncRate(2000);
     }
   }, [gameState?.players.length]);
@@ -512,13 +476,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   useEffect(() => {
     if (gameState?.gameStarted && !distributionComplete) {
       setShowDistribution(true);
-      console.log("Showing distribution animation");
 
       // Show distribution animation for 3 seconds
       const timer = setTimeout(() => {
         setShowDistribution(false);
         setDistributionComplete(true);
-        console.log("Distribution animation complete");
       }, 3000);
 
       return () => clearTimeout(timer);
@@ -618,23 +580,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState?.matchAnimation?.isActive) {
-      console.log("Match animation started, disabling actions");
       setShowMatchAnimation(true);
       setActionsDisabled(true);
 
       const timer = setTimeout(() => {
-        console.log("Match animation ended, enabling actions");
         setShowMatchAnimation(false);
         setActionsDisabled(false);
       }, 2000);
 
       return () => {
-        console.log("Cleaning up match animation timer");
         clearTimeout(timer);
       };
     } else {
       // If match animation is not active, ensure actions are enabled and match text is hidden
-      console.log("No match animation, ensuring actions are enabled and match text is hidden");
       setActionsDisabled(false);
       setShowMatchAnimation(false);
     }
@@ -667,30 +625,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState) {
-      console.log('GameBoard: Current game state:', {
-        hasGameState: !!gameState,
-        gameStarted: gameState.gameStarted,
-        playersCount: gameState.players.length,
-        currentPlayerIndex: gameState.currentPlayerIndex,
-        centerPool: gameState.centralPile.length
-      });
-    } else {
-      console.log('GameBoard: No game state available');
     }
   }, [gameState]);
 
   // Add debug logging for turn state
   useEffect(() => {
     if (gameState?.gameStarted) {
-      console.log('Turn Debug:', {
-        currentPlayerIndex: gameState.currentPlayerIndex,
-        currentPlayerId: currentPlayer?.id,
-        currentPlayerName: currentPlayer?.username,
-        userPlayerId: userId,
-        isUserTurn,
-        gameStarted: gameState.gameStarted,
-        status: gameState.status
-      });
     }
   }, [gameState?.currentPlayerIndex, currentPlayer, userId, isUserTurn, gameState?.gameStarted]);
 
@@ -700,7 +640,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     // Listen for turn changes
     const handleTurnChange = (data: any) => {
-      console.log('Turn changed event received:', data);
       // Flash animation for the new current player
       const playerElement = document.querySelector(`.player-deck-${data.currentPlayerIndex}`);
       if (playerElement) {
@@ -828,20 +767,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           setMatchedCards([]);
         }
       }
-
-      console.log('Match animation state:', {
-        serverMatchActive: gameState.matchAnimation?.isActive,
-        clientShowMatchAnimation: showMatchAnimation,
-        clientShowCardCollection: showCardCollection,
-        lastMatchPlayer
-      });
     }
   }, [gameState, showCardCollection]);
 
   // Add this effect to handle automatic game start when status changes to 'ready'
   useEffect(() => {
     if (gameState?.status === 'ready' && isHost && !gameState.gameStarted) {
-      console.log('Game status is ready, auto-starting game...');
       setTimeout(() => {
         startGame();
 
@@ -860,10 +791,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (!socket) return;
 
     const handleRoomReadyEvent = ({ roomId }: { roomId: string }) => {
-      console.log('Room ready event received in GameBoard:', { roomId, isHost });
-
       if (isHost && !gameState.gameStarted) {
-        console.log('Host detected room ready event, auto-starting game...');
         setTimeout(() => {
           startGame();
         }, 1500);
@@ -907,7 +835,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   if (!gameState) {
-    console.log('GameBoard: Rendering loading state');
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-[#0B0C10] border border-blue-900/20 rounded-lg">
         <div className="text-xl font-semibold text-white mb-4">Loading game...</div>
@@ -919,19 +846,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Handle different game states
   const renderGameStateMessage = () => {
     if (!gameState.gameStarted) {
-      // if (gameState.status === 'waiting') {
-      //   return (
-      //     <div className="w-full mb-4 p-4 bg-yellow-600/20 border border-yellow-500/30 rounded-md text-center">
-
-      //       <p className="text-lg text-yellow-400">
-      //         Waiting for players to join... ({gameState.players.length}/{gameState.requiredPlayers})
-      //       </p>
-      //       <p className="text-sm text-yellow-300 mt-2">
-      //         Share the room code to invite friends!
-      //       </p>
-      //     </div>
-      //   );
-      // } else
       if (gameState.status === 'ready') {
         return (
           <div className="w-full mb-4 p-4 bg-green-600/20 border border-green-500/30 rounded-md text-center">
@@ -949,7 +863,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Find the player that matches the current user's ID
     const currentUserPlayer = players.find(p => p.userId === userId);
     if (!currentUserPlayer) {
-      console.log("Current user player not found in players list:", { userId, playerIds: players.map(p => p.userId) });
       // Default fallback positioning if user not found
       return players.map((player, index) => {
         let position: "top" | "top-left" | "top-right" | "left" | "right" | "bottom" = "bottom";
@@ -1025,18 +938,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
   };
 
+  const positionedPlayers = getPlayerPositions();
+
   const handleStartGame = () => {
     if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
-      console.log('Cannot start game:', {
-        hasGameState: !!gameState,
-        gameStarted: gameState?.gameStarted,
-        hasMultiplePlayers,
-        isHost
-      });
       return;
     }
 
-    console.log('Starting game...');
     setActionsDisabled(true);
     startGame();
     toast({
@@ -1049,11 +957,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const handleShuffleDeck = () => {
     if (!isUserTurn || actionsDisabled || !userPlayer) {
-      console.log('Cannot shuffle deck:', {
-        isUserTurn,
-        actionsDisabled,
-        hasUserPlayer: !!userPlayer
-      });
       return;
     }
 
@@ -1220,17 +1123,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   const positionedPlayers = getPlayerPositions();
-
-  // Debug logging for Hit button conditions
-  console.log('Hit button conditions:', {
-    gameStarted: gameState.gameStarted,
-    hasUserPlayer: !!userPlayer,
-    isUserTurn,
-    actionsDisabled,
-    currentPlayerId: currentPlayer?.id,
-    userPlayerId: userPlayer?.id
-  });
-
   // Update the card collection animation to move cards toward the player
   const renderCardCollection = () => {
     if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
@@ -1394,12 +1286,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   Time: {formatTime(gameTimer)}
                 </div>
               )}
-              {/* <button 
-              onClick={() => setShowDebugInfo(!showDebugInfo)}
-              className="px-2 py-1 bg-blue-600 text-white text-xs rounded"
-            >
-              {showDebugInfo ? "Hide Debug" : "Show Debug"}
-            </button> */}
             </div>
 
             {/* Player deck counts scoreboard */}

@@ -43,7 +43,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     }
 
     if (!currentRoom && roomId && !isJoining && !initialJoinComplete) {
-      console.log("Attempting to join room:", roomId);
       setIsJoining(true);
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
@@ -72,13 +71,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   // Auto-refresh players list when game state changes
   useEffect(() => {
     if (gameState && roomId) {
-      console.log("Game state updated:", gameState);
       setLastSyncTime(new Date());
-      
-      if (gameState.players.length > 0) {
-        const playerNames = gameState.players.map(p => `${p.username} (${p.id})`);
-        console.log("Current players:", playerNames);
-      }
     }
   }, [gameState, roomId]);
 
@@ -100,13 +93,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     if (!socket || !roomId) return;
 
     const handleRoomUpdate = (updatedRoom: Room) => {
-      console.log("Room updated:", {
-        roomId: updatedRoom.id,
-        players: updatedRoom.players.length,
-        required: updatedRoom.gameState.requiredPlayers,
-        status: updatedRoom.gameState.status
-      });
-      
       setRoom(updatedRoom);
       
       // Calculate waiting time left
@@ -119,15 +105,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         const isRoomFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
         const waitingTimeExpired = timeLeft <= 0;
         
-        console.log("Auto-start check:", { 
-          isRoomFull, 
-          waitingTimeExpired, 
-          playerCount: updatedRoom.players.length, 
-          requiredPlayers: updatedRoom.gameState.requiredPlayers 
-        });
-        
         if (isRoomFull) {
-          console.log("Room is full! Auto-starting game...");
           setIsAutoStarting(true);
           // Add a short delay to make sure all clients are ready
           setTimeout(() => {
@@ -135,7 +113,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           }, 2000);
         } else if (waitingTimeExpired && updatedRoom.players[0]?.id === socket.id) {
           // If timer expired and current player is host, they can start the game
-          console.log("Waiting time expired and current player is host! Auto-starting game...");
           setIsAutoStarting(true);
           socket.emit('start_game', roomId);
         }
@@ -144,24 +121,14 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     // Handle when a new player joins the room
     const handlePlayerJoined = (data: any) => {
-      console.log("Player joined event received:", data);
-      
       // If we have current room data, check if adding this player makes it full
       if (room && room.gameState) {
         // Create a new player count including the player that just joined
         const newPlayerCount = room.players.length + 1;
         const isNowFull = newPlayerCount >= room.gameState.requiredPlayers;
         
-        console.log("Player joined - checking room capacity:", {
-          currentPlayers: room.players.length,
-          newPlayerCount,
-          requiredPlayers: room.gameState.requiredPlayers,
-          isNowFull
-        });
-        
         // If room is now full, auto-start
         if (isNowFull) {
-          console.log("Room is now full after player joined, auto-starting game!");
           setIsAutoStarting(true);
           
           // Add a short delay before starting
@@ -174,9 +141,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     // Handle when room is ready to start
     const handleRoomReady = (data: { roomId: string }) => {
-      console.log("Room ready event received:", data);
       if (data.roomId === roomId) {
-        console.log("Room is ready, auto-starting game!");
         setIsAutoStarting(true);
         // Add a short delay before starting
         setTimeout(() => {
@@ -199,11 +164,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   // Add this after your state declarations
   useEffect(() => {
     if (currentRoom) {
-      console.log('Current Room Data:', {
-        room: currentRoom,
-        players: currentRoom.players,
-        gameState: currentRoom.gameState
-      });
     }
   }, [currentRoom]);
 
@@ -215,8 +175,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
       // Listen for timer sync events from server
       socket.on('timer:sync', (data: { waitingStartTime: number; waitingTimer: number }) => {
-        console.log('Received timer sync:', data);
-        
         const now = Date.now();
         const serverTimeElapsed = now - data.waitingStartTime;
         const serverTimeLeft = Math.max(0, data.waitingTimer - serverTimeElapsed);
@@ -229,11 +187,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
         // Only adjust time if the difference is more than 1 seconds
         if (Math.abs(serverTimeLeft - waitingTimeLeft) > 1000) {
-          console.log('Adjusting timer due to drift:', {
-            serverTime: serverTimeLeft,
-            clientTime: waitingTimeLeft,
-            difference: Math.abs(serverTimeLeft - waitingTimeLeft)
-          });
           setWaitingTimeLeft(serverTimeLeft);
         }
       });
@@ -262,7 +215,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         
         // Check if timer has expired and there are players in the room
         if (newTime === 0 && currentRoom?.players && currentRoom.players.length > 0) {
-          console.log('Timer completed with players present, starting game');
           socket?.emit('start_game', currentRoom.id);
         }
       }, 1000);
@@ -293,7 +245,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
         // If timer has expired, emit check_waiting_timer event
         if (timeLeft === 0) {
-          console.log('Waiting timer expired, checking room status...');
           socket.emit('check_waiting_timer', roomId);
         }
       }
@@ -301,7 +252,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     // Handle room closure event
     const handleRoomClosed = (data: { reason: string }) => {
-      console.log('Room closed:', data.reason);
       toast({
         title: "Room Closed",
         description: data.reason,
@@ -357,7 +307,6 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         });
       }
     } catch (error) {
-      console.error('Error sharing:', error);
       toast({
         title: "Failed to share",
         description: "Could not share the room code",

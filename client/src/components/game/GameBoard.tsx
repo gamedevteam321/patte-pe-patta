@@ -431,6 +431,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showMatchingCards, setShowMatchingCards] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false); // Debug mode enabled by default
   const [showGameTable, setShowGameTable] = useState(true);
+  const [disabledPlayers, setDisabledPlayers] = useState<Set<string>>(new Set());
 
   const {
     gameState,
@@ -1044,6 +1045,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [isUserTurn, userPlayer]);
 
+  // Add this effect to handle player_auto_exited event
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePlayerAutoExited = (data: { playerId: string; username: string; reason: string }) => {
+      setDisabledPlayers(prev => new Set(prev).add(data.playerId));
+      toast.error(data.reason);
+    };
+
+    socket.on('player_auto_exited', handlePlayerAutoExited);
+
+    return () => {
+      socket.off('player_auto_exited', handlePlayerAutoExited);
+    };
+  }, [socket]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -1185,35 +1202,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }, 500);
   };
 
-  const handlePlayCard = () => {
-    if (!isUserTurn || actionsDisabled || !userPlayer) {
-      return;
-    }
-
-    const cardToPlay = userPlayer.cards[0];
-    if (!cardToPlay) {
+  const handlePlayCard = (card: Card) => {
+    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
+    
+    // Check if player is disabled
+    if (disabledPlayers.has(userPlayer.id)) {
+      toast.error('You have been disabled for excessive auto-play');
       return;
     }
 
     setActionsDisabled(true);
-    setLastPlayedCard(cardToPlay);
-    setCardInMotion(cardToPlay);
+    setLastPlayedCard(card);
+    setCardInMotion(card);
 
     // After animation completes, update game state
     setTimeout(() => {
-      // Update player cards
-      const updatedCards = [...userPlayer.cards];
-      updatedCards.shift();
-      userPlayer.cards = updatedCards;
+      if (socket && currentRoom && userPlayer) {
+        // Send play event to server with isHitButton flag
+        playCard(userPlayer.id, { ...card, isHitButton: true });
 
-      // Send play event to server with isHitButton flag
-      playCard(userPlayer.id, { ...cardToPlay, isHitButton: true });
-
-      // Re-enable actions after a delay
-      setTimeout(() => {
-        setCardInMotion(null);
-        setActionsDisabled(false);
-      }, 200);
+        // Re-enable actions after a delay
+        setTimeout(() => {
+          setActionsDisabled(false);
+        }, 1000);
+      }
     }, 500);
   };
 
@@ -1754,7 +1766,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       {gameState.gameStarted && userPlayer && (
                         <div className="mt-4 flex justify-center space-x-4">
                           <Button
-                            onClick={handlePlayCard}
+                            onClick={() => handlePlayCard(userPlayer.cards[0])}
                             disabled={!isUserTurn || actionsDisabled}
                             className={`hit-button ${isUserTurn && !actionsDisabled
                               ? 'bg-green-600 hover:bg-green-700'

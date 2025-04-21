@@ -71,14 +71,27 @@ interface Room {
 // Maximum number of auto-plays allowed before auto-exit
 const MAX_AUTO_PLAY_COUNT = 3;
 
+// Maximum waiting time before auto-play is detected (in milliseconds)
+const MAX_WAITING_TIME = 5000;
+
 // Function to detect auto-play
 const isAutoPlay = (player: Player, card: Card): boolean => {
   // Initialize autoPlayCount if it doesn't exist
   if (player.autoPlayCount === undefined) {
     player.autoPlayCount = 0;
   }
+
+  // Get current time
+  // const currentTime = Date.now();
   
-  // Auto-play is only allowed if count is less than max
+  // // Check if player took more than MAX_WAITING_TIME to play
+  // const timeSinceLastPlay = currentTime - (player.lastPlayTime || 0);
+  // const tookTooLong = timeSinceLastPlay >= MAX_WAITING_TIME;
+  
+  // Auto-play is detected if:
+  // 1. Player took more than MAX_WAITING_TIME to play
+  // 2. Auto-play count is less than max
+  // return tookTooLong && player.autoPlayCount < MAX_AUTO_PLAY_COUNT;
   return player.autoPlayCount < MAX_AUTO_PLAY_COUNT;
 };
 
@@ -141,24 +154,31 @@ async function recordRoomHistory(roomId: string, userId: string, action: 'join' 
   }
 }
 
+// Add this helper function at the top level
+const findNextActivePlayer = (players: Player[], currentIndex: number): number => {
+  let nextIndex = (currentIndex + 1) % players.length;
+  while (
+    players[nextIndex] && 
+    !players[nextIndex].isActive && 
+    nextIndex !== currentIndex
+  ) {
+    nextIndex = (nextIndex + 1) % players.length;
+  }
+  return nextIndex;
+};
+
 export const socketHandler = (io: Server): void => {
   const handleAutoPlayLimit = (socket: Socket, room: Room, player: Player) => {
     if (player.autoPlayCount === MAX_AUTO_PLAY_COUNT) {
       // Disable the player
       player.isActive = false;
       
-      // Remove player from the room
-      room.players = room.players.filter(p => p.id !== player.id);
-      
       // Notify all players about the auto-exit
       io.to(room.id).emit('player_auto_exited', {
         playerId: player.id,
         username: player.username,
-        reason: `${player.username} was removed for excessive auto-play`
+        reason: `${player.username} was disabled for excessive auto-play`
       });
-
-      // Force disconnect from room
-      socket.leave(room.id);
       
       // Update game state
       if (room.gameState.currentTurn === player.id) {
@@ -1103,18 +1123,38 @@ export const socketHandler = (io: Server): void => {
           return;
         }
 
+        // Check if player is disabled
+        if (!player.isActive) {
+          console.log('Player is disabled, skipping turn:', player.username);
+          // Move to next active player
+          const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
+          room.gameState.currentPlayerIndex = nextPlayerIndex;
+          room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
+          
+          // Emit turn change
+          io.to(roomId).emit('turn_changed', {
+            nextPlayerId: room.gameState.currentTurn,
+            gameState: room.gameState
+          });
+          return;
+        }
+
         // Initialize auto-play count if not exists
         if (player.autoPlayCount === undefined) {
           player.autoPlayCount = 0;
         }
 
-        // Check for auto-play - only increment if it's not a hit button click
+        // Update last play time
+        player.lastPlayTime = Date.now();
+
+        // Check for auto-play
         if (isAutoPlay(player, card) && !card.isHitButton) {
           player.autoPlayCount++;
           console.log('Auto-play detected:', {
             playerId: id,
             username: player.username,
-            autoPlayCount: player.autoPlayCount
+            autoPlayCount: player.autoPlayCount,
+            timeSinceLastPlay: Date.now() - (player.lastPlayTime || 0)
           });
 
           // Notify the player about their auto-play count
@@ -1261,21 +1301,20 @@ export const socketHandler = (io: Server): void => {
           });
         }
 
-        // Calculate next player index
-        let nextPlayerIndex = (room.gameState.currentPlayerIndex + 1) % room.gameState.players.length;
-        
-        // Skip inactive players
-        while (
-          room.gameState.players[nextPlayerIndex] && 
-          !room.gameState.players[nextPlayerIndex].isActive && 
-          nextPlayerIndex !== room.gameState.currentPlayerIndex
-        ) {
-          nextPlayerIndex = (nextPlayerIndex + 1) % room.gameState.players.length;
-        }
-
-        // Update current player index - only change if there was no match
+        // After card play logic
         if (!hasMatch) {
+          // Move to next active player
+          const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
           room.gameState.currentPlayerIndex = nextPlayerIndex;
+          room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
+        } else {
+          // If there was a match, check if current player is still active
+          if (!room.gameState.players[room.gameState.currentPlayerIndex].isActive) {
+            // Find next active player
+            const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
+            room.gameState.currentPlayerIndex = nextPlayerIndex;
+            room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
+          }
         }
         
         // Set turn end time (15 seconds from now)
@@ -1324,7 +1363,7 @@ export const socketHandler = (io: Server): void => {
         }, 3000);
 
       } catch (error) {
-        console.error('Error playing card:', error);
+        console.error('Error in play_card:', error);
       }
     });
 

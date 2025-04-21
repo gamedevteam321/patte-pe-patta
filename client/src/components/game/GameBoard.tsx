@@ -430,6 +430,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [matchingCards, setMatchingCards] = useState<Card[]>([]);
   const [showMatchingCards, setShowMatchingCards] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false); // Debug mode enabled by default
+  const [showGameTable, setShowGameTable] = useState(true);
 
   const {
     gameState,
@@ -587,14 +588,82 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
           
+          // Hide game table UI
+          setShowGameTable(false);
+          
+          // Stop all game activities
+          setActionsDisabled(true);
+          setIsPlayingCard(false);
+          setCardInMotion(null);
+          setShowDistribution(false);
+          setDistributionComplete(true);
+          setGameTimer(null);
+          setTurnTimer(null);
+          
           // Find player with maximum cards
           const maxCardsPlayer = gameState.players.reduce((prev, current) => 
             (prev.cards.length > current.cards.length) ? prev : current
           );
           
+          // Update game state to stopped
+          if (socket) {
+            socket.emit('end_game', { 
+              roomId: currentRoom?.id,
+              winnerId: maxCardsPlayer.id,
+              reason: 'time_up'
+            });
+          }
+          
           // End the game with the player who has most cards
           endGame(maxCardsPlayer.id);
           
+          // Exit all players from the game
+          if (socket) {
+            socket.emit('leave_room', currentRoom?.id);
+          }
+
+          // Show game over screen with winner
+          const gameOverScreen = (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
+                <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
+                  Time's Up! Game Over!
+                </h2>
+                <div className="text-xl text-center text-white mb-6">
+                  <span className="text-green-400">{maxCardsPlayer.username} wins with {maxCardsPlayer.cards.length} cards! 🎉</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {gameState.players.map((player) => (
+                    <div
+                      key={player.id}
+                      className={`p-4 rounded-lg ${player.id === maxCardsPlayer.id
+                        ? "bg-green-500/20 border-2 border-green-500"
+                        : "bg-gray-800/50"
+                        }`}
+                    >
+                      <div className="text-lg font-semibold text-white">
+                        {player.username}
+                      </div>
+                      <div className="text-sm text-gray-300">
+                        Cards: {player.cards.length}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => {
+                      navigate('/lobby');
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
+                  >
+                    Return to Lobby
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+
           // Show toast notification
           toast({
             title: "Time's Up!",
@@ -603,12 +672,26 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             duration: 5000,
             className: "top-0"
           });
+
+          // Show game over screen
+          const gameOverContainer = document.createElement('div');
+          gameOverContainer.id = 'game-over-screen';
+          document.body.appendChild(gameOverContainer);
+          ReactDOM.render(gameOverScreen, gameOverContainer);
         }
       }, 1000);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        // Clean up game over screen if it exists
+        const gameOverScreen = document.getElementById('game-over-screen');
+        if (gameOverScreen) {
+          ReactDOM.unmountComponentAtNode(gameOverScreen);
+          gameOverScreen.remove();
+        }
+      };
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame, socket, currentRoom, navigate]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.turnEndTime) {
@@ -1328,7 +1411,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   return (
     <>
-      {gameState.gameStarted && (
+      {showGameTable && gameState.gameStarted && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
 

@@ -1218,6 +1218,12 @@ export const socketHandler = (io: Server): void => {
           turnEndTime: room.gameState.turnEndTime
         });
 
+        // Notify all clients about the card play
+        io.to(roomId).emit('play_card', {
+          playerId: id,
+          card: playedCard
+        });
+
         // Set a timeout to clear the match animation state after 3 seconds
         setTimeout(() => {
           // Only clear if this is still the active match

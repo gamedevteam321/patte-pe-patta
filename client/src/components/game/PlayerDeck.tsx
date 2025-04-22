@@ -97,7 +97,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           <span className={`text-sm font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
             {player.username}
           </span>
-          {player.autoPlayCount && player.autoPlayCount > 0 && (
+          {!!player.autoPlayCount && (player.autoPlayCount > 0) && (
             <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-500/20 text-red-300 mt-1">
               Auto-play: {player.autoPlayCount}/2
             </Badge>

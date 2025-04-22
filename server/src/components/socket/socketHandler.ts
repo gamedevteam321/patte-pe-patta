@@ -69,7 +69,7 @@ interface Room {
 }
 
 // Maximum number of auto-plays allowed before auto-exit
-const MAX_AUTO_PLAY_COUNT = 3;
+const MAX_AUTO_PLAY_COUNT = 2;
 
 // Maximum waiting time before auto-play is detected (in milliseconds)
 const MAX_WAITING_TIME = 5000;
@@ -182,10 +182,13 @@ export const socketHandler = (io: Server): void => {
       
       // Update game state
       if (room.gameState.currentTurn === player.id) {
-        // Move to next player if it was their turn
-        const nextPlayerIndex = (room.gameState.currentPlayerIndex + 1) % room.players.length;
-        room.gameState.currentPlayerIndex = nextPlayerIndex;
-        room.gameState.currentTurn = room.players[nextPlayerIndex]?.id;
+        // Find next active player
+        // const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
+        // room.gameState.currentPlayerIndex = nextPlayerIndex;
+        // room.gameState.currentTurn = room.gameState.players[nextPlayerIndex]?.id;
+        
+        // // Reset turn timer for next player
+        // room.gameState.turnEndTime = Date.now() + MAX_WAITING_TIME;
         
         // Emit turn change
         io.to(room.id).emit('turn_changed', {
@@ -1144,30 +1147,6 @@ export const socketHandler = (io: Server): void => {
           player.autoPlayCount = 0;
         }
 
-        // Update last play time
-        player.lastPlayTime = Date.now();
-
-        // Check for auto-play
-        if (isAutoPlay(player, card) && !card.isHitButton) {
-          player.autoPlayCount++;
-          console.log('Auto-play detected:', {
-            playerId: id,
-            username: player.username,
-            autoPlayCount: player.autoPlayCount,
-            timeSinceLastPlay: Date.now() - (player.lastPlayTime || 0)
-          });
-
-          // Notify the player about their auto-play count
-          socket.emit('auto_play_warning', {
-            count: player.autoPlayCount,
-            maxCount: MAX_AUTO_PLAY_COUNT,
-            message: `Warning: Auto-play detected (${player.autoPlayCount}/${MAX_AUTO_PLAY_COUNT})`
-          });
-
-          // Check if player should be auto-exited
-          handleAutoPlayLimit(socket, room, player);
-        }
-
         // Always reset any previous match animation state first
         if (room.gameState.matchAnimation) {
           room.gameState.matchAnimation.isActive = false;
@@ -1203,6 +1182,30 @@ export const socketHandler = (io: Server): void => {
           card: `${card.value}-${card.suit}`,
           roomId
         });
+
+        // Update last play time after all validations pass
+        player.lastPlayTime = Date.now();
+
+        // Check for auto-play
+        if (isAutoPlay(player, card) && !card.isHitButton) {
+          player.autoPlayCount++;
+          console.log('Auto-play detected:', {
+            playerId: id,
+            username: player.username,
+            autoPlayCount: player.autoPlayCount,
+            timeSinceLastPlay: Date.now() - (player.lastPlayTime || 0)
+          });
+
+          // Notify the player about their auto-play count
+          socket.emit('auto_play_warning', {
+            count: player.autoPlayCount,
+            maxCount: MAX_AUTO_PLAY_COUNT,
+            message: `Warning: Auto-play detected (${player.autoPlayCount}/${MAX_AUTO_PLAY_COUNT})`
+          });
+
+          // Check if player should be auto-exited
+          handleAutoPlayLimit(socket, room, player);
+        }
 
         // Remove card from player's deck
         const [playedCard] = player.cards.splice(cardIndex, 1);

@@ -1,8 +1,11 @@
 [x] Game Timer End game
 [x] Who wins play card again
-[] Kick out player after two chance autoplay
+[x] Kick out player after two chance autoplay
 [x] Card animation of other player
 [x] suffle only 1 time per chance
+[] in lobby, show user count live on player join event
+[] add demo money in game
+[] 
 
 
 

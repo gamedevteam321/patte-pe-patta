@@ -20,6 +20,11 @@ export const validateRequestMiddleware = (req: Request, res: Response, next: Nex
         });
     }
 
+    // Skip header validation for auth routes
+    if (req.path.includes('/auth/login') || req.path.includes('/auth/register')) {
+        return next();
+    }
+
     // Validate required headers
     const requiredHeaders = ['x-request-id'];
     const missingHeaders = requiredHeaders.filter(header => !req.headers[header]);

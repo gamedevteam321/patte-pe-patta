@@ -1,14 +1,14 @@
 import express, { Request, Response, Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import balanceRoutes from '../routes/balance.routes';
 
 // Load environment variables
 dotenv.config();
 
 // Import controllers and middleware
 import { gameController } from '../components/game/gameController';
-import { authController } from '../components/auth/authController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authController, authMiddleware } from '../middleware/auth.middleware';
 
 const router: Router = express.Router();
 
@@ -71,4 +71,6 @@ router.post('/games', authMiddleware, gameController.createGame);
 router.get('/games/:id', authMiddleware, gameController.getGame);
 router.put('/games/:id', authMiddleware, gameController.updateGame);
 
+
+router.use('/balance', balanceRoutes);
 export default router; 

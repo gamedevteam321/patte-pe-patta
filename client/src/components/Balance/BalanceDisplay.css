@@ -1,26 +1,24 @@
 .balance-container {
-    background-color: #ffffff;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 400px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
 }
 
 .balance-section {
-    margin-bottom: 20px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.balance-section h3 {
+.balance-label {
+    font-size: 14px;
     color: #666;
-    font-size: 16px;
-    margin-bottom: 8px;
 }
 
 .balance-amount {
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 16px;
+    font-weight: 600;
     color: #333;
 }
 
@@ -46,15 +44,31 @@
 }
 
 .balance-loading {
-    text-align: center;
-    padding: 20px;
+    font-size: 14px;
     color: #666;
+    padding: 8px;
 }
 
 .balance-error {
-    text-align: center;
-    padding: 20px;
-    color: #ff0000;
-    background-color: #ffeeee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #dc3545;
+    padding: 8px;
+}
+
+.balance-retry-button {
+    background: none;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    padding: 4px 8px;
     border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.balance-retry-button:hover {
+    background-color: #dc3545;
+    color: white;
 } 

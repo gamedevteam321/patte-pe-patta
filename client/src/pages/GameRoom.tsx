@@ -3,12 +3,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
+import { useBalance } from "@/context/BalanceContext";
 import GameBoard from "@/components/game/GameBoard";
 import GameInfo from "@/components/game/GameInfo";
 import { Button } from "@/components/ui/button";
 import { DoorOpen, Loader2, Share2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Room } from '@/types/game';
+import { balanceService } from "@/services/api/balance";
+import { formatCurrency } from "@/utils/format";
 
 // Add constant for auto-start time (3 minutes)
 const WAIT_TIME_FOR_GAME_START = 180000; // 3 minutes in milliseconds
@@ -24,6 +27,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const { roomId } = useParams<{ roomId: string }>();
   const { isAuthenticated, user } = useAuth();
   const { currentRoom, joinRoom, leaveRoom, gameState, fetchRooms, socket } = useSocket();
+  const { balance, refreshBalance } = useBalance();
   const navigate = useNavigate();
   const [isJoining, setIsJoining] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -33,16 +37,47 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const [waitingTimeLeft, setWaitingTimeLeft] = useState<number>(INITIAL_WAIT_TIME);
   const [isAutoStarting, setIsAutoStarting] = useState<boolean>(false);
   const [autoStartTimeLeft, setAutoStartTimeLeft] = useState<number>(0);
+  const [canJoin, setCanJoin] = useState<boolean>(false);
   const waitingTimeLeftRef = useRef<NodeJS.Timeout>();
 
-  // Initial room join effect
+  // Check if user can join room based on balance
+  useEffect(() => {
+    const checkRoomEligibility = async () => {
+      if (roomId && isAuthenticated) {
+        try {
+          const canJoinRoom = await balanceService.canJoinRoom(roomId);
+          setCanJoin(canJoinRoom);
+          
+          if (!canJoinRoom) {
+            toast({
+              title: "Insufficient Balance",
+              description: "You don't have enough balance to join this room",
+              variant: "destructive"
+            });
+            navigate("/lobby");
+          }
+        } catch (error) {
+          console.error("Error checking room eligibility:", error);
+          toast({
+            title: "Error",
+            description: "Failed to check room eligibility",
+            variant: "destructive"
+          });
+        }
+      }
+    };
+
+    checkRoomEligibility();
+  }, [roomId, isAuthenticated, navigate]);
+
+  // Initial room join effect with balance check
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
       return;
     }
 
-    if (!currentRoom && roomId && !isJoining && !initialJoinComplete) {
+    if (!currentRoom && roomId && !isJoining && !initialJoinComplete && canJoin) {
       setIsJoining(true);
       joinRoom(roomId).then((success) => {
         setIsJoining(false);
@@ -61,12 +96,11 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
             description: "You have joined the game room successfully",
           });
           setLastSyncTime(new Date());
-          // Refresh room list to get latest player counts
           fetchRooms();
         }
       });
     }
-  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms, initialJoinComplete]);
+  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms, initialJoinComplete, canJoin]);
 
   // Auto-refresh players list when game state changes
   useEffect(() => {
@@ -270,6 +304,42 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     };
   }, [socket, roomId, currentRoom, navigate]);
 
+  // Handle game result and update balance
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleGameResult = async (result: { isWinner: boolean; amount: number; balanceType: 'real' | 'demo' }) => {
+      try {
+        await balanceService.processGameResult(
+          result.isWinner,
+          result.amount,
+          result.balanceType
+        );
+        await refreshBalance();
+        
+        toast({
+          title: result.isWinner ? "You won!" : "Game Over",
+          description: result.isWinner 
+            ? `You won ${formatCurrency(result.amount)}!` 
+            : `You lost ${formatCurrency(result.amount)}`,
+          variant: result.isWinner ? "default" : "destructive"
+        });
+      } catch (error) {
+        console.error("Error processing game result:", error);
+        toast({
+          title: "Error",
+          description: "Failed to process game result",
+          variant: "destructive"
+        });
+      }
+    };
+
+    socket.on('game:result', handleGameResult);
+    return () => {
+      socket.off('game:result', handleGameResult);
+    };
+  }, [socket, refreshBalance]);
+
   const handleResync = () => {
     if (roomId) {
       setRetryCount(prev => prev + 1);
@@ -315,9 +385,20 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     }
   };
 
-  const handleLeaveRoom = () => {
-    leaveRoom();
-    navigate("/lobby");
+  const handleLeaveRoom = async () => {
+    if (socket && currentRoom) {
+      try {
+        await leaveRoom();
+        navigate("/lobby");
+      } catch (error) {
+        console.error("Error leaving room:", error);
+        toast({
+          title: "Error",
+          description: "Failed to leave room",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   // Format waiting time

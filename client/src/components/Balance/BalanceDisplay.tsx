@@ -4,36 +4,40 @@ import { formatCurrency } from '../../utils/format';
 import './BalanceDisplay.css';
 
 export const BalanceDisplay: React.FC = () => {
-    const { balance, isLoading, error, claimDailyReward } = useBalance();
+    const { balance, isLoading, error, refreshBalance } = useBalance();
 
     if (isLoading) {
         return <div className="balance-loading">Loading balance...</div>;
     }
 
     if (error) {
-        return <div className="balance-error">{error}</div>;
+        return (
+            <div className="balance-error">
+                <span>Error loading balance</span>
+                <button 
+                    onClick={refreshBalance}
+                    className="balance-retry-button"
+                >
+                    Retry
+                </button>
+            </div>
+        );
     }
 
     if (!balance) {
-        return <div className="balance-error">No balance data available</div>;
+        return null;
     }
 
     return (
         <div className="balance-container">
             <div className="balance-section">
-                <h3>Real Money Balance</h3>
-                <div className="balance-amount">{formatCurrency(balance.real)}</div>
+                <span className="balance-label">Balance:</span>
+                <span className="balance-amount">{formatCurrency(balance.real)}</span>
             </div>
             <div className="balance-section">
-                <h3>Demo Balance</h3>
-                <div className="balance-amount">{formatCurrency(balance.demo)}</div>
+                <span className="balance-label">Demo:</span>
+                <span className="balance-amount">{formatCurrency(balance.demo)}</span>
             </div>
-            <button 
-                className="claim-reward-button"
-                onClick={claimDailyReward}
-            >
-                Claim Daily Reward
-            </button>
         </div>
     );
 }; 

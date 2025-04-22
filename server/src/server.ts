@@ -15,6 +15,7 @@ import { requestIdMiddleware } from './middleware/requestId.middleware';
 import { validateRequestMiddleware } from './middleware/validateRequest.middleware';
 import { errorHandler } from './middleware/errorHandler.middleware';
 import healthCheck from './routes/health.routes';
+import apiV1Router from './routing/api_v1';
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +28,10 @@ app.use(helmet());
 
 // Request ID middleware for tracking
 app.use(requestIdMiddleware);
+
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Compression middleware
 const compressionMiddleware = compression({
@@ -43,10 +48,10 @@ app.use(compressionMiddleware);
 
 // Configure CORS
 const corsOptions = {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: ['http://localhost:8080', 'http://192.168.1.15:8080'], // Specific origins instead of wildcard
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-request-id'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 600 // Cache preflight requests for 10 minutes
 };
@@ -60,14 +65,22 @@ app.options('*', cors(corsOptions));
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 1000, // increased from 100 to 1000
     message: 'Too many requests from this IP, please try again later',
     standardHeaders: true,
     legacyHeaders: false
 });
 
-// Apply rate limiting
-app.use(limiter);
+// Apply rate limiting to all routes except auth
+app.use((req, res, next) => {
+    // Skip rate limiting for auth routes during development
+    if (req.path.includes('/auth/')) {
+        return next();
+    }
+    
+    // Apply rate limiting to other routes
+    limiter(req, res, next);
+});
 
 // Request validation
 app.use(validateRequestMiddleware);
@@ -90,8 +103,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Health check endpoint
 app.use('/health', healthCheck);
 
-// Routes
-app.use('/api/balance', balanceRoutes);
+// API Routes
+app.use('/api/v1', apiV1Router);
+
 
 // Error handling
 app.use(errorHandler);
@@ -114,7 +128,7 @@ const shutdownHandler = ServerShutdownHandler.getInstance();
 shutdownHandler.initialize(server);
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 (async () => {
     try {

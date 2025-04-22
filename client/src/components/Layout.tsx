@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { User, LogOut, Home, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
+import { BalanceDisplay } from "./Balance/BalanceDisplay";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -49,16 +50,11 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                 >
                   <Home className="h-5 w-5" />
                 </Button>
-               
               </div>
 
               {isAuthenticated && (
                 <div className="flex items-center space-x-4">
-                  
-                {/* <span className="text-white font-medium">
-                  {user?.username}
-                </span> */}
-            
+                  <BalanceDisplay />
                   {isMobile ? (
                     <Button
                       variant="ghost"

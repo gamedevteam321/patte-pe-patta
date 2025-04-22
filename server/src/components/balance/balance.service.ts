@@ -4,11 +4,32 @@ import { logError } from '../../utils/logger';
 
 export class BalanceService {
     static async getUserBalance(userId: string): Promise<UserBalance> {
+        // First try to get existing balance
         const { data, error } = await supabase
             .from('user_balance')
             .select('*')
             .eq('user_id', userId)
             .single();
+
+        // If no balance exists, create a new one
+        if (error && error.code === 'PGRST116') {
+            const { data: newBalance, error: createError } = await supabase
+                .from('user_balance')
+                .insert([
+                    {
+                        user_id: userId,
+                        real_balance: 0,
+                        demo_balance: 1000, // Starting demo balance
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    }
+                ])
+                .select()
+                .single();
+
+            if (createError) throw createError;
+            return newBalance;
+        }
 
         if (error) throw error;
         return data;

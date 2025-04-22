@@ -7,14 +7,14 @@ const pool = new Pool({
 
 interface AnalyticsEvent {
     type: string;
-    user_id?: string;
+    user_id?: string | null;
     ip_address: string;
     user_agent: string;
     path: string;
     method: string;
     status_code: number;
     response_time: number;
-    metadata?: any;
+    metadata?: Record<string, any> | null;
 }
 
 export const trackEvent = async (event: AnalyticsEvent) => {
@@ -25,7 +25,7 @@ export const trackEvent = async (event: AnalyticsEvent) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
                 event.type,
-                event.user_id,
+                event.user_id || null,
                 event.ip_address,
                 event.user_agent,
                 event.path,
@@ -48,9 +48,9 @@ export const trackRequest = (req: Request, res: any, next: any) => {
         
         trackEvent({
             type: 'request',
-            user_id: req.user?.id,
-            ip_address: req.ip,
-            user_agent: req.headers['user-agent'] || '',
+            user_id: req.user?.id || null,
+            ip_address: req.ip || 'unknown',
+            user_agent: req.headers['user-agent'] || 'unknown',
             path: req.path,
             method: req.method,
             status_code: res.statusCode,
@@ -69,9 +69,9 @@ export const trackRequest = (req: Request, res: any, next: any) => {
 export const trackError = (error: Error, req: Request) => {
     trackEvent({
         type: 'error',
-        user_id: req.user?.id,
-        ip_address: req.ip,
-        user_agent: req.headers['user-agent'] || '',
+        user_id: req.user?.id || null,
+        ip_address: req.ip || 'unknown',
+        user_agent: req.headers['user-agent'] || 'unknown',
         path: req.path,
         method: req.method,
         status_code: 500,

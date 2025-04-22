@@ -38,7 +38,7 @@ export class GameRoomManager {
     try {
       gameManager.setPlayerReady(playerId);
     } catch (error) {
-      logError(error as Error, `Error setting player ready in room ${roomId}`);
+      logError(`Error setting player ready in room ${roomId}`, error as Error);
       throw error;
     }
   }
@@ -52,7 +52,7 @@ export class GameRoomManager {
     try {
       gameManager.playCard(playerId, card);
     } catch (error) {
-      logError(error as Error, `Error playing card in room ${roomId}`);
+      logError(`Error playing card in room ${roomId}`, error as Error);
       throw error;
     }
   }
@@ -66,7 +66,7 @@ export class GameRoomManager {
     try {
       gameManager.addPlayer(player);
     } catch (error) {
-      logError(error as Error, `Error adding player to room ${roomId}`);
+      logError(`Error adding player to room ${roomId}`, error as Error);
       throw error;
     }
   }
@@ -80,7 +80,7 @@ export class GameRoomManager {
     try {
       gameManager.removePlayer(playerId);
     } catch (error) {
-      logError(error as Error, `Error removing player from room ${roomId}`);
+      logError(`Error removing player from room ${roomId}`, error as Error);
       throw error;
     }
   }

@@ -1,0 +1,60 @@
+.balance-container {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.balance-section {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.balance-section h3 {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.balance-amount {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+}
+
+.claim-reward-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.claim-reward-button:hover {
+    background-color: #45a049;
+}
+
+.claim-reward-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.balance-loading {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.balance-error {
+    text-align: center;
+    padding: 20px;
+    color: #ff0000;
+    background-color: #ffeeee;
+    border-radius: 4px;
+} 

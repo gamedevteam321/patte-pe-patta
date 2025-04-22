@@ -1,36 +1,24 @@
 import { Router } from 'express';
-import { Pool } from 'pg';
+import { supabase } from '../utils/supabase';
 
 const router = Router();
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
-});
 
 // Basic health check
 router.get('/', (req, res) => {
-    res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
+    res.json({ status: 'ok' });
 });
 
 // Database health check
-router.get('/database', async (req, res) => {
+router.get('/db', async (req, res) => {
     try {
-        const client = await pool.connect();
-        const result = await client.query('SELECT 1');
-        client.release();
-        
-        res.json({
-            status: 'ok',
-            database: 'connected'
-        });
+        const { data, error } = await supabase.from('user_balance').select('count').limit(1);
+        if (error) throw error;
+        res.json({ status: 'ok', database: 'connected' });
     } catch (error) {
-        res.status(503).json({
+        const err = error as Error;
+        res.status(500).json({
             status: 'error',
-            database: 'disconnected',
-            error: error.message
+            error: err.message
         });
     }
 });
@@ -38,13 +26,11 @@ router.get('/database', async (req, res) => {
 // System metrics
 router.get('/metrics', (req, res) => {
     const metrics = {
-        memory: process.memoryUsage(),
-        cpu: process.cpuUsage(),
         uptime: process.uptime(),
-        activeConnections: pool.totalCount
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage()
     };
-    
-    res.json(metrics);
+    res.json({ status: 'ok', metrics });
 });
 
 export default router; 

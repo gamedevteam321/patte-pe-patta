@@ -1,9 +1,11 @@
-const { createClient } = require('@supabase/supabase-js');
+import { supabase } from '../utils/supabase';
+import { Database } from '../types/supabase';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+type TableName = keyof Database['public']['Tables'];
+type QueryFilter = Record<string, any>;
 
-const db = {
-  async query(table, query) {
+class DatabaseHelper {
+  async query(table: TableName, query: QueryFilter) {
     const { data, error } = await supabase
       .from(table)
       .select('*')
@@ -11,9 +13,12 @@ const db = {
     
     if (error) throw error;
     return data;
-  },
+  }
 
-  async insert(table, data) {
+  async insert<T extends TableName>(
+    table: T,
+    data: Database['public']['Tables'][T]['Insert']
+  ) {
     const { data: result, error } = await supabase
       .from(table)
       .insert([data])
@@ -21,9 +26,13 @@ const db = {
     
     if (error) throw error;
     return result[0];
-  },
+  }
 
-  async update(table, id, data) {
+  async update<T extends TableName>(
+    table: T,
+    id: string,
+    data: Partial<Database['public']['Tables'][T]['Update']>
+  ) {
     const { data: result, error } = await supabase
       .from(table)
       .update(data)
@@ -32,9 +41,9 @@ const db = {
     
     if (error) throw error;
     return result[0];
-  },
+  }
 
-  async delete(table, id) {
+  async delete(table: TableName, id: string): Promise<boolean> {
     const { error } = await supabase
       .from(table)
       .delete()
@@ -43,6 +52,6 @@ const db = {
     if (error) throw error;
     return true;
   }
-};
+}
 
-module.exports = db; 
+export const db = new DatabaseHelper(); 

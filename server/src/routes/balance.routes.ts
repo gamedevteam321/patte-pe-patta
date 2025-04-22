@@ -3,6 +3,7 @@ import { BalanceService } from '../components/balance/balance.service';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { validateRequest } from '../middleware/validate.middleware';
 import { BalanceType } from '../types/balance';
+import { z } from 'zod';
 
 const router = Router();
 
@@ -54,11 +55,11 @@ router.post('/daily-reward', authMiddleware, async (req, res) => {
 });
 
 // Process game result
-router.post('/game-result', authMiddleware, validateRequest({
-    isWinner: { type: 'boolean', required: true },
-    amount: { type: 'number', required: true, min: 0 },
-    balanceType: { type: 'string', enum: ['demo', 'real'], required: true }
-}), async (req, res) => {
+router.post('/game-result', authMiddleware, validateRequest(z.object({
+    isWinner: z.boolean(),
+    amount: z.number().min(0),
+    balanceType: z.enum(['demo', 'real'])
+})), async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({ error: 'User not authenticated' });

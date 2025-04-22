@@ -11,133 +11,67 @@ export interface Database {
     Tables: {
       user_balance: {
         Row: {
-          id: string
           user_id: string
+          balance: number
           demo_balance: number
-          real_balance: number
-          daily_demo_limit: number
-          daily_real_limit: number
-          withdrawal_limit: number
-          referral_bonus: number
-          referral_count: number
-          vip_level: number
-          total_wins: number
-          total_games: number
-          win_streak: number
-          max_win_streak: number
-          last_daily_reward: string | null
-          daily_reward_streak: number
-          tournament_points: number
+          created_at: string
+          updated_at: string
           seasonal_points: number
           total_seasonal_points: number
           last_season_reset: string | null
           is_suspicious: boolean
           last_security_check: string | null
-          loyalty_points: number
-          total_loyalty_points: number
-          chat_level: number
-          chat_points: number
-          last_chat_reward: string | null
-          created_at: string
-          updated_at: string
         }
         Insert: {
-          id?: string
           user_id: string
+          balance?: number
           demo_balance?: number
-          real_balance?: number
-          daily_demo_limit?: number
-          daily_real_limit?: number
-          withdrawal_limit?: number
-          referral_bonus?: number
-          referral_count?: number
-          vip_level?: number
-          total_wins?: number
-          total_games?: number
-          win_streak?: number
-          max_win_streak?: number
-          last_daily_reward?: string | null
-          daily_reward_streak?: number
-          tournament_points?: number
+          created_at?: string
+          updated_at?: string
           seasonal_points?: number
           total_seasonal_points?: number
           last_season_reset?: string | null
           is_suspicious?: boolean
           last_security_check?: string | null
-          loyalty_points?: number
-          total_loyalty_points?: number
-          chat_level?: number
-          chat_points?: number
-          last_chat_reward?: string | null
-          created_at?: string
-          updated_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
+          balance?: number
           demo_balance?: number
-          real_balance?: number
-          daily_demo_limit?: number
-          daily_real_limit?: number
-          withdrawal_limit?: number
-          referral_bonus?: number
-          referral_count?: number
-          vip_level?: number
-          total_wins?: number
-          total_games?: number
-          win_streak?: number
-          max_win_streak?: number
-          last_daily_reward?: string | null
-          daily_reward_streak?: number
-          tournament_points?: number
+          created_at?: string
+          updated_at?: string
           seasonal_points?: number
           total_seasonal_points?: number
           last_season_reset?: string | null
           is_suspicious?: boolean
           last_security_check?: string | null
-          loyalty_points?: number
-          total_loyalty_points?: number
-          chat_level?: number
-          chat_points?: number
-          last_chat_reward?: string | null
-          created_at?: string
-          updated_at?: string
         }
       }
       balance_transactions: {
         Row: {
           id: string
           user_id: string
-          transaction_type: string
           amount: number
           balance_type: string
-          room_id: string | null
-          tournament_id: string | null
-          event_id: string | null
+          transaction_type: string
           metadata: Json | null
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          transaction_type: string
           amount: number
           balance_type: string
-          room_id?: string | null
-          tournament_id?: string | null
-          event_id?: string | null
+          transaction_type: string
           metadata?: Json | null
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          transaction_type?: string
           amount?: number
           balance_type?: string
-          room_id?: string | null
-          tournament_id?: string | null
-          event_id?: string | null
+          transaction_type?: string
           metadata?: Json | null
           created_at?: string
         }
@@ -542,7 +476,66 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_user_balance: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_balance_type: string
+          p_transaction_type: string
+          p_metadata: Json
+        }
+        Returns: number
+      }
+      claim_daily_reward: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
+      process_loyalty_points: {
+        Args: {
+          p_user_id: string
+          p_event_type: string
+          p_event_data: Json
+        }
+        Returns: number
+      }
+      process_chat_rewards: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: void
+      }
+      join_tournament: {
+        Args: {
+          p_user_id: string
+          p_tournament_id: string
+        }
+        Returns: number
+      }
+      process_game_result: {
+        Args: {
+          p_user_id: string
+          p_is_winner: boolean
+          p_amount: number
+          p_balance_type: string
+        }
+        Returns: number
+      }
+      process_referral_bonus: {
+        Args: {
+          p_referrer_id: string
+          p_referred_id: string
+        }
+        Returns: number
+      }
+      can_join_room: {
+        Args: {
+          p_user_id: string
+          p_room_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

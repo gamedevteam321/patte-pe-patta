@@ -52,22 +52,67 @@ export class ServerShutdownHandler {
       logInfo('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      logError(error as Error, 'Error during graceful shutdown');
+      logError('Error during graceful shutdown', error as Error);
       process.exit(1);
     }
   }
 
   private handleUncaughtException(error: Error): void {
-    logError(error, 'Uncaught Exception');
+    logError('Uncaught Exception', error);
     this.gracefulShutdown('uncaughtException').catch(() => {
       process.exit(1);
     });
   }
 
   private handleUnhandledRejection(reason: unknown): void {
-    logError(new Error(`Unhandled Rejection: ${reason}`), 'Unhandled Rejection');
+    logError('Unhandled Rejection', new Error(`Unhandled Rejection: ${reason}`));
     this.gracefulShutdown('unhandledRejection').catch(() => {
       process.exit(1);
+    });
+  }
+
+  public shutdown(): void {
+    if (!this.server) {
+      logError('Server not initialized');
+      return;
+    }
+
+    logInfo('Shutting down server...');
+    this.server.close((error) => {
+      if (error) {
+        logError('Error during graceful shutdown', error);
+        process.exit(1);
+      }
+      logInfo('Server closed successfully');
+      process.exit(0);
+    });
+
+    // Force shutdown after 10 seconds
+    setTimeout(() => {
+      logError('Forcing shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  }
+
+  private setupProcessHandlers() {
+    process.on('uncaughtException', (error) => {
+      logError('Uncaught Exception', error);
+      this.shutdown();
+    });
+
+    process.on('unhandledRejection', (reason) => {
+      logError('Unhandled Rejection', new Error(String(reason)));
+      this.shutdown();
+    });
+
+    process.on('SIGTERM', () => {
+      logInfo('SIGTERM received');
+      this.shutdown();
+    });
+
+    process.on('SIGINT', () => {
+      logInfo('SIGINT received');
+      this.shutdown();
     });
   }
 } 

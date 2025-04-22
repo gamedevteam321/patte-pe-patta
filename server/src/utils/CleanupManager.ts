@@ -46,7 +46,7 @@ export class CleanupManager {
 
       logInfo(`Successfully cleaned up room: ${roomId}`);
     } catch (error) {
-      logError(error as Error, `Error cleaning up room: ${roomId}`);
+      logError(`Error cleaning up room: ${roomId}`, error as Error);
       throw error;
     }
   }
@@ -69,7 +69,7 @@ export class CleanupManager {
       
       logInfo('Global cleanup completed successfully');
     } catch (error) {
-      logError(error as Error, 'Error during global cleanup');
+      logError('Error during global cleanup', error as Error);
       throw error;
     } finally {
       this.isShuttingDown = false;

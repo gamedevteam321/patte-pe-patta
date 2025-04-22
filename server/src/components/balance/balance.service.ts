@@ -1,5 +1,6 @@
 import { supabase } from '../../utils/supabase';
 import { UserBalance, BalanceTransaction, BalanceType } from '../../types/balance';
+import { logError } from '../../utils/logger';
 
 export class BalanceService {
     static async getUserBalance(userId: string): Promise<UserBalance> {
@@ -42,11 +43,14 @@ export class BalanceService {
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
-            .limit(limit)
-            .offset(offset);
+            .range(offset, offset + limit - 1);
 
-        if (error) throw error;
-        return data;
+        if (error) {
+            logError('Error fetching transaction history', error);
+            throw error;
+        }
+
+        return data || [];
     }
 
     static async claimDailyReward(userId: string): Promise<number> {

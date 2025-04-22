@@ -1,64 +1,65 @@
-import winston from 'winston';
-import { GameError } from './errors';
+import { Request } from 'express';
 
-// Define log format
-const logFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
-  winston.format.json()
-);
+interface LogMetadata {
+    [key: string]: any;
+}
 
-// Create logger instance
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: logFormat,
-  defaultMeta: { service: 'balance-service' },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    }),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' })
-  ]
-});
+interface Logger {
+    info(message: string, meta?: LogMetadata): void;
+    error(message: string, error?: Error | string, meta?: LogMetadata): void;
+    warn(message: string, meta?: LogMetadata): void;
+    debug(message: string, meta?: LogMetadata): void;
+}
 
-// Export logging functions
-export const logError = (message: string, error?: Error, meta?: any) => {
-  logger.error(message, { error, ...meta });
+export const logInfo = (message: string, meta?: LogMetadata) => {
+    console.log(JSON.stringify({
+        level: 'info',
+        timestamp: new Date().toISOString(),
+        message,
+        ...meta
+    }));
 };
 
-export const logInfo = (message: string, meta?: any) => {
-  logger.info(message, meta);
+export const logError = (message: string, error?: Error | string, meta?: LogMetadata) => {
+    const errorDetails = error ? (error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+    } : error) : undefined;
+
+    console.error(JSON.stringify({
+        level: 'error',
+        timestamp: new Date().toISOString(),
+        message,
+        error: errorDetails,
+        ...meta
+    }));
 };
 
-export const logWarning = (message: string, meta?: any) => {
-  logger.warn(message, meta);
+export const logWarn = (message: string, meta?: LogMetadata) => {
+    console.warn(JSON.stringify({
+        level: 'warn',
+        timestamp: new Date().toISOString(),
+        message,
+        ...meta
+    }));
 };
 
-export const logDebug = (message: string, meta?: any) => {
-  logger.debug(message, meta);
+export const logDebug = (message: string, meta?: LogMetadata) => {
+    console.debug(JSON.stringify({
+        level: 'debug',
+        timestamp: new Date().toISOString(),
+        message,
+        ...meta
+    }));
 };
 
-// Request logging middleware
-export const requestLogger = (req: any, res: any, next: any) => {
-  const start = Date.now();
-  
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    logger.info('Request completed', {
-      method: req.method,
-      url: req.url,
-      status: res.statusCode,
-      duration,
-      ip: req.ip,
-      userAgent: req.get('user-agent')
-    });
-  });
-
-  next();
-};
-
-export default logger; 
+// Extend Express Request type
+declare global {
+    namespace Express {
+        interface Request {
+            logger?: Logger;
+            requestId?: string;
+        }
+    }
+} 

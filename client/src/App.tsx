@@ -14,6 +14,7 @@ import GameRoom from "./pages/GameRoom";
 import JoinByCode from "./pages/JoinByCode";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
+import { BalanceProvider } from "./context/BalanceContext";
 import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
@@ -22,58 +23,60 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <SocketProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/profile"
-                element={
-                  <AuthGuard>
-                    <Profile />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/lobby"
-                element={
-                  <AuthGuard>
-                    <Lobby />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/room/create"
-                element={
-                  <AuthGuard>
-                    <RoomCreate />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/room/:roomId"
-                element={
-                  <AuthGuard>
-                    <GameRoom />
-                  </AuthGuard>
-                }
-              />
-              <Route
-                path="/join/:code"
-                element={
-                  <AuthGuard>
-                    <JoinByCode />
-                  </AuthGuard>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <BalanceProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/profile"
+                  element={
+                    <AuthGuard>
+                      <Profile />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/lobby"
+                  element={
+                    <AuthGuard>
+                      <Lobby />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/room/create"
+                  element={
+                    <AuthGuard>
+                      <RoomCreate />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/room/:roomId"
+                  element={
+                    <AuthGuard>
+                      <GameRoom />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/join/:code"
+                  element={
+                    <AuthGuard>
+                      <JoinByCode />
+                    </AuthGuard>
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </BalanceProvider>
       </SocketProvider>
     </AuthProvider>
   </QueryClientProvider>

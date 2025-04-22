@@ -395,7 +395,6 @@ ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tournament_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE special_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_rewards ENABLE ROW LEVEL SECURITY;
-ALTER VIEW daily_transaction_summary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboard_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE security_logs ENABLE ROW LEVEL SECURITY;
@@ -408,7 +407,6 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_rewards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_chat_rewards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
-ALTER VIEW analytics_summary ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
 CREATE POLICY "Users can view their own balance"
@@ -496,10 +494,6 @@ CREATE POLICY "Anyone can view daily rewards"
     ON daily_rewards FOR SELECT
     USING (true);
 
-CREATE POLICY "Users can view their own daily summary"
-    ON daily_transaction_summary FOR SELECT
-    USING (auth.uid() = user_id);
-
 CREATE POLICY "Anyone can view leaderboards"
     ON leaderboards FOR SELECT
     USING (true);
@@ -575,15 +569,9 @@ CREATE POLICY "Service role can manage user loyalty rewards"
 CREATE POLICY "Users can view chat messages in their rooms"
     ON chat_messages FOR SELECT
     USING (
-        room_id IN (
-            SELECT id FROM rooms 
-            WHERE id IN (
-                SELECT room_id FROM room_players 
-                WHERE user_id = auth.uid()
-            )
-        )
-        OR user_id = auth.uid()
+        user_id = auth.uid()
         OR recipient_id = auth.uid()
+        OR (room_id IN (SELECT id FROM rooms) AND is_private = false)
     );
 
 CREATE POLICY "Users can insert chat messages"
@@ -612,10 +600,6 @@ CREATE POLICY "Service role can manage analytics"
     ON analytics_events FOR ALL
     USING (true)
     WITH CHECK (true);
-
-CREATE POLICY "Service role can view analytics summary"
-    ON analytics_summary FOR SELECT
-    USING (true);
 
 -- Create function to record balance history
 CREATE OR REPLACE FUNCTION record_balance_history()

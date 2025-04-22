@@ -2,42 +2,63 @@ import winston from 'winston';
 import { GameError } from './errors';
 
 // Define log format
-const logFormat = winston.format.printf((info: winston.Logform.TransformableInfo) => {
-  const { level, message, timestamp, ...metadata } = info;
-  let msg = `${timestamp} [${level}]: ${message}`;
-  if (metadata.error) {
-    const error = metadata.error as Error;
-    msg += `\n${error.stack || error.message}`;
-  }
-  return msg;
-});
+const logFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.errors({ stack: true }),
+  winston.format.json()
+);
 
 // Create logger instance
 const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    logFormat
-  ),
+  level: process.env.LOG_LEVEL || 'info',
+  format: logFormat,
+  defaultMeta: { service: 'balance-service' },
   transports: [
-    new winston.transports.Console(),
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    }),
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' })
   ]
 });
 
 // Export logging functions
-export const logError = (error: Error | GameError, context?: string) => {
-  logger.error(context || 'Error occurred', { error });
+export const logError = (message: string, error?: Error, meta?: any) => {
+  logger.error(message, { error, ...meta });
 };
 
-export const logInfo = (message: string, metadata?: Record<string, unknown>) => {
-  logger.info(message, metadata);
+export const logInfo = (message: string, meta?: any) => {
+  logger.info(message, meta);
 };
 
-export const logDebug = (message: string, metadata?: Record<string, unknown>) => {
-  logger.debug(message, metadata);
+export const logWarning = (message: string, meta?: any) => {
+  logger.warn(message, meta);
+};
+
+export const logDebug = (message: string, meta?: any) => {
+  logger.debug(message, meta);
+};
+
+// Request logging middleware
+export const requestLogger = (req: any, res: any, next: any) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('Request completed', {
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration,
+      ip: req.ip,
+      userAgent: req.get('user-agent')
+    });
+  });
+
+  next();
 };
 
 export default logger; 

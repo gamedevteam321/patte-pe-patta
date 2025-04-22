@@ -7,6 +7,10 @@ import { socketHandler } from './components/socket/socketHandler';
 import { createClient } from '@supabase/supabase-js';
 import { ServerShutdownHandler } from './utils/ServerShutdownHandler';
 import { logInfo } from './utils/logger';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import balanceRoutes from './routes/balance.routes';
+import compression from 'compression';
 
 // Load environment variables
 dotenv.config();
@@ -14,9 +18,24 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 
+// Security middleware
+app.use(helmet());
+
+// Compression middleware
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
+
 // Configure CORS
 const corsOptions = {
-  origin: '*',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -29,6 +48,13 @@ app.use(cors(corsOptions));
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 app.use(express.json());
 
@@ -105,8 +131,17 @@ socketHandler(io);
 const shutdownHandler = ServerShutdownHandler.getInstance();
 shutdownHandler.initialize(server);
 
+// Routes
+app.use('/api/balance', balanceRoutes);
+
+// Error handling middleware
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something broke!' });
+});
+
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 (async () => {
   // Test connection with retry

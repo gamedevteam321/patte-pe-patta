@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { Room } from '@/types/game';
 import { balanceService } from "@/services/api/balance";
 import { formatCurrency } from "@/utils/format";
+import { roomService } from "@/services/api/room";
 
 // Add constant for auto-start time (3 minutes)
 const WAIT_TIME_FOR_GAME_START = 180000; // 3 minutes in milliseconds
@@ -79,7 +80,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     if (!currentRoom && roomId && !isJoining && !initialJoinComplete && canJoin) {
       setIsJoining(true);
-      joinRoom(roomId).then((success) => {
+      joinRoom(roomId).then(async (success) => {
         setIsJoining(false);
         setInitialJoinComplete(true);
         
@@ -91,16 +92,45 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           });
           navigate("/lobby");
         } else {
-          toast({
-            title: "Joined room",
-            description: "You have joined the game room successfully",
-          });
-          setLastSyncTime(new Date());
-          fetchRooms();
+          try {
+            // Deduct balance after successful room join
+            await balanceService.processRoomEntry(
+              user.id,
+              roomId,
+              currentRoom?.betAmount || 0,
+              'demo' // or 'real' based on your game mode
+            );
+            
+            toast({
+              title: "Joined room",
+              description: "You have joined the game room successfully",
+            });
+            setLastSyncTime(new Date());
+            fetchRooms();
+          } catch (error: any) {
+            console.error("Error deducting balance:", error);
+            let errorMessage = "Failed to deduct balance. Please try again.";
+            
+            // Check for specific error messages
+            if (error.message?.includes("Insufficient")) {
+              errorMessage = "You don't have enough balance to join this room.";
+            } else if (error.message?.includes("Daily limit")) {
+              errorMessage = "You have reached your daily limit for this type of transaction.";
+            }
+            
+            toast({
+              title: "Error",
+              description: errorMessage,
+              variant: "destructive"
+            });
+            // Leave the room if balance deduction fails
+            leaveRoom();
+            navigate("/lobby");
+          }
         }
       });
     }
-  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms, initialJoinComplete, canJoin]);
+  }, [isAuthenticated, navigate, currentRoom, roomId, joinRoom, isJoining, fetchRooms, initialJoinComplete, canJoin, leaveRoom]);
 
   // Auto-refresh players list when game state changes
   useEffect(() => {

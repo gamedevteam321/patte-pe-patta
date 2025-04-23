@@ -113,4 +113,21 @@ router.get('/can-join-room/:roomId', authMiddleware, async (req: Request, res: R
     }
 });
 
+// Process room entry fee
+router.post('/room-entry', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { roomId, amount, balanceType } = req.body;
+        const newBalance = await BalanceService.processRoomEntry(
+            (req as any).user.id,
+            roomId,
+            amount,
+            balanceType
+        );
+        res.json({ balance: newBalance });
+    } catch (error) {
+        console.error('Error processing room entry:', error);
+        res.status(500).json({ error: 'Failed to process room entry' });
+    }
+});
+
 export default router; 

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Server, Socket } from 'socket.io';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { BalanceService } from '../balance/balance.service';
 
 // Load environment variables
 dotenv.config();
@@ -165,6 +166,19 @@ const findNextActivePlayer = (players: Player[], currentIndex: number): number =
     nextIndex = (nextIndex + 1) % players.length;
   }
   return nextIndex;
+};
+
+// Helper function to emit balance updates
+const emitBalanceUpdate = async (socket: Socket, userId: string) => {
+  try {
+    const userBalance = await BalanceService.getUserBalance(userId);
+    socket.emit('balance:update', {
+      demo: userBalance.demo_balance,
+      real: userBalance.real_balance
+    });
+  } catch (error) {
+    console.error('Error emitting balance update:', error);
+  }
 };
 
 export const socketHandler = (io: Server): void => {
@@ -332,35 +346,101 @@ export const socketHandler = (io: Server): void => {
     // Handle room creation
     socket.on('create_room', async (roomData: any, callback?: (response: any) => void) => {
       try {
+        console.log('Room creation request received:', { 
+          userId: roomData.userId,
+          roomName: roomData.name,
+          maxPlayers: roomData.maxPlayers,
+          betAmount: roomData.betAmount,
+          isPrivate: roomData.isPrivate
+        });
+
         if (!roomData.userId) {
-          socket.emit('room:error', { message: 'Authentication required' });
-          if (callback) callback({ success: false, error: 'Authentication required' });
+          const error = 'Authentication required';
+          console.error('Room creation failed:', error);
+          socket.emit('room:error', { message: error });
+          if (callback) callback({ success: false, error });
           return;
         }
 
-        // Generate a unique room code
+        // Generate a unique room code and ID first
         const generateRoomCode = (): string => {
           return Math.floor(100000 + Math.random() * 900000).toString();
         };
 
         const roomCode = generateRoomCode();
-        const roomId = crypto.randomUUID(); // Generate a proper UUID for room id
+        const roomId = crypto.randomUUID();
+        const transactionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Check if user exists
-        const { data: user, error: userError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', roomData.userId)
-          .single();
+        // First, try to fix the update_user_balance function if it's causing issues
+        try {
+          await supabase.rpc('exec_sql', {
+            sql: `
+              CREATE OR REPLACE FUNCTION update_user_balance(
+                p_user_id UUID,
+                p_amount INTEGER,
+                p_balance_type TEXT,
+                p_transaction_type TEXT,
+                p_room_id UUID DEFAULT NULL,
+                p_metadata JSONB DEFAULT '{}'::jsonb
+              ) RETURNS INTEGER AS $$
+              DECLARE
+                new_balance INTEGER;
+              BEGIN
+                -- Check if user has sufficient balance for deductions
+                IF p_amount < 0 THEN
+                  IF p_balance_type = 'demo' THEN
+                    IF (SELECT demo_balance FROM user_balance WHERE user_id = p_user_id) + p_amount < 0 THEN
+                      RAISE EXCEPTION 'Insufficient demo balance';
+                    END IF;
+                  ELSE
+                    IF (SELECT real_balance FROM user_balance WHERE user_id = p_user_id) + p_amount < 0 THEN
+                      RAISE EXCEPTION 'Insufficient real balance';
+                    END IF;
+                  END IF;
+                END IF;
 
-        if (userError) {
-          console.error('User not found:', userError);
-          socket.emit('room:error', { message: 'User not found' });
-          if (callback) callback({ success: false, error: 'User not found' });
-          return;
+                -- Insert transaction record
+                INSERT INTO balance_transactions (
+                  user_id,
+                  transaction_type,
+                  amount,
+                  balance_type,
+                  room_id,
+                  metadata
+                ) VALUES (
+                  p_user_id,
+                  p_transaction_type,
+                  p_amount,
+                  p_balance_type,
+                  p_room_id,
+                  p_metadata
+                );
+
+                -- Update balance
+                IF p_balance_type = 'demo' THEN
+                  UPDATE user_balance
+                  SET demo_balance = demo_balance + p_amount
+                  WHERE user_id = p_user_id
+                  RETURNING demo_balance INTO new_balance;
+                ELSE
+                  UPDATE user_balance
+                  SET real_balance = real_balance + p_amount
+                  WHERE user_id = p_user_id
+                  RETURNING real_balance INTO new_balance;
+                END IF;
+
+                RETURN new_balance;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;
+            `
+          });
+          console.log('Successfully updated the update_user_balance function');
+        } catch (error) {
+          console.error('Error fixing update_user_balance function:', error);
+          // Continue anyway - the function might already be fixed
         }
 
-        // Create room in Supabase
+        // First create the room in Supabase
         const { data: supabaseRoom, error: supabaseError } = await supabase
           .from('rooms')
           .insert([{
@@ -368,14 +448,15 @@ export const socketHandler = (io: Server): void => {
             created_by: roomData.userId,
             status: 'waiting',
             code: roomCode,
-            max_players: roomData.maxPlayers || 2, // Default to 2 players
+            max_players: roomData.maxPlayers || 2,
             amount_stack: roomData.betAmount || 0,
             host_id: roomData.userId,
             host_name: roomData.hostName,
             player_count: 1,
             is_private: roomData.isPrivate || false,
             name: roomData.name || "Game Room",
-            passkey: roomData.isPrivate ? roomData.passkey : null  // Store passkey only for private rooms
+            passkey: roomData.isPrivate ? roomData.passkey : null,
+            is_demo_mode: true // Set to true for now, can be made configurable later
           }])
           .select()
           .single();
@@ -386,6 +467,68 @@ export const socketHandler = (io: Server): void => {
           if (callback) callback({ success: false, error: supabaseError.message });
           return;
         }
+
+        // Now process the balance deduction since room exists
+        const { data: newBalance, error: deductError } = await supabase.rpc('process_room_entry', {
+          p_user_id: roomData.userId,
+          p_room_id: roomId,
+          p_amount: roomData.betAmount,
+          p_balance_type: 'demo',
+          p_transaction_id: transactionId
+        });
+
+        if (deductError) {
+          // If balance deduction fails, delete the created room
+          await supabase
+            .from('rooms')
+            .delete()
+            .eq('id', roomId);
+
+          console.error('Error processing room entry fee:', {
+            error: deductError,
+            userId: roomData.userId,
+            betAmount: roomData.betAmount,
+            transactionId
+          });
+
+          let errorMessage = 'Failed to process entry fee';
+          if (deductError.message.includes('Insufficient')) {
+            errorMessage = 'Insufficient balance to create room';
+          } else if (deductError.message.includes('limit exceeded')) {
+            errorMessage = 'Daily limit exceeded';
+          }
+
+          socket.emit('room:error', { message: errorMessage });
+          if (callback) callback({ success: false, error: errorMessage });
+          return;
+        }
+
+        // Check if user exists
+        const { data: user, error: userError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', roomData.userId)
+          .single();
+
+        if (userError) {
+          // Refund the entry fee since room creation failed
+          await supabase.rpc('refund_room_entry', {
+            p_user_id: roomData.userId,
+            p_amount: roomData.betAmount,
+            p_balance_type: 'demo',
+            p_transaction_id: transactionId
+          });
+
+          // Emit balance update after refund
+          await emitBalanceUpdate(socket, roomData.userId);
+
+          console.error('User not found:', userError);
+          socket.emit('room:error', { message: 'User not found' });
+          if (callback) callback({ success: false, error: 'User not found' });
+          return;
+        }
+
+        console.log('Room created in database:', { roomId, roomCode });
 
         // Add to in-memory storage with additional metadata
         const roomWithPlayers = {
@@ -428,13 +571,14 @@ export const socketHandler = (io: Server): void => {
             roomDuration: 5 * 60 * 1000,
             turnEndTime: null,
             requiredPlayers: roomData.maxPlayers || 2,
-            waitingTimer: 3 * 60 * 1000, // 3 minutes in milliseconds
-            waitingStartTime: Date.now(), // Set initial start time
+            waitingTimer: 3 * 60 * 1000,
+            waitingStartTime: Date.now(),
             autoStartEnabled: true
           }
         };
 
         rooms.set(roomId, roomWithPlayers);
+        console.log('Room added to memory:', { roomId, playerCount: 1 });
 
         // Join the room first
         socket.join(roomId);
@@ -465,11 +609,26 @@ export const socketHandler = (io: Server): void => {
         // Emit game state update to all players in the room
         io.to(roomId).emit('game_state_updated', roomWithPlayers.gameState);
 
-        if (callback) callback({ success: true, room: roomWithPlayers });
+        console.log('Room creation completed successfully:', { roomId, roomCode });
+
+        // After successful balance deduction
+        if (newBalance !== undefined) {
+          await emitBalanceUpdate(socket, roomData.userId);
+        }
+
+        if (callback) {
+          callback({ 
+            success: true, 
+            room: roomWithPlayers,
+            roomId,
+            roomCode
+          });
+        }
       } catch (error) {
-        console.error('Error creating room:', error instanceof Error ? error.message : 'Unknown error');
-        socket.emit('room:error', { message: `Failed to create room: ${error instanceof Error ? error.message : 'Unknown error'}` });
-        if (callback) callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error creating room:', errorMessage);
+        socket.emit('room:error', { message: `Failed to create room: ${errorMessage}` });
+        if (callback) callback({ success: false, error: errorMessage });
       }
     });
 

@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
+import { config } from '../config';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { url, serviceKey } = config.supabase;
 
-if (!supabaseUrl || !supabaseKey) {
+if (!url || !serviceKey) {
     throw new Error('Missing Supabase credentials');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+export const supabase = createClient<Database>(url, serviceKey, {
     auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -20,7 +20,7 @@ export const getSupabaseClient = (accessToken?: string) => {
         return supabase;
     }
 
-    return createClient<Database>(supabaseUrl, supabaseKey, {
+    return createClient<Database>(url, serviceKey, {
         auth: {
             autoRefreshToken: false,
             persistSession: false,

@@ -1081,58 +1081,18 @@ CREATE OR REPLACE FUNCTION update_user_balance(
 ) RETURNS INTEGER AS $$
 DECLARE
     new_balance INTEGER;
-    daily_limit INTEGER;
-    current_daily_total INTEGER;
-    v_transaction_id UUID;
 BEGIN
-    -- Check daily limits for deposits
-    IF p_transaction_type IN ('deposit', 'game_win') THEN
+    -- Check if user has sufficient balance for deductions
+    IF p_amount < 0 THEN
         IF p_balance_type = 'demo' THEN
-            SELECT daily_demo_limit INTO daily_limit
-            FROM user_balance
-            WHERE user_id = p_user_id;
-
-            SELECT COALESCE(SUM(amount), 0) INTO current_daily_total
-            FROM balance_transactions
-            WHERE user_id = p_user_id
-            AND balance_type = 'demo'
-            AND transaction_type IN ('deposit', 'game_win')
-            AND created_at >= CURRENT_DATE;
-
-            IF current_daily_total + p_amount > daily_limit THEN
-                RAISE EXCEPTION 'Daily deposit limit exceeded';
+            IF (SELECT demo_balance FROM user_balance WHERE user_id = p_user_id) + p_amount < 0 THEN
+                RAISE EXCEPTION 'Insufficient demo balance';
             END IF;
         ELSE
-            SELECT daily_real_limit INTO daily_limit
-            FROM user_balance
-            WHERE user_id = p_user_id;
-
-            SELECT COALESCE(SUM(amount), 0) INTO current_daily_total
-            FROM balance_transactions
-            WHERE user_id = p_user_id
-            AND balance_type = 'real'
-            AND transaction_type IN ('deposit', 'game_win')
-            AND created_at >= CURRENT_DATE;
-
-            IF current_daily_total + p_amount > daily_limit THEN
-                RAISE EXCEPTION 'Daily deposit limit exceeded';
+            IF (SELECT real_balance FROM user_balance WHERE user_id = p_user_id) + p_amount < 0 THEN
+                RAISE EXCEPTION 'Insufficient real balance';
             END IF;
         END IF;
-    END IF;
-
-    -- Check withdrawal limits
-    IF p_transaction_type = 'withdrawal' THEN
-        DECLARE
-            withdrawal_limit INTEGER;
-        BEGIN
-            SELECT withdrawal_limit INTO withdrawal_limit
-            FROM user_balance
-            WHERE user_id = p_user_id;
-
-            IF ABS(p_amount) > withdrawal_limit THEN
-                RAISE EXCEPTION 'Withdrawal amount exceeds limit';
-            END IF;
-        END;
     END IF;
 
     -- Insert transaction record
@@ -1150,7 +1110,7 @@ BEGIN
         p_balance_type,
         p_room_id,
         p_metadata
-    ) RETURNING id INTO v_transaction_id;
+    );
 
     -- Update balance
     IF p_balance_type = 'demo' THEN
@@ -1165,41 +1125,12 @@ BEGIN
         RETURNING real_balance INTO new_balance;
     END IF;
 
-    -- Create appropriate notification
-    CASE p_transaction_type
-        WHEN 'deposit' THEN
-            PERFORM create_transaction_notification(
-                p_user_id,
-                v_transaction_id,
-                'deposit',
-                format('You deposited %s %s coins', p_amount, p_balance_type)
-            );
-        WHEN 'withdrawal' THEN
-            PERFORM create_transaction_notification(
-                p_user_id,
-                v_transaction_id,
-                'withdrawal',
-                format('You withdrew %s %s coins', ABS(p_amount), p_balance_type)
-            );
-        WHEN 'game_win' THEN
-            PERFORM create_transaction_notification(
-                p_user_id,
-                v_transaction_id,
-                'win',
-                format('You won %s %s coins!', p_amount, p_balance_type)
-            );
-        WHEN 'game_loss' THEN
-            PERFORM create_transaction_notification(
-                p_user_id,
-                v_transaction_id,
-                'loss',
-                format('You lost %s %s coins', ABS(p_amount), p_balance_type)
-            );
-    END CASE;
-
     RETURN new_balance;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.update_user_balance TO authenticated;
 
 -- Create trigger for updated_at
 CREATE TRIGGER update_user_balance_updated_at
@@ -1530,4 +1461,66 @@ INSERT INTO chat_rewards (name, description, messages_required, reward_type, rew
 ('Chat Novice', 'Reward for active chatting', 100, 'demo_coins', 50),
 ('Chat Expert', 'Reward for consistent chatting', 500, 'demo_coins', 200),
 ('Chat Master', 'Reward for exceptional chatting', 1000, 'real_coins', 50),
-('Chat Legend', 'Reward for legendary chatting', 5000, 'vip_points', 1); 
+('Chat Legend', 'Reward for legendary chatting', 5000, 'vip_points', 1);
+
+-- Create function to process room entry
+DROP FUNCTION IF EXISTS public.process_room_entry;
+CREATE OR REPLACE FUNCTION public.process_room_entry(
+    p_amount INTEGER,
+    p_balance_type TEXT,
+    p_room_id UUID,
+    p_transaction_id TEXT,
+    p_user_id UUID
+) RETURNS INTEGER AS $$
+DECLARE
+    v_new_balance INTEGER;
+    v_current_balance INTEGER;
+BEGIN
+    -- Start transaction
+    BEGIN
+        -- Get current balance
+        IF p_balance_type = 'demo' THEN
+            SELECT demo_balance INTO v_current_balance
+            FROM user_balance
+            WHERE user_id = p_user_id;
+        ELSE
+            SELECT real_balance INTO v_current_balance
+            FROM user_balance
+            WHERE user_id = p_user_id;
+        END IF;
+
+        -- Check if user exists
+        IF v_current_balance IS NULL THEN
+            RAISE EXCEPTION 'User not found';
+        END IF;
+
+        -- Check if user has sufficient balance
+        IF v_current_balance < p_amount THEN
+            RAISE EXCEPTION 'Insufficient balance';
+        END IF;
+
+        -- Process balance update
+        v_new_balance := update_user_balance(
+            p_user_id,
+            -p_amount, -- Negative amount for deduction
+            p_balance_type,
+            'room_entry',
+            p_room_id,
+            jsonb_build_object(
+                'room_id', p_room_id,
+                'amount', p_amount,
+                'transaction_id', p_transaction_id
+            )
+        );
+
+        RETURN v_new_balance;
+    EXCEPTION 
+        WHEN OTHERS THEN
+            -- Log the error details
+            RAISE EXCEPTION 'Failed to process room entry: %', SQLERRM;
+    END;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.process_room_entry TO authenticated; 

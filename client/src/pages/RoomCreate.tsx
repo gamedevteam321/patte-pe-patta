@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,13 @@ import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
-import { Users, Coins, Info, Lock, Globe } from "lucide-react";
+import { Users, Coins, Info, Lock, Globe, Plus, RefreshCw, DoorOpen } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import RoomList from "@/components/rooms/RoomList";
+import JoinByLink from "@/components/rooms/JoinByLink";
+import JoinRoomDialog from "@/components/rooms/JoinRoomDialog";
+import { balanceService } from "@/services/api/balance";
 
 const getRandomRoomName = () => {
   const adjectives = ["Epic", "Legendary", "Awesome", "Cool", "Lucky", "Royal", "Golden", "Mystic"];
@@ -22,7 +27,7 @@ const getRandomRoomName = () => {
 
 const RoomCreate: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
-  const { createRoom } = useSocket();
+  const { createRoom, joinRoom } = useSocket();
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState(getRandomRoomName());
   const [playerCount, setPlayerCount] = useState<string>("4");
@@ -96,11 +101,22 @@ const RoomCreate: React.FC = () => {
       const result = await createRoom(roomConfig);
       
       if (result.success && result.roomId) {
-        toast({
-          title: "Success",
-          description: `Room created successfully! Room Code: ${result.roomCode}`
-        });
-        navigate(`/room/${result.roomId}`);
+        // Join the room after successful room creation
+        const joinSuccess = await joinRoom(result.roomId);
+        
+        if (joinSuccess) {
+          toast({
+            title: "Success",
+            description: `Room created successfully! Room Code: ${result.roomCode}`
+          });
+          navigate(`/room/${result.roomId}`);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to join room. Please try again.",
+            variant: "destructive"
+          });
+        }
       } else {
         toast({
           title: "Error",

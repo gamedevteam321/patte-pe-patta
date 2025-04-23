@@ -1,6 +1,6 @@
 import { supabase } from '../../utils/supabase';
 import { UserBalance, BalanceTransaction, BalanceType } from '../../types/balance';
-import { logError } from '../../utils/logger';
+import { logError, logBalanceOperation, logBalanceError } from '../../utils/logger';
 
 export class BalanceService {
     static async getUserBalance(userId: string): Promise<UserBalance> {
@@ -160,5 +160,120 @@ export class BalanceService {
 
         if (error) throw error;
         return data;
+    }
+
+    static async processRoomEntry(
+        userId: string,
+        roomId: string,
+        amount: number,
+        balanceType: BalanceType
+    ): Promise<number> {
+        const transactionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        try {
+            logBalanceOperation('BEGIN_TRANSACTION', userId, {
+                transactionId,
+                roomId,
+                amount,
+                balanceType
+            });
+
+            // Start a transaction
+            const { data: transaction, error: transactionError } = await supabase.rpc('begin_transaction', {
+                p_user_id: userId,
+                p_transaction_type: 'room_entry',
+                p_transaction_id: transactionId
+            });
+
+            if (transactionError) {
+                logBalanceError('BEGIN_TRANSACTION', userId, transactionError, {
+                    transactionId,
+                    roomId
+                });
+                throw new Error('Failed to begin transaction');
+            }
+
+            // Verify current balance within transaction
+            const { data: currentBalance, error: balanceError } = await supabase.rpc('get_user_balance', {
+                p_user_id: userId,
+                p_balance_type: balanceType
+            });
+
+            if (balanceError) {
+                logBalanceError('VERIFY_BALANCE', userId, balanceError, {
+                    transactionId,
+                    roomId
+                });
+                throw new Error('Failed to verify balance');
+            }
+
+            logBalanceOperation('BALANCE_VERIFIED', userId, {
+                transactionId,
+                currentBalance,
+                requiredAmount: amount
+            });
+
+            if (currentBalance < amount) {
+                const error = new Error('Insufficient balance');
+                logBalanceError('INSUFFICIENT_BALANCE', userId, error, {
+                    transactionId,
+                    currentBalance,
+                    requiredAmount: amount
+                });
+                throw error;
+            }
+
+            // Process the deduction
+            const { data: newBalance, error: deductionError } = await supabase.rpc('process_room_entry', {
+                p_user_id: userId,
+                p_room_id: roomId,
+                p_amount: amount,
+                p_balance_type: balanceType,
+                p_transaction_id: transactionId
+            });
+
+            if (deductionError) {
+                logBalanceError('PROCESS_DEDUCTION', userId, deductionError, {
+                    transactionId,
+                    roomId,
+                    amount
+                });
+                throw new Error('Failed to process room entry');
+            }
+
+            // Commit the transaction
+            const { error: commitError } = await supabase.rpc('commit_transaction', {
+                p_transaction_id: transactionId
+            });
+
+            if (commitError) {
+                logBalanceError('COMMIT_TRANSACTION', userId, commitError, {
+                    transactionId,
+                    roomId
+                });
+                throw new Error('Failed to commit transaction');
+            }
+
+            logBalanceOperation('TRANSACTION_COMPLETED', userId, {
+                transactionId,
+                oldBalance: currentBalance,
+                newBalance,
+                amountDeducted: amount
+            });
+
+            return newBalance;
+        } catch (error) {
+            // Rollback the transaction on error
+            await supabase.rpc('rollback_transaction', {
+                p_transaction_id: transactionId
+            });
+
+            logBalanceError('TRANSACTION_ROLLBACK', userId, error, {
+                transactionId,
+                roomId
+            });
+
+            throw error;
+        }
     }
 } 

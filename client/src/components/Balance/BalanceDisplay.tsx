@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useBalance } from '../../context/BalanceContext';
 import { formatCurrency } from '../../utils/format';
+import { useSocket } from '../../context/SocketContext';
 import './BalanceDisplay.css';
 
 export const BalanceDisplay: React.FC = () => {
     const { balance, isLoading, error, refreshBalance } = useBalance();
+    const { socket } = useSocket();
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleBalanceUpdate = (data: { demo: number; real: number }) => {
+            refreshBalance();
+        };
+
+        socket.on('balance:update', handleBalanceUpdate);
+
+        return () => {
+            socket.off('balance:update', handleBalanceUpdate);
+        };
+    }, [socket, refreshBalance]);
 
     if (isLoading) {
         return <div className="balance-loading">Loading balance...</div>;

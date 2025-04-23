@@ -169,12 +169,23 @@ const findNextActivePlayer = (players: Player[], currentIndex: number): number =
 };
 
 // Helper function to emit balance updates
-const emitBalanceUpdate = async (socket: Socket, userId: string) => {
+const emitBalanceUpdate = async (socket: Socket, userId: string, io: Server) => {
   try {
     const userBalance = await BalanceService.getUserBalance(userId);
     socket.emit('balance:update', {
       demo: userBalance.demo_balance,
       real: userBalance.real_balance
+    });
+    // Also broadcast to all clients in the room
+    const rooms = [...socket.rooms.values()];
+    rooms.forEach(roomId => {
+      if (roomId !== socket.id) {
+        io.to(roomId).emit('balance:update', {
+          userId,
+          demo: userBalance.demo_balance,
+          real: userBalance.real_balance
+        });
+      }
     });
   } catch (error) {
     console.error('Error emitting balance update:', error);
@@ -520,7 +531,7 @@ export const socketHandler = (io: Server): void => {
           });
 
           // Emit balance update after refund
-          await emitBalanceUpdate(socket, roomData.userId);
+          await emitBalanceUpdate(socket, roomData.userId, io);
 
           console.error('User not found:', userError);
           socket.emit('room:error', { message: 'User not found' });
@@ -613,7 +624,7 @@ export const socketHandler = (io: Server): void => {
 
         // After successful balance deduction
         if (newBalance !== undefined) {
-          await emitBalanceUpdate(socket, roomData.userId);
+          await emitBalanceUpdate(socket, roomData.userId, io);
         }
 
         if (callback) {
@@ -878,7 +889,7 @@ export const socketHandler = (io: Server): void => {
         io.to(roomId).emit('game_state_updated', room.gameState);
 
         // Emit updated balance to the joining player
-        await emitBalanceUpdate(socket, userId);
+        await emitBalanceUpdate(socket, userId, io);
 
         console.log('Player successfully joined room:', {
           roomId,
@@ -1604,10 +1615,53 @@ export const socketHandler = (io: Server): void => {
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
+        // Find the winner
+        const winner = room.gameState.players.find(p => p.id === winnerId);
+        if (winner) {
+          // Calculate total pool amount (bet amount * number of players)
+          const totalPoolAmount = room.amount_stack * room.players.length;
+          
+          // Credit the pool amount to the winner
+          try {
+            const newBalance = await BalanceService.processGameResult(
+              winner.userId,
+              true, // isWinner
+              totalPoolAmount,
+              'demo' // balanceType
+            );
+            
+            console.log('Credited pool amount to winner:', {
+              winnerId: winner.userId,
+              amount: totalPoolAmount,
+              newBalance,
+              roomId
+            });
+
+            // Emit balance update to all clients in the room
+            io.to(roomId).emit('balance:update', {
+              userId: winner.userId,
+              demo: newBalance,
+              real: 0 // Since we're using demo balance
+            });
+
+            // Also emit to the winner's socket specifically
+            const winnerSocket = io.sockets.sockets.get(winner.id);
+            if (winnerSocket) {
+              winnerSocket.emit('balance:update', {
+                demo: newBalance,
+                real: 0
+              });
+            }
+          } catch (error) {
+            console.error('Failed to credit pool amount to winner:', error);
+          }
+        }
+
         // Notify all players about the game over
         io.to(roomId).emit('game_over', {
-          winner: room.gameState.players.find(p => p.id === winnerId),
-          reason: 'game_ended'
+          winner,
+          reason: 'game_ended',
+          poolAmount: room.amount_stack * room.players.length
         });
       } catch (error) {
         console.error('Error ending game:', error);

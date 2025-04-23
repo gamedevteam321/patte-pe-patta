@@ -39,6 +39,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const [isAutoStarting, setIsAutoStarting] = useState<boolean>(false);
   const [autoStartTimeLeft, setAutoStartTimeLeft] = useState<number>(0);
   const [canJoin, setCanJoin] = useState<boolean>(false);
+  const [isDebugMode, setIsDebugMode] = useState<boolean>(false);
   const waitingTimeLeftRef = useRef<NodeJS.Timeout>();
 
   // Check if user can join room based on balance
@@ -481,6 +482,13 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     );
   };
 
+  // Add debug mode effect
+  useEffect(() => {
+    if (socket && isDebugMode) {
+      socket.emit('set_debug_mode', { enabled: true });
+    }
+  }, [socket, isDebugMode]);
+
   if (!roomId || !user) {
     return null;
   }
@@ -519,6 +527,19 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           </div>
           
           <div className="flex gap-2">
+            {/* Add debug mode checkbox */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="debug-mode"
+                checked={isDebugMode}
+                onChange={(e) => setIsDebugMode(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="debug-mode" className="text-sm text-gray-600">
+                Debug Mode
+              </label>
+            </div>
             {(!gameState || gameState.status === 'waiting') && (
               <Button
                 onClick={handleShare}

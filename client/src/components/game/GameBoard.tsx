@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSocket, GameState, Card } from "@/context/SocketContext";
+import { useSocket, GameState, Card, Player } from "@/context/SocketContext";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
@@ -406,8 +406,6 @@ interface GameBoardProps {
   userId: string;
 }
 
-const MAX_TURN_TIME = 15000; // 15 seconds in milliseconds
-const MAX_SHUFFLE_COUNT = 2;
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const navigate = useNavigate();
   // Move state declarations inside the component
@@ -429,9 +427,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showCardCollection, setShowCardCollection] = useState(false);
   const [matchingCards, setMatchingCards] = useState<Card[]>([]);
   const [showMatchingCards, setShowMatchingCards] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(false); // Debug mode enabled by default
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showGameTable, setShowGameTable] = useState(true);
   const [disabledPlayers, setDisabledPlayers] = useState<Set<string>>(new Set());
+  const [isDebugMode, setIsDebugMode] = useState(false);
+
+  const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
+  const MAX_SHUFFLE_COUNT = 2;
 
   const {
     gameState,
@@ -713,14 +715,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             }
           }
         }
-      }, 50); // Update every 50ms instead of 1000ms for smoother updates
+      }, isDebugMode ? 50 : 1000); // Update every 50ms in debug mode for smoother updates
 
       return () => clearInterval(interval);
     } else {
       // Reset turn timer when not in a turn
       setTurnTimer(null);
     }
-  }, [gameState?.gameStarted, gameState?.turnEndTime, currentPlayer, userPlayer, playCard]);
+  }, [gameState?.gameStarted, gameState?.turnEndTime, currentPlayer, userPlayer, playCard, isDebugMode]);
 
   // Add effect to handle game over state
   useEffect(() => {
@@ -1348,6 +1350,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
+  // Add debug mode effect
+  useEffect(() => {
+    if (socket && isDebugMode) {
+      socket.emit('set_debug_mode', { enabled: true });
+    }
+  }, [socket, isDebugMode]);
+
+  // Auto-play effect with faster delay in debug mode
+  useEffect(() => {
+    if (isDebugMode && gameState?.players && gameState.currentPlayerIndex >= 0) {
+      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+      if (currentPlayer?.userId === userId && currentPlayer?.cards?.length > 0) {
+        const delay = isDebugMode ? 100 : 1000; // 100ms in debug mode, 1000ms in normal mode
+        const timer = setTimeout(() => {
+          const firstCard = currentPlayer.cards[0];
+          if (firstCard) {
+            handlePlayCard(firstCard);
+          }
+        }, delay);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [gameState?.players, gameState?.currentPlayerIndex, isDebugMode, userId]);
+
+  useEffect(() => {
+    if (socket) {
+      // Listen for debug mode changes from server
+      const handleDebugModeChanged = ({ enabled }: { enabled: boolean }) => {
+        setIsDebugMode(enabled);
+      };
+
+      socket.on('debug_mode_changed', handleDebugModeChanged);
+
+      return () => {
+        socket.off('debug_mode_changed', handleDebugModeChanged);
+      };
+    }
+  }, [socket]);
+
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
@@ -1522,7 +1563,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"
@@ -1558,7 +1599,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"
@@ -1594,7 +1635,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"
@@ -1630,7 +1671,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"
@@ -1709,7 +1750,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"
@@ -1745,7 +1786,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             r="75"
                           />
                           <circle
-                            className={`progress-bar ${turnTimer <= 5000 ? 'warning' : ''}`}
+                            className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
                             cx="85"
                             cy="85"
                             r="75"

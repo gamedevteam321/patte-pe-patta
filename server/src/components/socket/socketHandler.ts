@@ -52,6 +52,7 @@ interface GameState {
   waitingTimer: number;
   waitingStartTime: number;
   autoStartEnabled: boolean;
+  debugMode: boolean;
 }
 
 interface Room {
@@ -69,8 +70,11 @@ interface Room {
   created_at: string;
 }
 
+// Debug mode configuration
+const DEBUG_MODE = process.env.DEBUG_MODE === 'true' || process.env.NODE_ENV === 'development';
+
 // Maximum number of auto-plays allowed before auto-exit
-const MAX_AUTO_PLAY_COUNT = 2;
+const MAX_AUTO_PLAY_COUNT = DEBUG_MODE ? 1000 : 200;
 
 // Maximum waiting time before auto-play is detected (in milliseconds)
 const MAX_WAITING_TIME = 5000;
@@ -584,7 +588,8 @@ export const socketHandler = (io: Server): void => {
             requiredPlayers: roomData.maxPlayers || 2,
             waitingTimer: 3 * 60 * 1000,
             waitingStartTime: Date.now(),
-            autoStartEnabled: true
+            autoStartEnabled: true,
+            debugMode: false
           }
         };
 
@@ -694,7 +699,8 @@ export const socketHandler = (io: Server): void => {
               requiredPlayers: dbRoom.max_players,
               waitingTimer: 3 * 60 * 1000,
               waitingStartTime: Date.now(),
-              autoStartEnabled: true
+              autoStartEnabled: true,
+              debugMode: false
             }
           } as Room;
           rooms.set(roomId, currentRoom);
@@ -1753,6 +1759,22 @@ export const socketHandler = (io: Server): void => {
       } catch (error) {
         console.error('Error checking waiting timer:', error);
       }
+    });
+
+    // Add debug mode handler
+    socket.on('set_debug_mode', ({ enabled }: { enabled: boolean }) => {
+      // Update debug mode for this socket's room
+      const roomIds = [...socket.rooms.values()];
+      roomIds.forEach(roomId => {
+        if (roomId !== socket.id) {
+          const room = rooms.get(roomId);
+          if (room) {
+            room.gameState.debugMode = enabled;
+            // Broadcast debug mode change to all clients in the room
+            io.to(roomId).emit('debug_mode_changed', { enabled });
+          }
+        }
+      });
     });
   });
 }; 

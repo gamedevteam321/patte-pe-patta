@@ -634,6 +634,7 @@ export const socketHandler = (io: Server): void => {
 
     // Handle joining a room
     socket.on('join_room', async (roomData, callback) => {
+      console.log('Join room request received:', roomData);
       try {
         const { roomId, userId, username, password } = roomData;
         console.log('Join room request received:', { roomId, userId, username });
@@ -774,6 +775,52 @@ export const socketHandler = (io: Server): void => {
           }
           return;
         }
+
+        // Process balance deduction for room entry
+        if (room.amount_stack > 0) {
+          try {
+            console.log(`Processing balance deduction for user ${userId} joining room ${roomId}`);
+            console.log(`Bet amount from room: ${room.amount_stack}`);
+            
+            // Generate a transaction ID for the balance deduction
+            const transactionId = crypto.randomUUID();
+            
+            // Call the supabase function to process the room entry fee
+            const { data: balanceData, error: balanceError } = await supabase.rpc(
+              'process_room_entry',
+              {
+                p_user_id: userId,
+                p_room_id: roomId,
+                p_amount: room.amount_stack,
+                p_balance_type: 'demo',
+                p_transaction_id: transactionId
+              }
+            );
+            
+            if (balanceError) {
+              console.error(`Balance deduction error: ${JSON.stringify(balanceError)}`);
+              socket.emit('room:error', { 
+                message: 'Failed to process entry fee', 
+                details: balanceError.message || 'Balance deduction failed' 
+              });
+              
+              if (callback) {
+                callback({ success: false, error: 'Failed to process entry fee' });
+              }
+              return;
+            }
+            
+            console.log(`Balance deduction successful: ${JSON.stringify(balanceData)}`);
+          } catch (error) {
+            console.error(`Exception in balance processing: ${error instanceof Error ? error.message : String(error)}`);
+            socket.emit('room:error', { message: 'Failed to process entry fee', details: String(error) });
+            
+            if (callback) {
+              callback({ success: false, error: 'Failed to process entry fee' });
+            }
+            return;
+          }
+        }
         
         // Add player to room in memory
         const newPlayer = {
@@ -829,6 +876,9 @@ export const socketHandler = (io: Server): void => {
 
         // Emit game state update to all players
         io.to(roomId).emit('game_state_updated', room.gameState);
+
+        // Emit updated balance to the joining player
+        await emitBalanceUpdate(socket, userId);
 
         console.log('Player successfully joined room:', {
           roomId,

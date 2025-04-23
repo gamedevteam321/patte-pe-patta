@@ -30,12 +30,12 @@ export const BalanceDisplay: React.FC = () => {
 
     return (
         <div className="balance-container">
-            <div className="balance-section">
+            {/* <div className="balance-section">
                 <span className="balance-label">Balance:</span>
                 <span className="balance-amount">{formatCurrency(balance.real)}</span>
-            </div>
+            </div> */}
             <div className="balance-section">
-                <span className="balance-label">Demo:</span>
+                <span className="balance-label">Balance:</span>
                 <span className="balance-amount">{formatCurrency(balance.demo)}</span>
             </div>
         </div>

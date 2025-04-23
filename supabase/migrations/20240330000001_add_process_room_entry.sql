@@ -7,11 +7,11 @@ DROP FUNCTION IF EXISTS public.process_room_entry;
 
 -- Create the process_room_entry function
 CREATE OR REPLACE FUNCTION public.process_room_entry(
+    p_user_id UUID,
+    p_room_id UUID,
     p_amount INTEGER,
     p_balance_type TEXT,
-    p_room_id UUID,
-    p_transaction_id TEXT,
-    p_user_id UUID
+    p_transaction_id TEXT
 ) RETURNS INTEGER AS $$
 DECLARE
     v_new_balance INTEGER;

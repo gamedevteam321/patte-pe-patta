@@ -186,17 +186,28 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     // Handle when a new player joins the room
     const handlePlayerJoined = (data: any) => {
-      // If we have current room data, check if adding this player makes it full
-      if (room && room.gameState) {
-        // Create a new player count including the player that just joined
-        const newPlayerCount = room.players.length + 1;
-        const isNowFull = newPlayerCount >= room.gameState.requiredPlayers;
-        
-        // If room is now full, auto-start
+      // Update room state with new player
+      if (room && room.gameState && data.player) {
+        const updatedRoom = {
+          ...room,
+          players: [...room.players, data.player],
+          gameState: {
+            ...room.gameState,
+            players: [...room.gameState.players, {
+              ...data.player,
+              cards: [],
+              score: 0,
+              isActive: true,
+              autoPlayCount: 0
+            }]
+          }
+        };
+        setRoom(updatedRoom);
+
+        // Check if room is now full
+        const isNowFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
         if (isNowFull) {
           setIsAutoStarting(true);
-          
-          // Add a short delay before starting
           setTimeout(() => {
             socket.emit('start_game', roomId);
           }, 2000);
@@ -443,19 +454,28 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
   // Update the status message section
   const renderRoomStatus = () => {
-    if (!currentRoom || !gameState) return null;
+    if (!currentRoom) return null;
 
-    const playerCount = gameState.players?.length || 0;
-    const requiredPlayers = gameState.requiredPlayers || 2;
-    const isFull = playerCount >= requiredPlayers;
-    
-    const waitingMessage = isFull
-      ? `Game starting in ${formatWaitingTime(autoStartTimeLeft)}`
-      : `Waiting for players `;
+    const playerCount = currentRoom.gameState?.players.length || currentRoom.players.length;
+    const poolAmount = (currentRoom.betAmount || 0) * playerCount;
+
+    // Add debug logs
+    console.log('Room Status Debug:', {
+      betAmount: currentRoom.betAmount,
+      playerCount,
+      poolAmount,
+      players: currentRoom.players,
+      gameStatePlayers: currentRoom.gameState?.players
+    });
 
     return (
-      <div className="room-status">
-        <h3 className="text-yellow-400">{waitingMessage}</h3>
+      <div className="flex items-center gap-4 text-sm">
+        <div>
+          <span className="font-semibold">Pool Amount:</span> ₹{poolAmount}
+        </div>
+        <div>
+          <span className="font-semibold">Players:</span> {playerCount}
+        </div>
       </div>
     );
   };
@@ -601,19 +621,63 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                    <div className="text-4xl font-bold text-white">
                      {formatWaitingTime(waitingTimeLeft)}
                    </div>
-                   <div className="text-sm text-gray-400 mt-1">
-                     {gameState?.players?.length || 0}/{gameState?.requiredPlayers || 2} players
+                   <div className="text-sm text-gray-400">
+                     {gameState?.players?.length || 1}/{currentRoom?.maxPlayers || 2} players
                    </div>
                  </div>
                </div>
 
                {/* Status Message */}
-               <div className="text-center">
-                 {renderRoomStatus()}
+               <div className="text-xl font-semibold text-yellow-400 mb-6">
+                 Waiting for players
                </div>
 
-               {/* Player List */}
-               {renderPlayerList()}
+               {/* Amount Display */}
+               <div className="flex justify-between w-full max-w-xs p-4 bg-[#051b2c] rounded">
+                 <div>
+                   <div className="text-sm text-gray-400">Bet Amount</div>
+                   <div className="text-white text-lg">₹{currentRoom?.betAmount || 0}</div>
+                 </div>
+                 <div>
+                   <div className="text-sm text-gray-400">Pool Amount</div>
+                   <div className="text-white text-lg">
+                     ₹{(currentRoom?.betAmount || 0) * (currentRoom?.maxPlayers || 2)}
+                   </div>
+                 </div>
+               </div>
+
+               {/* Players List */}
+               <div className="w-full max-w-xs mt-6">
+                 <div className="flex items-center justify-between text-blue-400 mb-2">
+                   <span>Players in Room</span>
+                   <span>{gameState?.players?.length || 1}/{currentRoom?.maxPlayers || 2} players joined</span>
+                 </div>
+                 <div className="space-y-2">
+                   {gameState?.players?.map((player) => (
+                     <div
+                       key={player.id}
+                       className="flex items-center gap-2 p-3 rounded bg-[#051b2c]"
+                     >
+                       <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white uppercase">
+                         {player.username?.[0] || 'U'}
+                       </div>
+                       <span className="text-white">{player.username}</span>
+                     </div>
+                   ))}
+                   {/* Empty slots */}
+                   {Array.from({ length: (currentRoom?.maxPlayers || 2) - (gameState?.players?.length || 1) }).map((_, index) => (
+                     <div
+                       key={`empty-${index}`}
+                       className="flex items-center gap-2 p-3 rounded bg-[#051b2c]/50"
+                     >
+                       <div className="w-8 h-8 rounded-full bg-gray-600/50 flex items-center justify-center">
+                         <span className="text-gray-400">?</span>
+                       </div>
+                       <span className="text-gray-400">Waiting...</span>
+                     </div>
+                   ))}
+                 </div>
+               </div>
              </div>
            )}
           

@@ -1,21 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
-import { Users, Coins, Info, Lock, Globe, Plus, RefreshCw, DoorOpen } from "lucide-react";
+import { useBalance } from "@/context/BalanceContext";
+import { Users, Lock, Globe } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import RoomList from "@/components/rooms/RoomList";
-import JoinByLink from "@/components/rooms/JoinByLink";
-import JoinRoomDialog from "@/components/rooms/JoinRoomDialog";
-import { balanceService } from "@/services/api/balance";
 
 const getRandomRoomName = () => {
   const adjectives = ["Epic", "Legendary", "Awesome", "Cool", "Lucky", "Royal", "Golden", "Mystic"];
@@ -27,16 +20,18 @@ const getRandomRoomName = () => {
 
 const RoomCreate: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
+  const { balance } = useBalance();
   const { createRoom, joinRoom } = useSocket();
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState(getRandomRoomName());
   const [playerCount, setPlayerCount] = useState<string>("4");
   const [betAmount, setBetAmount] = useState<string>("50");
   const [isPrivate, setIsPrivate] = useState(false);
-  const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [passkey, setPasskey] = useState('');
   const [passkeyError, setPasskeyError] = useState('');
+
+  const demoBalance = balance?.demo || 0;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -76,10 +71,10 @@ const RoomCreate: React.FC = () => {
     
     const betAmountNum = parseInt(betAmount);
     
-    if (user.coins < betAmountNum) {
+    if (demoBalance < betAmountNum) {
       toast({
-        title: "Insufficient Coins",
-        description: "You don't have enough coins for this bet amount!",
+        title: "Insufficient Balance",
+        description: "You don't have enough demo balance for this bet amount!",
         variant: "destructive"
       });
       return;
@@ -141,198 +136,167 @@ const RoomCreate: React.FC = () => {
   };
 
   const betOptions = [
-    { value: "50", label: "50 coins", disabled: user ? user.coins < 50 : true },
-    { value: "100", label: "100 coins", disabled: user ? user.coins < 100 : true },
-    { value: "250", label: "250 coins", disabled: user ? user.coins < 250 : true },
-    { value: "500", label: "500 coins", disabled: user ? user.coins < 500 : true }
+    { value: "50", label: "₹50", disabled: demoBalance < 50 },
+    { value: "100", label: "₹100", disabled: demoBalance < 100 },
+    { value: "250", label: "₹250", disabled: demoBalance < 250 },
+    { value: "500", label: "₹500", disabled: demoBalance < 500 },
+    { value: "1000", label: "₹1000", disabled: demoBalance < 1000 },
+    { value: "2500", label: "₹2500", disabled: demoBalance < 2500 },
+    { value: "5000", label: "₹5000", disabled: demoBalance < 5000 },
+    { value: "10000", label: "₹10000", disabled: demoBalance < 10000 }
   ];
+
+  const poolAmount = parseInt(betAmount) * parseInt(playerCount);
 
   return (
     <Layout>
       <div className="container max-w-lg mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-center text-game-cyan text-glow">Create Game Room</h1>
+        <div className="bg-[#0e2a47] rounded-lg p-6 text-gray-400">
+          <h2 className="text-2xl font-semibold mb-6">Room Settings</h2>
+          
+          {/* Room Name */}
+          <div className="mb-6">
+            <label className="block mb-2">Room Name</label>
+            <Input
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              maxLength={20}
+              className="w-full bg-[#051b2c] border-none"
+            />
+          </div>
 
-        <Card className="glass-panel border-white/10">
-          <form onSubmit={handleCreateRoom}>
-            <CardHeader>
-              <CardTitle className="text-game-magenta">Room Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Room Name */}
-              <div className="space-y-2">
-                <Label htmlFor="roomName">Room Name</Label>
-                <Input
-                  id="roomName"
-                  placeholder="Enter a name for your room"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  maxLength={20}
-                  className="bg-black/50 border-white/20"
+          {/* Number of Players */}
+          <div className="mb-6">
+            <label className="flex items-center mb-2">
+              <Users className="mr-2 h-4 w-4" />
+              Number of Players
+            </label>
+            <div className="flex gap-4">
+              <label className={`flex items-center gap-2 cursor-pointer ${playerCount === "2" ? "text-white" : ""}`}>
+                <input
+                  type="radio"
+                  name="playerCount"
+                  value="2"
+                  checked={playerCount === "2"}
+                  onChange={(e) => setPlayerCount(e.target.value)}
+                  className="hidden"
                 />
-              </div>
+                <div className={`w-4 h-4 rounded-full border ${playerCount === "2" ? "border-white bg-white" : "border-gray-400"}`} />
+                2 Players
+              </label>
+              <label className={`flex items-center gap-2 cursor-pointer ${playerCount === "4" ? "text-white" : ""}`}>
+                <input
+                  type="radio"
+                  name="playerCount"
+                  value="4"
+                  checked={playerCount === "4"}
+                  onChange={(e) => setPlayerCount(e.target.value)}
+                  className="hidden"
+                />
+                <div className={`w-4 h-4 rounded-full border ${playerCount === "4" ? "border-white bg-white" : "border-gray-400"}`} />
+                4 Players
+              </label>
+            </div>
+          </div>
 
-              {/* Player Count */}
-              <div className="space-y-2">
-                <Label className="flex items-center">
-                  <Users className="mr-2 h-4 w-4" />
-                  Number of Players
-                </Label>
-                <RadioGroup
-                  value={playerCount}
-                  onValueChange={setPlayerCount}
-                  className="flex justify-between"
+          {/* Public/Private Room */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center">
+                {isPrivate ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                <span>Public Room</span>
+              </div>
+              <Switch
+                checked={isPrivate}
+                onCheckedChange={setIsPrivate}
+              />
+            </div>
+            <p className="text-sm">
+              Anyone can find and join this room from the lobby
+            </p>
+          </div>
+
+          {/* Bet Amount */}
+          <div className="mb-6">
+            <label className="block mb-2">Bet Amount</label>
+            <div className="grid grid-rows-1 grid-flow-col gap-2">
+              {betOptions.slice(0, 4).map((option) => (
+                <label
+                  key={option.value}
+                  className={`
+                    flex items-center justify-center p-3 rounded cursor-pointer transition-colors
+                    ${betAmount === option.value ? 'bg-[#051b2c] text-white' : 'text-gray-400 hover:bg-[#051b2c]/50'}
+                    ${option.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}
+                  `}
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="2" id="players-2" />
-                    <Label htmlFor="players-2">2 Players</Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="4" id="players-4" />
-                    <Label htmlFor="players-4">4 Players</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* Private/Public Room Toggle with Code */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="room-privacy" className="flex items-center space-x-2">
-                    {isPrivate ? (
-                      <Lock className="h-4 w-4 text-game-yellow" />
-                    ) : (
-                      <Globe className="h-4 w-4 text-game-green" />
-                    )}
-                    <span>{isPrivate ? "Private Room" : "Public Room"}</span>
-                  </Label>
-                  <Switch
-                    id="room-privacy"
-                    checked={isPrivate}
-                    onCheckedChange={(checked) => {
-                      setIsPrivate(checked);
-                      if (!checked) {
-                        setRoomCode("");
-                      }
-                    }}
+                  <input
+                    type="radio"
+                    name="betAmount"
+                    value={option.value}
+                    checked={betAmount === option.value}
+                    onChange={(e) => setBetAmount(e.target.value)}
+                    disabled={option.disabled}
+                    className="hidden"
                   />
-                </div>
-                
-                {/* Room Code input field - only shown when isPrivate is true */}
-                {/* {isPrivate && (
-                  <div className="mt-2">
-                    <Label htmlFor="room-code">Room Code</Label>
-                    <Input
-                      id="room-code"
-                      type="text"
-                      placeholder="Enter 6-digit room code"
-                      value={roomCode}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                        setRoomCode(value);
-                      }}
-                      className="bg-black/50 border-white/20 mt-1 font-mono tracking-wider"
-                      maxLength={6}
-                      pattern="\d{6}"
-                      title="Please enter a 6-digit code"
-                      required
-                    />
-                    <p className="text-sm text-gray-400 mt-1">
-                      Players will need this code to join the room
-                    </p>
-                  </div>
-                )} */}
-                
-                <p className="text-sm text-gray-400">
-                  {isPrivate 
-                    ? "Only players with the room code can join" 
-                    : "Anyone can find and join this room from the lobby"}
-                </p>
-              </div>
-
-              {/* Bet Amount */}
-              <div className="space-y-2">
-                <Label className="flex items-center">
-                  <Coins className="mr-2 h-4 w-4" />
-                  Bet Amount
-                </Label>
-                <RadioGroup
-                  value={betAmount}
-                  onValueChange={setBetAmount}
-                  className="grid grid-cols-2 gap-4"
+                  {option.label}
+                </label>
+              ))}
+               </div><div className="grid grid-rows-1 grid-flow-col gap-2"> 
+              {betOptions.slice(4).map((option) => (
+                <label
+                  key={option.value}
+                  className={`
+                    flex items-center justify-center p-3 rounded cursor-pointer transition-colors
+                    ${betAmount === option.value ? 'bg-[#051b2c] text-white' : 'text-gray-400 hover:bg-[#051b2c]/50'}
+                    ${option.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}
+                  `}
                 >
-                  {betOptions.map((option) => (
-                    <div
-                      key={option.value}
-                      className={`flex items-center space-x-2 p-3 border rounded-md ${
-                        option.disabled
-                          ? "border-gray-600 opacity-50"
-                          : "border-white/20"
-                      }`}
-                    >
-                      <RadioGroupItem
-                        value={option.value}
-                        id={`bet-${option.value}`}
-                        disabled={option.disabled}
-                      />
-                      <Label
-                        htmlFor={`bet-${option.value}`}
-                        className={option.disabled ? "text-gray-400" : ""}
-                      >
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-                
-                
-              </div>
-
-              {/* Passkey */}
-              {isPrivate && (
-                <div className="space-y-2">
-                  <Label htmlFor="room-passkey">Room Passkey</Label>
-                  <Input
-                    id="room-passkey"
-                    type="text"
-                    placeholder="Enter 6-digit passkey"
-                    value={passkey}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                      setPasskey(value);
-                    }}
-                    className="bg-black/50 border-white/20"
-                    maxLength={6}
-                    pattern="[0-9]*"
-                    inputMode="numeric"
+                  <input
+                    type="radio"
+                    name="betAmount"
+                    value={option.value}
+                    checked={betAmount === option.value}
+                    onChange={(e) => setBetAmount(e.target.value)}
+                    disabled={option.disabled}
+                    className="hidden"
                   />
-                  {passkeyError && (
-                    <p className="text-sm text-red-500">{passkeyError}</p>
-                  )}
-                  {!passkeyError && (
-                    <p className="text-sm text-gray-400">Enter a 6-digit passkey for the room</p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/lobby")}
-                className="text-gray-400"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isCreating || !user || parseInt(betAmount) > user.coins || (isPrivate && !passkey)}
-                className="bg-game-green hover:bg-game-green/80 text-black"
-              >
-                {isCreating ? "Creating Room..." : "Create Room"}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Amount Display */}
+          <div className="flex justify-between p-4 bg-[#051b2c] rounded mb-6">
+            <div>
+              <div className="text-sm">Bet Amount</div>
+              <div className="text-white">₹{betAmount}</div>
+            </div>
+            <div>
+              <div className="text-sm">Pool Amount</div>
+              <div className="text-white">₹{poolAmount}</div>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/lobby")}
+              className="flex-1 bg-transparent"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateRoom}
+              disabled={isCreating || !user || parseInt(betAmount) > demoBalance}
+              className="flex-1 bg-[#22c55e] hover:bg-[#22c55e]/80 text-black"
+            >
+              Create Room
+            </Button>
+          </div>
+        </div>
       </div>
     </Layout>
   );

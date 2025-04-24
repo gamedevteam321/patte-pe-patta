@@ -1392,6 +1392,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
+    const playerCount = gameState.players.length;
+    const poolAmount = (currentRoom?.betAmount || 0) * playerCount;
 
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -1406,6 +1408,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               <span className="text-yellow-400">{winner?.username} won the game!</span>
             )}
           </div>
+          
+          {/* Pool Amount Display */}
+          <div className="bg-[#1A1B1E] p-4 rounded-lg mb-6">
+            <div className="text-center">
+              <div className="text-gray-400 text-sm mb-1">Total Pool Amount</div>
+              <div className="text-2xl font-bold text-green-400">₹{poolAmount}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                ({playerCount} players × ₹{currentRoom?.betAmount || 0} bet)
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4 mb-6">
             {gameState.players.map((player) => (
               <div
@@ -1421,6 +1435,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 <div className="text-sm text-gray-300">
                   Cards: {player.cards.length}
                 </div>
+                {player.id === winner?.id && (
+                  <div className="text-sm text-green-400 mt-1">
+                    Won ₹{poolAmount}
+                  </div>
+                )}
               </div>
             ))}
           </div>

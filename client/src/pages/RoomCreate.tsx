@@ -284,12 +284,7 @@ const RoomCreate: React.FC = () => {
                   ))}
                 </RadioGroup>
                 
-                {user && (
-                  <div className="flex items-center mt-2 text-sm text-gray-400">
-                    <Info className="h-4 w-4 mr-1" />
-                    Your current balance: <span className="text-game-yellow font-bold ml-1">{user.coins} coins</span>
-                  </div>
-                )}
+                
               </div>
 
               {/* Passkey */}

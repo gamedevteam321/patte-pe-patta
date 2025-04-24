@@ -1154,6 +1154,15 @@ export const socketHandler = (io: Server): void => {
         const isRoomFull = room.players.length >= room.gameState.requiredPlayers;
         const waitingTimeElapsed = Date.now() - room.gameState.waitingStartTime >= room.gameState.waitingTimer;
         
+        // Check if we have enough players to start
+        if (room.players.length < 2) {
+          console.log('Not enough players to start:', {
+            currentPlayers: room.players.length,
+            required: 2
+          });
+          throw new Error('Need at least 2 players to start the game');
+        }
+        
         if (!isRoomFull && !waitingTimeElapsed && !room.gameState.autoStartEnabled) {
           console.log('Room not ready to start:', {
             status: room.gameState.status,
@@ -1345,6 +1354,12 @@ export const socketHandler = (io: Server): void => {
           return;
         }
 
+        // Check if game is over
+        if (room.gameState.isGameOver) {
+          console.log('Game is over, cannot play cards');
+          return;
+        }
+
         // Find the player
         const player = room.gameState.players.find(p => p.id === id);
         if (!player) {
@@ -1457,6 +1472,48 @@ export const socketHandler = (io: Server): void => {
             // Set the last player as winner and end the game
             room.gameState.isGameOver = true;
             room.gameState.winner = lastPlayer;
+            
+            // Process the winner's balance credit directly here instead of emitting an event
+            try {
+              const totalPoolAmount = room.amount_stack * room.players.length;
+              console.log('Processing winner balance credit:', {
+                winnerId: lastPlayer.userId,
+                amount: totalPoolAmount,
+                roomId
+              });
+              
+              const newBalance = await BalanceService.processGameResult(
+                lastPlayer.userId,
+                true, // isWinner
+                totalPoolAmount,
+                'demo' // balanceType
+              );
+              
+              console.log('Credited pool amount to winner:', {
+                winnerId: lastPlayer.userId,
+                amount: totalPoolAmount,
+                newBalance,
+                roomId
+              });
+
+              // Emit balance update to all clients in the room
+              io.to(roomId).emit('balance:update', {
+                userId: lastPlayer.userId,
+                demo: newBalance,
+                real: 0
+              });
+
+              // Also emit to the winner's socket specifically
+              const winnerSocket = io.sockets.sockets.get(lastPlayer.id);
+              if (winnerSocket) {
+                winnerSocket.emit('balance:update', {
+                  demo: newBalance,
+                  real: 0
+                });
+              }
+            } catch (error) {
+              console.error('Failed to credit pool amount to winner:', error);
+            }
             
             // Notify all players about the game over
             io.to(roomId).emit('game_over', {
@@ -1599,6 +1656,7 @@ export const socketHandler = (io: Server): void => {
     socket.on('end_game', async ({ roomId, winnerId }) => {
       try {
         const room = rooms.get(roomId);
+        console.log('End game request received:', { roomId, winnerId });
         if (!room) {
           console.error('Room not found:', roomId);
           return;
@@ -1621,12 +1679,12 @@ export const socketHandler = (io: Server): void => {
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
-        // Find the winner
-        const winner = room.gameState.players.find(p => p.id === winnerId);
+        // Use the winner from gameState instead of trying to find them again
+        const winner = room.gameState.winner;
         if (winner) {
           // Calculate total pool amount (bet amount * number of players)
           const totalPoolAmount = room.amount_stack * room.players.length;
-          
+          console.log('Total pool amount:', totalPoolAmount);
           // Credit the pool amount to the winner
           try {
             const newBalance = await BalanceService.processGameResult(

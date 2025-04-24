@@ -63,6 +63,7 @@ export interface RoomData {
   password?: string;
   status: 'waiting' | 'playing' | 'finished';
   betAmount?: number;
+  amount_stack?: number;
   createdAt?: string;
   updatedAt?: string;
   gameState?: GameState;
@@ -83,7 +84,7 @@ interface SocketContextType {
   gameState: GameState | null;
   canStartGame: boolean;
   fetchRooms: () => void;
-  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; passkey?: string; hostId?: string }) => Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>;
+  createRoom: (roomData: { name: string; playerCount: number; amount_stack: number; isPrivate: boolean; passkey?: string; hostId?: string }) => Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>;
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
@@ -224,11 +225,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Add room:created event handler
     newSocket.on('room:created', (roomData) => {
-      console.log('SocketContext: Room created:', roomData);
+      console.log('SocketContext: Room created:', {
+        ...roomData,
+        amount_stack: roomData.amount_stack,
+        players: roomData.players.length
+      });
       
       // If this is the current user's room (they created it)
       if (user && roomData.players.some(player => player.userId === user.id)) {
-        console.log('Setting current room for creator');
+        console.log('Setting current room for creator with amount stack:', roomData.amount_stack);
         setCurrentRoom(roomData);
         if (roomData.gameState) {
           setGameState(roomData.gameState);
@@ -262,6 +267,61 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAvailableRooms(prevRooms => 
         prevRooms.map(room => room.id === updatedRoom.id ? updatedRoom : room)
       );
+      
+      // If this is our current room, update it while preserving amount stack
+      if (currentRoom && updatedRoom.id === currentRoom.id) {
+        setCurrentRoom(prevRoom => ({
+          ...updatedRoom,
+          amount_stack: updatedRoom.amount_stack || prevRoom?.amount_stack || 0
+        }));
+      }
+    });
+
+    // Add room:update event handler to preserve amount stack
+    newSocket.on('room:update', (updatedRoom: any) => {
+      console.log('Room update received:', {
+        roomId: updatedRoom.id,
+        amount_stack: updatedRoom.amount_stack,
+        currentAmountStack: currentRoom?.amount_stack
+      });
+      
+      setCurrentRoom(prevRoom => {
+        const preservedAmountStack = updatedRoom.amount_stack || prevRoom?.amount_stack || 0;
+        console.log('Preserving amount stack:', preservedAmountStack);
+        
+        return {
+          ...updatedRoom,
+          amount_stack: preservedAmountStack
+        };
+      });
+      
+      if (updatedRoom.gameState) {
+        setGameState(updatedRoom.gameState);
+      }
+    });
+
+    // Update game_state_updated handler to preserve room state
+    newSocket.on('game_state_updated', (newGameState: GameState) => {
+      console.log('SocketContext: Received game_state_updated:', {
+        gameStarted: newGameState.gameStarted,
+        playersCount: newGameState.players.length,
+        currentPlayerIndex: newGameState.currentPlayerIndex,
+        hasCards: newGameState.players.some(p => p.cards && p.cards.length > 0),
+        currentAmountStack: currentRoom?.amount_stack
+      });
+      
+      setGameState(newGameState);
+      
+      // Ensure room state is preserved during game state updates
+      setCurrentRoom(prevRoom => {
+        if (!prevRoom) return prevRoom;
+        return {
+          ...prevRoom,
+          gameState: newGameState,
+          // Preserve the amount stack
+          amount_stack: prevRoom.amount_stack
+        };
+      });
     });
 
     // Add rooms_updated event handler to refresh room list
@@ -283,7 +343,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('room:joined', (roomData) => {
-      console.log('SocketContext: Room joined:', roomData);
+      console.log('SocketContext: Room joined:', {
+        roomId: roomData.id,
+        amount_stack: roomData.amount_stack,
+        players: roomData.players.length,
+        gameState: roomData.gameState ? 'present' : 'missing'
+      });
       setCurrentRoom(roomData);
       if (roomData.gameState) {
         console.log('SocketContext: Setting game state from room join');
@@ -333,16 +398,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
-    newSocket.on('game_state_updated', (newGameState: GameState) => {
-      console.log('SocketContext: Received game_state_updated:', {
-        gameStarted: newGameState.gameStarted,
-        playersCount: newGameState.players.length,
-        currentPlayerIndex: newGameState.currentPlayerIndex,
-        hasCards: newGameState.players.some(p => p.cards && p.cards.length > 0)
-      });
-      setGameState(newGameState);
-    });
-
     setSocket(newSocket);
 
     return () => {
@@ -367,40 +422,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [socket]);
 
-  const createRoom = async (roomData: { 
-    name: string; 
-    playerCount: number; 
-    betAmount: number; 
-    isPrivate: boolean; 
+  const createRoom = async (roomConfig: {
+    name: string;
+    playerCount: number;
+    amount_stack: number;
+    isPrivate: boolean;
     passkey?: string;
+    hostId: string;
   }): Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }> => {
-    if (!socket || !user) return { success: false, error: 'Socket not connected or user not authenticated' };
+    if (!socket) return { success: false, error: 'Socket not connected' };
 
-    return new Promise((resolve) => {
-      socket.emit('create_room', {
-        name: roomData.name,
-        maxPlayers: roomData.playerCount,
-        betAmount: roomData.betAmount,
-        isPrivate: roomData.isPrivate,
-        passkey: roomData.passkey,
-        userId: user.id,
-        hostName: user.username || 'Anonymous'
-      }, (response: { success: boolean; room?: RoomData; error?: string }) => {
-        if (response.success && response.room) {
-          resolve({ 
-            success: true, 
-            roomId: response.room.id,
-            roomCode: response.room.code
-          });
-        } else {
-          console.error('Failed to create room:', response.error);
-          resolve({ 
-            success: false, 
-            error: response.error || 'Failed to create room' 
-          });
-        }
+    try {
+      const response = await new Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>((resolve) => {
+        socket.emit('create_room', {
+          name: roomConfig.name,
+          maxPlayers: roomConfig.playerCount,
+          amount_stack: roomConfig.amount_stack,
+          isPrivate: roomConfig.isPrivate,
+          passkey: roomConfig.passkey,
+          userId: roomConfig.hostId,
+          hostName: user?.username || 'Player'
+        }, resolve);
       });
-    });
+
+      return response;
+    } catch (error) {
+      console.error('Error creating room:', error);
+      return { success: false, error: 'Failed to create room' };
+    }
   };
 
   const joinRoom = async (roomId: string, password?: string): Promise<boolean> => {

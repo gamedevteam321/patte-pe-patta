@@ -36,6 +36,7 @@ interface RoomItem {
     username: string;
     isReady: boolean;
   }>;
+  amount_stack: number;
 }
 
 interface RoomListProps {
@@ -117,7 +118,7 @@ const RoomList: React.FC<RoomListProps> = ({
       setSelectedRoom(room);
       setIsDialogOpen(true);
     } else {
-      handleJoinRoom(room.id, room.betAmount > 0 ? room.betAmount.toString() : undefined);
+      handleJoinRoom(room.id, room.amount_stack > 0 ? room.amount_stack.toString() : undefined);
     }
   };
 
@@ -186,10 +187,10 @@ const RoomList: React.FC<RoomListProps> = ({
     }
   });
 
-  const calculatePoolMoney = (room: RoomItem) => {
-    const betAmount = Number(room.betAmount) || 0;
-    const joinedPlayers = Number(room.playerCount) || 0;
-    return betAmount * joinedPlayers;
+  const calculatePoolAmount = (room: RoomItem) => {
+    const joinedPlayers = room.playerCount || 0;
+    const amount_stack = Number(room.amount_stack) || 0;
+    return amount_stack * joinedPlayers;
   };
 
   if (isLoading) {
@@ -307,11 +308,11 @@ const RoomList: React.FC<RoomListProps> = ({
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="font-medium">₹{room.betAmount || 0}</div>
-                      <div className="text-sm text-muted-foreground">Bet Amount</div>
+                      <div className="font-medium">₹{room.amount_stack || 0}</div>
+                      <div className="text-sm text-muted-foreground">Amount Stack</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">₹{calculatePoolMoney(room)}</div>
+                      <div className="font-medium">₹{calculatePoolAmount(room)}</div>
                       <div className="text-sm text-muted-foreground">Pool Amount</div>
                     </div>
                     <Button
@@ -341,13 +342,15 @@ const RoomList: React.FC<RoomListProps> = ({
                   <span className="text-sm text-muted-foreground">Created</span>
                   <span className="text-sm">{formatDate(room.createdAt)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Bet Amount</span>
-                  <span className="text-sm font-medium">₹{room.betAmount || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Pool Amount</span>
-                  <span className="text-sm font-medium">₹{calculatePoolMoney(room)}</span>
+                <div className="flex justify-between items-center bg-black/20 p-3 rounded-lg">
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Amount Stack</div>
+                    <div className="text-lg font-bold text-game-yellow">₹{room.amount_stack || 0}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Pool Amount</div>
+                    <div className="text-lg font-bold text-game-green">₹{calculatePoolAmount(room)}</div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />

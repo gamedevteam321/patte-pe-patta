@@ -5,9 +5,11 @@ import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, UserCircle } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from 'react-router-dom';
 import ReactDOM from 'react-dom';
+import { Player as GamePlayer } from '@/types/game';
+import { Player as SocketPlayer } from '@/context/SocketContext';
 
 // Add these animation styles
 const styles = `
@@ -432,7 +434,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [disabledPlayers, setDisabledPlayers] = useState<Set<string>>(new Set());
   const [isDebugMode, setIsDebugMode] = useState(false);
 
-  const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
+  const MAX_TURN_TIME =  15000; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
 
   const {
@@ -626,46 +628,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           }
 
           // Show game over screen with winner
-          const gameOverScreen = (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
-                <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
-                  Time's Up! Game Over!
-                </h2>
-                <div className="text-xl text-center text-white mb-6">
-                  <span className="text-green-400">{maxCardsPlayer.username} wins with {maxCardsPlayer.cards.length} cards! 🎉</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {gameState.players.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`p-4 rounded-lg ${player.id === maxCardsPlayer.id
-                        ? "bg-green-500/20 border-2 border-green-500"
-                        : "bg-gray-800/50"
-                        }`}
-                    >
-                      <div className="text-lg font-semibold text-white">
-                        {player.username}
-                      </div>
-                      <div className="text-sm text-gray-300">
-                        Cards: {player.cards.length}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-center">
-                  <Button
-                    onClick={() => {
-                      navigate('/lobby');
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
-                  >
-                    Return to Lobby
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
+          const gameOverScreen = renderGameOverScreen();
 
           // Show toast notification
           toast({
@@ -1053,7 +1016,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     const handlePlayerAutoExited = (data: { playerId: string; username: string; reason: string }) => {
       setDisabledPlayers(prev => new Set(prev).add(data.playerId));
-      toast.error(data.reason);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: 'You have been disabled for excessive auto-play'
+      });
     };
 
     socket.on('player_auto_exited', handlePlayerAutoExited);
@@ -1109,60 +1076,121 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return null;
   };
 
+  const renderGameOverScreen = () => {
+    const winner = gameState.winner;
+    const isUserWinner = winner?.id === userId;
+    // Calculate pool amount
+    const playerCount = players.length;
+    const amount_stack = currentRoom?.amount_stack || 0;
+    const totalPoolAmount = amount_stack * playerCount;
 
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="bg-gradient-to-b from-[#1a1f2c] to-[#0B0C10] p-6 sm:p-8 rounded-2xl w-full max-w-md mx-auto shadow-2xl border border-blue-500/20 my-auto">
+          <div className="relative">
+            <h2 className="text-3xl sm:text-4xl font-bold text-center bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent mb-2 animate-fade-in">
+              Game Over!
+            </h2>
+            <div className="text-xl sm:text-2xl text-center mb-6 sm:mb-8">
+              {isUserWinner ? (
+                <div className="space-y-2">
+                  <div className="text-green-400 font-bold animate-bounce-slow">
+                    🎉 Congratulations! 🎉
+                  </div>
+                  <div className="text-white">You won the game!</div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-yellow-400 font-bold">
+                    {winner?.username} wins!
+                  </div>
+                </div>
+              )}
+            </div>
 
-  const handleStartGame = () => {
-    if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
-      return;
-    }
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-yellow-900/30 p-3 sm:p-4 rounded-xl border border-yellow-500/30">
+                <div className="text-xs sm:text-sm text-gray-400 mb-1">Bet Amount</div>
+                <div className="text-xl sm:text-2xl font-bold text-yellow-400">₹{amount_stack}</div>
+              </div>
+              <div className="bg-green-900/30 p-3 sm:p-4 rounded-xl border border-green-500/30">
+                <div className="text-xs sm:text-sm text-gray-400 mb-1">Pool Amount</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-400">₹{totalPoolAmount}</div>
+              </div>
+            </div>
 
-    setActionsDisabled(true);
-    startGame();
-    toast({
-      title: "Starting game",
-      description: "Initializing game state...",
-      duration: 3000,
-      className: "top-0"
-    });
-  };
+            <div className="space-y-3 mb-6 sm:mb-8">
+              <div className="text-base sm:text-lg font-semibold text-blue-400 mb-2">Final Scores</div>
+              <div className="grid gap-2 sm:gap-3 max-h-[40vh] overflow-y-auto">
+                {gameState.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`p-3 sm:p-4 rounded-xl transition-all duration-300 ${
+                      player.id === winner?.id
+                        ? "bg-green-500/20 border-2 border-green-500 shadow-lg shadow-green-500/20"
+                        : "bg-gray-800/50 border border-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+                          {player.username}
+                          {player.id === winner?.id && (
+                            <span className="text-yellow-400 text-xs sm:text-sm">👑 Winner</span>
+                          )}
+                        </div>
+                        <div className="text-xs sm:text-sm text-gray-400">
+                          Cards: {player.cards.length}
+                        </div>
+                      </div>
+                      {player.id === winner?.id && (
+                        <div className="text-green-400 text-xs sm:text-sm font-medium">
+                          +₹{totalPoolAmount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-  const handleShuffleDeck = () => {
-    if (!isUserTurn || actionsDisabled || !userPlayer) {
-      return;
-    }
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  navigate('/lobby');
+                }}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 sm:px-8 py-2 text-sm sm:text-base"
+              >
+                Return to Lobby
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    // Check if player has reached shuffle limit
-    if (userPlayer.shuffleCount >= MAX_SHUFFLE_COUNT) {
-      toast({
-        title: "Shuffle Limit Reached",
-        description: "You have reached the maximum number of shuffles for this chance",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Update the matching cards display component
+  const renderMatchingCards = () => {
+    if (!showMatchingCards || matchingCards.length < 2) return null;
 
-    setActionsDisabled(true);
-
-    // Increment shuffle count
-    userPlayer.shuffleCount = (userPlayer.shuffleCount || 0) + 1;
-
-    // Shuffle the player's cards locally first for immediate feedback
-    const shuffledCards = [...userPlayer.cards];
-    for (let i = shuffledCards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
-    }
-
-    // Update local state
-    userPlayer.cards = shuffledCards;
-
-    // Send shuffle request to server
-    shuffleDeck();
-
-    // Re-enable actions after a short delay
-    setTimeout(() => {
-      setActionsDisabled(false);
-    }, 1000);
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div className="bg-game-card p-8 rounded-lg border-2 border-blue-500">
+          <h3 className="text-center text-xl font-bold text-blue-300 mb-4">Matching Cards!</h3>
+          <div className="flex gap-4 justify-center">
+            {matchingCards.map((card, index) => (
+              <div key={card.id} className={`transform ${index === 0 ? '-rotate-12' : 'rotate-12'}`}>
+                <PlayingCard card={card} className="scale-150" />
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-4 text-white">
+            <span className="text-sm">Both cards are {matchingCards[0].value}s!</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const animateCardToPool = (card: Card, startPosition: { x: number, y: number }, endPosition: { x: number, y: number }) => {
@@ -1209,7 +1237,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     
     // Check if player is disabled
     if (disabledPlayers.has(userPlayer.id)) {
-      toast.error('You have been disabled for excessive auto-play');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: 'You have been disabled for excessive auto-play'
+      });
       return;
     }
 
@@ -1231,27 +1263,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }, 500);
   };
 
-  // Check if there's a potential match
-  const checkPotentialMatch = () => {
-    if (!gameState.centralPile || gameState.centralPile.length < 1) return null;
-
-    // Get the top card of the center pool
-    const topCard = gameState.centralPile[gameState.centralPile.length - 1];
-
-    // If the user has a card matching the top card value, it's a potential match
-    const matchingCardInHand = userPlayer?.cards.some(card => card.value === topCard.value);
-
-    if (matchingCardInHand) {
-      return {
-        topCardValue: topCard.value,
-        hasMatchingCard: true
-      };
+  const handleShuffleDeck = () => {
+    if (!isUserTurn || actionsDisabled || !userPlayer) {
+      return;
     }
 
-    return null;
+    // Check if player has reached shuffle limit
+    if (userPlayer.shuffleCount >= MAX_SHUFFLE_COUNT) {
+      toast({
+        title: "Shuffle Limit Reached",
+        description: "You have reached the maximum number of shuffles for this chance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setActionsDisabled(true);
+
+    // Increment shuffle count
+    userPlayer.shuffleCount = (userPlayer.shuffleCount || 0) + 1;
+
+    // Shuffle the player's cards locally first for immediate feedback
+    const shuffledCards = [...userPlayer.cards];
+    for (let i = shuffledCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledCards[i], shuffledCards[j]] = [shuffledCards[j], shuffledCards[i]];
+    }
+
+    // Update local state
+    userPlayer.cards = shuffledCards;
+
+    // Send shuffle request to server
+    shuffleDeck();
+
+    // Re-enable actions after a short delay
+    setTimeout(() => {
+      setActionsDisabled(false);
+    }, 1000);
   };
 
-  // Update the match animation UI in the center pool area
   const renderMatchAnimation = () => {
     // Only show the animation when showMatchAnimation is true AND we have a valid lastMatchPlayer
     if (!showMatchAnimation || !lastMatchPlayer) return null;
@@ -1264,6 +1314,28 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       </div>
     );
   };
+
+  // Update player type mapping to ensure score is always provided
+  const mapSocketPlayerToGamePlayer = (player: SocketPlayer): GamePlayer => {
+    // Ensure we have all required fields with proper defaults
+    const mappedPlayer: GamePlayer = {
+      id: player.id,
+      userId: player.userId,
+      username: player.username,
+      cards: player.cards || [],
+      isHost: player.isHost || false,
+      isReady: player.isReady || false,
+      isActive: player.isActive || true,
+      autoPlayCount: player.autoPlayCount || 0,
+      score: typeof player.score === 'number' ? player.score : 0, // Always provide a default score
+      shuffleCount: player.shuffleCount || 0
+    };
+
+    return mappedPlayer;
+  };
+
+  // Use the mapping function when needed and assert the type
+  const mappedPlayers = gameState.players.map(mapSocketPlayerToGamePlayer) as GamePlayer[];
 
   const renderCardCollection = () => {
     if (!showCardCollection || !lastMatchPlayer || matchedCards.length === 0) return null;
@@ -1297,7 +1369,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       <div className="fixed inset-0 z-[9999] flex items-center justify-center">
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
           <p className="text-green-400 text-xl text-center mb-4 bg-black/80 p-2 rounded">
-            {players.find(p => p.id === lastMatchPlayer)?.username} collects cards!
+            {mappedPlayers.find(p => p.id === lastMatchPlayer)?.username} collects cards!
           </p>
         </div>
         {matchedCards.map((card, index) => {
@@ -1327,129 +1399,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
-  // Update the matching cards display component
-  const renderMatchingCards = () => {
-    if (!showMatchingCards || matchingCards.length < 2) return null;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-        <div className="bg-game-card p-8 rounded-lg border-2 border-blue-500">
-          <h3 className="text-center text-xl font-bold text-blue-300 mb-4">Matching Cards!</h3>
-          <div className="flex gap-4 justify-center">
-            {matchingCards.map((card, index) => (
-              <div key={card.id} className={`transform ${index === 0 ? '-rotate-12' : 'rotate-12'}`}>
-                <PlayingCard card={card} className="scale-150" />
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-4 text-white">
-            <span className="text-sm">Both cards are {matchingCards[0].value}s!</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Add debug mode effect
-  useEffect(() => {
-    if (socket && isDebugMode) {
-      socket.emit('set_debug_mode', { enabled: true });
-    }
-  }, [socket, isDebugMode]);
-
-  // Auto-play effect with faster delay in debug mode
-  useEffect(() => {
-    if (isDebugMode && gameState?.players && gameState.currentPlayerIndex >= 0) {
-      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-      if (currentPlayer?.userId === userId && currentPlayer?.cards?.length > 0) {
-        const delay = isDebugMode ? 100 : 1000; // 100ms in debug mode, 1000ms in normal mode
-        const timer = setTimeout(() => {
-          const firstCard = currentPlayer.cards[0];
-          if (firstCard) {
-            handlePlayCard(firstCard);
-          }
-        }, delay);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [gameState?.players, gameState?.currentPlayerIndex, isDebugMode, userId]);
-
-  useEffect(() => {
-    if (socket) {
-      // Listen for debug mode changes from server
-      const handleDebugModeChanged = ({ enabled }: { enabled: boolean }) => {
-        setIsDebugMode(enabled);
-      };
-
-      socket.on('debug_mode_changed', handleDebugModeChanged);
-
-      return () => {
-        socket.off('debug_mode_changed', handleDebugModeChanged);
-      };
-    }
-  }, [socket]);
-
-  if (gameState.isGameOver) {
-    const winner = gameState.winner;
-    const isUserWinner = winner?.id === userId;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
-          <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
-            Game Over!
-          </h2>
-          <div className="text-xl text-center text-white mb-6">
-            {isUserWinner ? (
-              <span className="text-green-400">Congratulations! You won! 🎉</span>
-            ) : (
-              <span className="text-yellow-400">{winner?.username} won the game!</span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {gameState.players.map((player) => (
-              <div
-                key={player.id}
-                className={`p-4 rounded-lg ${player.id === winner?.id
-                  ? "bg-green-500/20 border-2 border-green-500"
-                  : "bg-gray-800/50"
-                  }`}
-              >
-                <div className="text-lg font-semibold text-white">
-                  {player.username}
-                </div>
-                <div className="text-sm text-gray-300">
-                  Cards: {player.cards.length}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-center">
-            <Button
-              onClick={() => {
-                // Clean up any game state
-                if (socket) {
-                  socket.emit('leave_room', currentRoom?.id);
-                }
-                // Navigate to lobby using React Router
-                navigate('/lobby');
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
-            >
-              Return to Lobby
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       {showGameTable && gameState.gameStarted && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-[#1F2937] p-4 rounded-lg">
-
             <div className="flex items-center space-x-4">
               <div className="flex items-center gap-2">
                 <UserCircle className="h-5 w-5 text-blue-400" />
@@ -1459,7 +1413,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               </div>
               <div className="h-4 w-px bg-gray-600" />
               <div className="text-sm text-gray-300">
-                Players: {players.length}/{gameState.requiredPlayers}
+                Players: {mappedPlayers.length}/{gameState.requiredPlayers}
               </div>
               {gameTimer !== null && (
                 <div className="text-sm text-gray-300">
@@ -1468,38 +1422,45 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               )}
             </div>
 
-            {/* Player deck counts scoreboard */}
-
-            <div className="flex items-center space-x-4">
-              <div className="text-sm font-semibold text-white">
-                Card Counts:
+            {/* Bet and Pool Amount Display */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-yellow-900/30 px-3 py-1.5 rounded-md border border-yellow-500/30">
+                <span className="text-sm text-gray-300">Bet:</span>
+                <span className="text-lg font-bold text-yellow-400">₹{currentRoom?.betAmount}</span>
               </div>
-              <div className="flex space-x-2">
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 ${currentPlayer?.id === player.id
+              <div className="flex items-center gap-2 bg-green-900/30 px-3 py-1.5 rounded-md border border-green-500/30">
+                <span className="text-sm text-gray-300">Pool:</span>
+                <span className="text-lg font-bold text-green-400">₹{(currentRoom?.betAmount || 0) * mappedPlayers.length}</span>
+              </div>
+            </div>
+
+            {/* Player deck counts scoreboard */}
+            <div className="flex space-x-2">
+              {mappedPlayers.map((player) => (
+                <div
+                  key={player.id}
+                  className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 ${
+                    currentPlayer?.id === player.id
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-700 text-gray-200'
-                      }`}
-                  >
-                    <span className="font-medium">{player.username}:</span>
-                    <Badge
-                      variant="outline"
-                      className={`ml-1 ${player.cards.length > 10
+                  }`}
+                >
+                  <span className="font-medium">{player.username}:</span>
+                  <Badge
+                    variant="outline"
+                    className={`ml-1 ${
+                      player.cards.length > 10
                         ? 'bg-green-900/50 text-green-300 border-green-500/30'
                         : player.cards.length > 5
                           ? 'bg-blue-900/50 text-blue-300 border-blue-500/30'
                           : 'bg-red-900/50 text-red-300 border-red-500/30'
-                        }`}
-                    >
-                      {player.cards.length}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+                    }`}
+                  >
+                    {player.cards.length}
+                  </Badge>
+                </div>
+              ))}
             </div>
-
           </div>
 
           {/* Debug info panel */}
@@ -1508,9 +1469,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               <h3 className="text-white text-lg mb-2">Debug Info</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-blue-300 font-medium">Players ({players.length}):</h4>
+                  <h4 className="text-blue-300 font-medium">Players ({mappedPlayers.length}):</h4>
                   <ul className="text-white text-sm">
-                    {players.map((player, idx) => (
+                    {mappedPlayers.map((player, idx) => (
                       <li key={player.id} className="mb-1">
                         Player {idx + 1}: {player.username}
                         {player.id === userId ? " (YOU)" : ""} -

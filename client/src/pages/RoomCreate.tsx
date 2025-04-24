@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
-import { Users, Coins, Info, Lock, Globe, Plus, RefreshCw, DoorOpen } from "lucide-react";
+import { Users, Coins, Info, Lock, Globe, Plus, RefreshCw, DoorOpen, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import RoomList from "@/components/rooms/RoomList";
@@ -30,27 +30,53 @@ const RoomCreate: React.FC = () => {
   const { createRoom, joinRoom } = useSocket();
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState(getRandomRoomName());
-  const [playerCount, setPlayerCount] = useState<string>("4");
-  const [betAmount, setBetAmount] = useState<string>("50");
+  const [playerCount, setPlayerCount] = useState("2");
+  const [amount_stack, setAmountStack] = useState<string>("50");
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [passkey, setPasskey] = useState('');
   const [passkeyError, setPasskeyError] = useState('');
+  const [demoBalance, setDemoBalance] = useState<number>(0);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/login");
+    } else {
+      // Fetch user's demo balance
+      const fetchBalance = async () => {
+        try {
+          const balance = await balanceService.getUserBalance();
+          setDemoBalance(balance.demo);
+        } catch (error) {
+          console.error('Failed to fetch balance:', error);
+          toast({
+            title: "Error",
+            description: "Failed to fetch your balance. Please try again.",
+            variant: "destructive",
+          });
+        }
+      };
+      fetchBalance();
     }
   }, [isAuthenticated, navigate]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) {
+    // Add detailed authentication logging
+    console.log('Create Room Auth State:', {
+      isAuthenticated,
+      user,
+      userId: user?.id,
+      username: user?.username
+    });
+
+    if (!isAuthenticated || !user) {
+      console.error('Authentication check failed:', { isAuthenticated, user });
       toast({
-        title: "Not authenticated",
-        description: "Please log in to create a room",
+        title: "Authentication Required",
+        description: "Please log in to create a room. If already logged in, try refreshing the page.",
         variant: "destructive"
       });
       navigate("/login");
@@ -58,8 +84,8 @@ const RoomCreate: React.FC = () => {
     }
     
     // Validate user ID format
-    if (!user.id || typeof user.id !== 'string' || user.id.length < 10) {
-      console.error("Invalid user ID format:", user.id);
+    if (!user.id || typeof user.id !== 'string') {
+      console.error("Invalid user ID:", user.id);
       toast({
         title: "Session Error",
         description: "Your session appears to be invalid. Please log out and log in again.",
@@ -74,12 +100,12 @@ const RoomCreate: React.FC = () => {
       return;
     }
     
-    const betAmountNum = parseInt(betAmount);
+    const amountStackNum = parseInt(amount_stack);
     
-    if (user.coins < betAmountNum) {
+    if (demoBalance < amountStackNum) {
       toast({
-        title: "Insufficient Coins",
-        description: "You don't have enough coins for this bet amount!",
+        title: "Insufficient Balance",
+        description: "You don't have enough balance to create this room",
         variant: "destructive"
       });
       return;
@@ -91,12 +117,13 @@ const RoomCreate: React.FC = () => {
       const roomConfig = {
         name: roomName.trim() || `${user.username || 'Player'}'s Room`,
         playerCount: parseInt(playerCount),
-        betAmount: betAmountNum,
+        amount_stack: amountStackNum,
         isPrivate,
-        passkey: isPrivate ? passkey : undefined
+        passkey: isPrivate ? passkey : undefined,
+        hostId: user.id
       };
       
-      console.log("Creating room with:", roomConfig);
+      console.log("Creating room with config:", roomConfig);
 
       const result = await createRoom(roomConfig);
       
@@ -111,13 +138,15 @@ const RoomCreate: React.FC = () => {
           });
           navigate(`/room/${result.roomId}`);
         } else {
+          console.error("Failed to join room after creation");
           toast({
             title: "Error",
-            description: "Failed to join room. Please try again.",
+            description: "Failed to join room after creation. Please try again.",
             variant: "destructive"
           });
         }
       } else {
+        console.error("Room creation failed:", result.error);
         toast({
           title: "Error",
           description: result.error || "Failed to create room. Please try again.",
@@ -141,10 +170,14 @@ const RoomCreate: React.FC = () => {
   };
 
   const betOptions = [
-    { value: "50", label: "50 coins", disabled: user ? user.coins < 50 : true },
-    { value: "100", label: "100 coins", disabled: user ? user.coins < 100 : true },
-    { value: "250", label: "250 coins", disabled: user ? user.coins < 250 : true },
-    { value: "500", label: "500 coins", disabled: user ? user.coins < 500 : true }
+    { value: "50", label: "₹50", disabled: demoBalance < 50 },
+    { value: "100", label: "₹100", disabled: demoBalance < 100 },
+    { value: "250", label: "₹250", disabled: demoBalance < 250 },
+    { value: "500", label: "₹500", disabled: demoBalance < 500 },
+    { value: "1000", label: "₹1,000", disabled: demoBalance < 1000 },
+    { value: "2500", label: "₹2,500", disabled: demoBalance < 2500 },
+    { value: "5000", label: "₹5,000", disabled: demoBalance < 5000 },
+    { value: "10000", label: "₹10,000", disabled: demoBalance < 10000 }
   ];
 
   return (
@@ -256,40 +289,40 @@ const RoomCreate: React.FC = () => {
                   Bet Amount
                 </Label>
                 <RadioGroup
-                  value={betAmount}
-                  onValueChange={setBetAmount}
-                  className="grid grid-cols-2 gap-4"
+                  value={amount_stack}
+                  onValueChange={setAmountStack}
+                  className="grid grid-cols-2 sm:grid-cols-4 gap-4"
                 >
                   {betOptions.map((option) => (
-                    <div
-                      key={option.value}
-                      className={`flex items-center space-x-2 p-3 border rounded-md ${
-                        option.disabled
-                          ? "border-gray-600 opacity-50"
-                          : "border-white/20"
-                      }`}
-                    >
+                    <div key={option.value}>
                       <RadioGroupItem
                         value={option.value}
-                        id={`bet-${option.value}`}
+                        id={option.value}
+                        className={`peer sr-only ${option.disabled ? "cursor-not-allowed" : ""}`}
                         disabled={option.disabled}
                       />
                       <Label
-                        htmlFor={`bet-${option.value}`}
-                        className={option.disabled ? "text-gray-400" : ""}
+                        htmlFor={option.value}
+                        className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary ${
+                          amount_stack === option.value ? "border-game-green bg-game-green/10" : ""
+                        }`}
                       >
-                        {option.label}
+                        <div className="font-medium">₹{option.value}</div>
                       </Label>
                     </div>
                   ))}
                 </RadioGroup>
                 
-                {user && (
-                  <div className="flex items-center mt-2 text-sm text-gray-400">
-                    <Info className="h-4 w-4 mr-1" />
-                    Your current balance: <span className="text-game-yellow font-bold ml-1">{user.coins} coins</span>
+                <div className="flex items-center justify-between p-4 bg-black/20 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Bet Amount</div>
+                    <div className="font-medium">₹{amount_stack}</div>
                   </div>
-                )}
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Pool Amount</div>
+                    <div className="font-medium">₹{parseInt(amount_stack) * parseInt(playerCount)}</div>
+                  </div>
+                </div>
               </div>
 
               {/* Passkey */}
@@ -330,10 +363,17 @@ const RoomCreate: React.FC = () => {
               </Button>
               <Button
                 type="submit"
-                disabled={isCreating || !user || parseInt(betAmount) > user.coins || (isPrivate && !passkey)}
-                className="bg-game-green hover:bg-game-green/80 text-black"
+                className="w-full"
+                disabled={isCreating || !user || parseInt(amount_stack) > demoBalance || (isPrivate && !passkey)}
               >
-                {isCreating ? "Creating Room..." : "Create Room"}
+                {isCreating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Room"
+                )}
               </Button>
             </CardFooter>
           </form>

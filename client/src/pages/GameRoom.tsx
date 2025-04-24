@@ -98,7 +98,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
             await balanceService.processRoomEntry(
               user.id,
               roomId,
-              currentRoom?.betAmount || 0,
+              currentRoom?.amount_stack || 0,
               'demo' // or 'real' based on your game mode
             );
             
@@ -158,7 +158,18 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     if (!socket || !roomId) return;
 
     const handleRoomUpdate = (updatedRoom: Room) => {
-      setRoom(updatedRoom);
+      console.log('Room update received:', {
+        roomId: updatedRoom.id,
+        amount_stack: updatedRoom.amount_stack,
+        players: updatedRoom.players.length,
+        currentAmountStack: currentRoom?.amount_stack
+      });
+      
+      // Ensure we preserve the amount_stack from the server
+      setRoom({
+        ...updatedRoom,
+        amount_stack: updatedRoom.amount_stack || currentRoom?.amount_stack || 0
+      });
       
       // Calculate waiting time left
       if (updatedRoom.gameState.waitingStartTime && updatedRoom.gameState.waitingTimer) {
@@ -229,8 +240,15 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   // Add this after your state declarations
   useEffect(() => {
     if (currentRoom) {
+      console.log("Room Data Updated:", {
+        roomId,
+        currentRoom,
+        amount_stack: currentRoom.amount_stack,
+        players: gameState?.players?.length || 0,
+        initialRoom
+      });
     }
-  }, [currentRoom]);
+  }, [currentRoom, gameState, roomId, initialRoom]);
 
   // Timer effect for countdown
   useEffect(() => {
@@ -448,36 +466,152 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     const playerCount = gameState.players?.length || 0;
     const requiredPlayers = gameState.requiredPlayers || 2;
     const isFull = playerCount >= requiredPlayers;
+    const amountStack = currentRoom.amount_stack || 0;
+    const poolAmount = amountStack * playerCount;
+
+    // Add detailed debug logging
+    console.log('Room Status Values:', {
+      amountStack,
+      playerCount,
+      poolAmount,
+      currentRoom: {
+        id: currentRoom.id,
+        amount_stack: currentRoom.amount_stack,
+        betAmount: currentRoom.betAmount, // Log both for debugging
+        players: currentRoom.players?.length
+      },
+      gameState: {
+        players: gameState.players.length,
+        requiredPlayers: gameState.requiredPlayers
+      }
+    });
     
     const waitingMessage = isFull
       ? `Game starting in ${formatWaitingTime(autoStartTimeLeft)}`
       : `Waiting for players `;
 
     return (
-      <div className="room-status">
-        <h3 className="text-yellow-400">{waitingMessage}</h3>
+      <div className="room-status space-y-4">
+        <h3 className="text-yellow-400 text-xl font-bold">{waitingMessage}</h3>
+        <div className="flex items-center justify-center gap-8 bg-black/20 p-4 rounded-lg">
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground">Bet Amount</div>
+            <div className="text-2xl font-bold text-game-yellow">₹{amountStack}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground">Pool Amount</div>
+            <div className="text-2xl font-bold text-game-green">₹{poolAmount}</div>
+          </div>
+        </div>
       </div>
     );
   };
 
   // Update the player list section
   const renderPlayerList = () => {
+    // Add detailed logging for player list rendering
+    console.log("Rendering Player List:", {
+      currentRoom,
+      amount_stack: currentRoom?.amount_stack,
+      gameState,
+      players: gameState?.players?.length || 0
+    });
+    
     if (!gameState?.players) return null;
 
+    // Debug logging
+    console.log("Current Room Data:", {
+      room: currentRoom,
+      amount_stack: currentRoom?.amount_stack,
+      players: gameState.players.length
+    });
+
+    // Calculate empty slots
+    const emptySlots = gameState.requiredPlayers - gameState.players.length;
+    const emptySlotElements = [...Array(emptySlots)].map((_, index) => (
+      <div
+        key={`empty-${index}`}
+        className="relative overflow-hidden rounded-lg border border-dashed border-gray-700/50 bg-gray-800/20 py-2 px-3 transition-all duration-300"
+      >
+        <div className="flex items-center justify-between opacity-50">
+          <div className="flex items-center space-x-2">
+            {/* Empty Avatar Circle */}
+            <div className="relative">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-700/20">
+                <span className="text-base text-gray-500">👤</span>
+              </div>
+            </div>
+
+            {/* Waiting Text */}
+            <div>
+              <div className="font-medium text-gray-400 text-sm">
+                Waiting...
+              </div>
+            </div>
+          </div>
+
+         
+          
+        </div>
+      </div>
+    ));
+
     return (
-      <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">Players:</h3>
-        <ul className="space-y-2">
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-bold text-blue-400">Players in Room</h3>
+          <div className="text-sm text-gray-400">
+            {gameState.players.length}/{gameState.requiredPlayers} players joined
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* Render active players */}
           {gameState.players.map((player) => (
-            <li key={player.id} className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-              <span>{player.username}</span>
-              {player.isHost && (
-                <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">Host</span>
-              )}
-            </li>
+            <div
+              key={player.id}
+              className={`relative overflow-hidden rounded-lg border ${
+                player.isHost 
+                  ? "border-yellow-500/50 bg-yellow-500/10" 
+                  : "border-blue-500/20 bg-blue-500/5"
+              } py-2 px-3 transition-all duration-300 hover:bg-blue-500/10`}
+            >
+              {/* Player Status Indicator */}
+              <div className="absolute top-0 right-0 w-10 h-10">
+                <div className={`absolute transform rotate-45 translate-x-2 -translate-y-5 w-16 text-center text-[10px] py-0.5 
+                  ${player.isHost ? "bg-yellow-500" : "bg-blue-500"}`}>
+                  {player.isHost ? "HOST" : "PLAYER"}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  {/* Avatar/Status Circle */}
+                  <div className="relative">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center 
+                      ${player.isHost ? "bg-yellow-500/20" : "bg-blue-500/20"}`}>
+                      <span className="text-sm font-bold">
+                        {player.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-[#0B0C10]"></span>
+                  </div>
+
+                  {/* Player Info */}
+                  <div>
+                    <div className="font-medium text-white text-sm">
+                      {player.username}
+                    </div>
+                  </div>
+                </div>
+
+                
+              </div>
+            </div>
           ))}
-        </ul>
+          
+          {/* Render empty slots in the same grid */}
+          {emptySlotElements}
+        </div>
       </div>
     );
   };
@@ -488,6 +622,28 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       socket.emit('set_debug_mode', { enabled: true });
     }
   }, [socket, isDebugMode]);
+
+  useEffect(() => {
+    if (currentRoom) {
+      console.log('GameRoom: Room data updated:', {
+        roomId: currentRoom.id,
+        amount_stack: currentRoom.amount_stack,
+        players: currentRoom.players.length,
+        gameState: currentRoom.gameState ? 'present' : 'missing'
+      });
+    }
+  }, [currentRoom]);
+
+  useEffect(() => {
+    if (gameState) {
+      console.log('GameRoom: Game state updated:', {
+        roomId: currentRoom?.id,
+        amount_stack: currentRoom?.amount_stack,
+        status: gameState.status,
+        players: gameState.players.length
+      });
+    }
+  }, [gameState, currentRoom]);
 
   if (!roomId || !user) {
     return null;

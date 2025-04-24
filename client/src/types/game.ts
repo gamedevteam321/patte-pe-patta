@@ -54,7 +54,7 @@ export interface RoomData {
   maxPlayers: number;
   playerCount: number;
   isPrivate: boolean;
-  betAmount: number;
+  amount_stack: number;
   status: string;
   createdAt: string;
   code: string;
@@ -64,7 +64,7 @@ export interface Room {
   id: string;
   name: string;
   status: string;
-  betAmount: number;
+  amount_stack: number;
   hostName: string;
   isPrivate: boolean;
   playerCount: number;

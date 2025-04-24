@@ -68,6 +68,7 @@ interface Room {
   max_players: number;
   amount_stack: number;
   created_at: string;
+  betAmount?: number;
 }
 
 // Debug mode configuration
@@ -485,26 +486,28 @@ export const socketHandler = (io: Server): void => {
 
         // Now process the balance deduction since room exists
         const { data: newBalance, error: deductError } = await supabase.rpc('process_room_entry', {
-          p_user_id: roomData.userId,
-          p_room_id: roomId,
-          p_amount: roomData.betAmount,
+          p_amount: roomData.amount_stack,
           p_balance_type: 'demo',
-          p_transaction_id: transactionId
+          p_room_id: roomId,
+          p_transaction_id: transactionId,
+          p_user_id: roomData.userId
         });
 
         if (deductError) {
+          // Add more detailed error logging
+          console.error('Error processing room entry fee:', {
+            error: deductError,
+            userId: roomData.userId,
+            amount: roomData.amount_stack,
+            transactionId,
+            message: deductError.message
+          });
+
           // If balance deduction fails, delete the created room
           await supabase
             .from('rooms')
             .delete()
             .eq('id', roomId);
-
-          console.error('Error processing room entry fee:', {
-            error: deductError,
-            userId: roomData.userId,
-            betAmount: roomData.betAmount,
-            transactionId
-          });
 
           let errorMessage = 'Failed to process entry fee';
           if (deductError.message.includes('Insufficient')) {
@@ -682,9 +685,10 @@ export const socketHandler = (io: Server): void => {
             return;
           }
 
-          // Initialize room in memory with current timestamp
+          // Initialize room in memory with current timestamp and preserve bet amount
           currentRoom = {
             ...dbRoom,
+            betAmount: dbRoom.amount_stack, // Ensure bet amount is preserved from DB
             players: [],
             gameState: {
               status: 'waiting',
@@ -883,9 +887,12 @@ export const socketHandler = (io: Server): void => {
           console.error('Failed to update player count:', updateError);
         }
 
-        // Notify room about new player
-        io.to(roomId).emit('player_joined', {
-          player: newPlayer
+        // Notify room about new player with complete room data including bet amount
+        io.to(roomId).emit('room:update', {
+          ...room,
+          betAmount: room.betAmount || room.amount_stack, // Ensure bet amount is included
+          players: room.players,
+          gameState: room.gameState
         });
         
         // Emit rooms updated to all clients

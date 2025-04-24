@@ -1,26 +1,19 @@
 import React from 'react';
-import { useBalance } from '../../context/BalanceContext';
 import { formatCurrency } from '../../utils/format';
+import { Transaction } from '../../services/api/balance';
 import './TransactionHistory.css';
 
-export const TransactionHistory: React.FC = () => {
-    const { transactions, isLoading, error } = useBalance();
+interface TransactionHistoryProps {
+    transactions: Transaction[];
+}
 
-    if (isLoading) {
-        return <div className="transactions-loading">Loading transactions...</div>;
-    }
-
-    if (error) {
-        return <div className="transactions-error">{error}</div>;
-    }
-
+export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions }) => {
     if (!transactions || transactions.length === 0) {
         return <div className="transactions-empty">No transactions found</div>;
     }
 
     return (
         <div className="transactions-container">
-            <h2>Transaction History</h2>
             <div className="transactions-list">
                 {transactions.map((transaction) => (
                     <div key={transaction.id} className="transaction-item">

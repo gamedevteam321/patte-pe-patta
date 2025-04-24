@@ -57,14 +57,28 @@ export class BalanceService {
     static async getTransactionHistory(
         userId: string,
         limit: number = 50,
-        offset: number = 0
+        offset: number = 0,
+        balanceType: BalanceType | 'all' = 'all',
+        transactionType: string = 'all'
     ): Promise<BalanceTransaction[]> {
-        const { data, error } = await supabase
+        let query = supabase
             .from('balance_transactions')
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
+
+        // Apply balance type filter if specified
+        if (balanceType !== 'all') {
+            query = query.eq('balance_type', balanceType);
+        }
+
+        // Apply transaction type filter if specified
+        if (transactionType !== 'all') {
+            query = query.eq('transaction_type', transactionType);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             logError('Error fetching transaction history', error);

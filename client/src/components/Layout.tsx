@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, Home, Menu } from "lucide-react";
+import { User, LogOut, Home, Menu, History } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import { BalanceDisplay } from "./Balance/BalanceDisplay";
@@ -75,6 +75,14 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                       </Button>
                       <Button
                         variant="ghost"
+                        onClick={() => navigate("/transactions")}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        <History className="h-5 w-5 mr-2" />
+                        Transactions
+                      </Button>
+                      <Button
+                        variant="ghost"
                         onClick={handleLogout}
                         className="text-gray-400 hover:text-white"
                       >
@@ -117,6 +125,17 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                 >
                   <User className="h-5 w-5 mr-2" />
                   Profile
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    navigate("/transactions");
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-gray-400 hover:text-white"
+                >
+                  <History className="h-5 w-5 mr-2" />
+                  Transactions
                 </Button>
                 <Button
                   variant="ghost"

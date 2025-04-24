@@ -9,6 +9,7 @@ export interface Transaction {
     balanceType: BalanceType;
     description: string;
     createdAt: string;
+    transactionType: string;
 }
 
 export interface Balance {

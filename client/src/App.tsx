@@ -12,6 +12,7 @@ import Lobby from "./pages/Lobby";
 import RoomCreate from "./pages/RoomCreate";
 import GameRoom from "./pages/GameRoom";
 import JoinByCode from "./pages/JoinByCode";
+import { TransactionHistoryPage } from "./pages/TransactionHistoryPage";
 import { AuthProvider } from "./context/AuthContext";
 import { SocketProvider } from "./context/SocketContext";
 import { BalanceProvider } from "./context/BalanceContext";
@@ -69,6 +70,14 @@ const App = () => (
                   element={
                     <AuthGuard>
                       <JoinByCode />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/transactions"
+                  element={
+                    <AuthGuard>
+                      <TransactionHistoryPage />
                     </AuthGuard>
                   }
                 />

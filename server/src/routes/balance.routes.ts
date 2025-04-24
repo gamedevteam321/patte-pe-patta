@@ -23,14 +23,21 @@ router.get('/balance', authMiddleware, async (req: Request, res: Response) => {
     }
 });
 
-// Get transaction history
-router.get('/transactions', authMiddleware, async (req: Request, res: Response) => {
+// Get transaction history with filters
+router.get('/transactions', authMiddleware, validateRequest(z.object({
+    limit: z.number().min(1).max(100).default(50),
+    offset: z.number().min(0).default(0),
+    balanceType: z.enum(['demo', 'real', 'all']).default('all'),
+    transactionType: z.string().default('all')
+})), async (req: Request, res: Response) => {
     try {
-        const { limit = 50, offset = 0 } = req.query;
+        const { limit, offset, balanceType, transactionType } = req.query;
         const transactions = await BalanceService.getTransactionHistory(
             (req as any).user.id,
             Number(limit),
-            Number(offset)
+            Number(offset),
+            balanceType as BalanceType | 'all',
+            transactionType as string
         );
         res.json(transactions);
     } catch (error) {

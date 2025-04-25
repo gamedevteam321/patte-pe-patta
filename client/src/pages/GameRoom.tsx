@@ -538,10 +538,10 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       <div className="container max-w-[1000px] mx-auto px-4 py-4 bg-[#0B0C10] rounded-lg shadow-md">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-[#4169E1]">Game Room {currentRoom?.code && `(${currentRoom.code})`}</h1>
+            <h1 className="text-3xl font-bold text-[#4169E1]">{currentRoom?.name} </h1>
             {lastSyncTime && (
               <p className="text-xs text-blue-300">
-                Last synced: {lastSyncTime.toLocaleTimeString()}
+                {currentRoom?.code && `[${currentRoom.code}]`}-Last synced: {lastSyncTime.toLocaleTimeString()}
               </p>
             )}
           </div>

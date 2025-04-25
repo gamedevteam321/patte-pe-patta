@@ -851,7 +851,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       const newCard = gameState.centralPile[gameState.centralPile.length - 1];
       if (newCard && (!lastPlayedCard || newCard.id !== lastPlayedCard.id)) {
         setLastPlayedCard(newCard);
-        setIsAnimating(true);
+        //setIsAnimating(true);
 
         // Reset animation after it completes
         setTimeout(() => {
@@ -1154,11 +1154,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setAnimationLocked(true);
     
     // Explicitly capture current top card before animation
-    if (gameState.centralPile && gameState.centralPile.length > 0) {
-      const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+    //if (gameState.centralPile && gameState.centralPile.length > 0) {
+      //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
       //setDisplayedCenterCard(currentTopCard);
-    }
-
+    //}
+    
     setActionsDisabled(true);
     setLastPlayedCard(card);
     setCardInMotion(card);
@@ -1174,7 +1174,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         setTimeout(() => {
           // Now show the new card with appear animation
           setDisplayedCenterCard(card);
-          setIsAnimating(true);
+          //setIsAnimating(true);
           setActionsDisabled(false);
           
           // Reset animation state after a short delay
@@ -1238,7 +1238,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       
       // Now show the new card with appear animation
       setDisplayedCenterCard(card);
-      setIsAnimating(true);
+      //setIsAnimating(true);
 
       // Reset animation state after a short delay
       setTimeout(() => {
@@ -1347,27 +1347,32 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Update the center area display with simpler logic
   const renderCenterArea = () => {
     if (gameState.centralPile && gameState.centralPile.length > 0) {
-      // Simply use the displayedCenterCard state which we explicitly control during animation
-      const cardToShow = displayedCenterCard || gameState.centralPile[gameState.centralPile.length - 1];
+      // Add null check for cardToShow
+      const cardToShow = hideTopCard ? null : (displayedCenterCard || null);
       
       return (
         <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
           <div className="flex-1 flex flex-col justify-center items-center">
-            <div className="relative">
-              <PlayingCard
-                card={cardToShow}
-                className={isAnimating ? 'card-appear' : ''}
-              />
-
-              <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
-                {gameState.centralPile.length}
+            {cardToShow && (  // Add conditional rendering
+              <div className="relative">
+                <PlayingCard
+                  card={cardToShow}
+                  
+                />
+                <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
+                  {gameState.centralPile.length}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-3 mb-1 text-center">
             <div className="bg-blue-900/50 p-2 rounded text-white">
-              Top Card: {cardToShow.value} of {cardToShow.suit}
+              {cardToShow ? (  // Add conditional rendering for card info
+                `Top Card: ${cardToShow.value} of ${cardToShow.suit}`
+              ) : (
+                'Card in motion...'
+              )}
             </div>
             {lastPlayedCard && currentPlayer && (
               <div className="mt-1 text-gray-300 text-sm">
@@ -1381,8 +1386,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       return (
         <div className="center-empty-pool">
           {cardInMotion ? (
-            <div className="card-appear">
-              <PlayingCard card={cardInMotion} />
+            <div className="">
+              {/* <PlayingCard card={cardInMotion} /> */}
             </div>
           ) : (
             <>
@@ -1463,18 +1468,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
       
       // Only update if we're not in the middle of an animation
-      if (!animatingNewCard) {
+      if (!animatingNewCard ) {
         setPreviousTopCard(currentTopCard);
       }
     }
   }, [gameState.centralPile, animatingNewCard, animationLocked]);
 
   // Initialize displayed center card from game state
-  useEffect(() => {
-    if (!animationLocked && gameState.centralPile && gameState.centralPile.length > 0) {
-      setDisplayedCenterCard(gameState.centralPile[gameState.centralPile.length - 1]);
-    }
-  }, [gameState.centralPile, animationLocked]);
+  // useEffect(() => {
+  //   if (!animationLocked && gameState.centralPile && gameState.centralPile.length > 0) {
+  //     setDisplayedCenterCard(gameState.centralPile[gameState.centralPile.length - 1]);
+  //   }
+  // }, [gameState.centralPile, animationLocked]);
 
   if (gameState.isGameOver) {
     const winner = gameState.winner;

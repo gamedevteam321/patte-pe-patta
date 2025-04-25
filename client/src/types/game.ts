@@ -18,7 +18,7 @@ export interface Player {
   isReady?: boolean;
   isActive?: boolean;
   autoPlayCount?: number;
-  score: number;
+  score?: number;  // Made optional since not all players will have a score immediately
   position?: 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right';
   shuffleCount: number;
 }

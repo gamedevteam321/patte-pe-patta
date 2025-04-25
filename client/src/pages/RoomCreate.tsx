@@ -136,14 +136,14 @@ const RoomCreate: React.FC = () => {
   };
 
   const betOptions = [
-    { value: "50", label: "₹50", disabled: demoBalance < 50 },
-    { value: "100", label: "₹100", disabled: demoBalance < 100 },
-    { value: "250", label: "₹250", disabled: demoBalance < 250 },
-    { value: "500", label: "₹500", disabled: demoBalance < 500 },
-    { value: "1000", label: "₹1000", disabled: demoBalance < 1000 },
-    { value: "2500", label: "₹2500", disabled: demoBalance < 2500 },
-    { value: "5000", label: "₹5000", disabled: demoBalance < 5000 },
-    { value: "10000", label: "₹10000", disabled: demoBalance < 10000 }
+    { value: "50", label: "₹50", disabled: demoBalance <= 50 },
+    { value: "100", label: "₹100", disabled: demoBalance <= 100 },
+    { value: "250", label: "₹250", disabled: demoBalance <= 250 },
+    { value: "500", label: "₹500", disabled: demoBalance <= 500 },
+    { value: "1000", label: "₹1000", disabled: demoBalance <= 1000 },
+    { value: "2500", label: "₹2500", disabled: demoBalance <= 2500 },
+    { value: "5000", label: "₹5000", disabled: demoBalance <= 5000 },
+    { value: "10000", label: "₹10000", disabled: demoBalance <= 10000 }
   ];
 
   const poolAmount = parseInt(betAmount) * parseInt(playerCount);
@@ -204,7 +204,7 @@ const RoomCreate: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
                 {isPrivate ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
-                <span>Public Room</span>
+                <span>{isPrivate ? "Private" : "Public"} Room</span>
               </div>
               <Switch
                 checked={isPrivate}
@@ -215,6 +215,15 @@ const RoomCreate: React.FC = () => {
               Anyone can find and join this room from the lobby
             </p>
           </div>
+          {isPrivate && (
+            <div className="mb-6">
+              <label className="block mb-2">Passkey</label>
+              <Input
+                value={passkey}
+                onChange={(e) => setPasskey(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* Bet Amount */}
           <div className="mb-6">

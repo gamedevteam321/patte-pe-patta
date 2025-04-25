@@ -284,7 +284,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     newSocket.on('room:joined', (roomData) => {
       console.log('SocketContext: Room joined:', roomData);
-      setCurrentRoom(roomData);
+      // Ensure betAmount is properly set from amount_stack
+      const roomWithBetAmount = {
+        ...roomData,
+        betAmount: roomData.amount_stack || 0
+      };
+      console.log('Setting room with bet amount:', roomWithBetAmount);
+      setCurrentRoom(roomWithBetAmount);
       if (roomData.gameState) {
         console.log('SocketContext: Setting game state from room join');
         setGameState(roomData.gameState);
@@ -414,10 +420,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         username: user.username || user.email || 'Anonymous' 
       }, (response: { success: boolean; room?: RoomData; error?: string }) => {
         if (response.success && response.room) {
-          setCurrentRoom(response.room);
+          const roomWithBetAmount = {
+            ...response.room,
+            betAmount: response.room.amount_stack || 0
+          };
+          console.log('Joining room with bet amount:', roomWithBetAmount);
+          setCurrentRoom(roomWithBetAmount);
           resolve(true);
         } else {
-    toast({
+          toast({
             title: "Failed to join room",
             description: response.error || "Unknown error",
             variant: "destructive"

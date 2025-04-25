@@ -301,7 +301,8 @@ export const socketHandler = (io: Server): void => {
               status: room.status,
               playerCount,
               maxPlayers: room.max_players,
-              isInMemory: rooms.has(room.id)
+              isInMemory: rooms.has(room.id),
+              amount_stack: room.amount_stack
             });
             
             return {
@@ -314,7 +315,8 @@ export const socketHandler = (io: Server): void => {
               betAmount: room.amount_stack || 0,
               status: room.status,
               createdAt: room.created_at,
-              code: room.code
+              code: room.code,
+              amount_stack: room.amount_stack || 0
             };
           }).filter(room => {
             const isAvailable = room.players.length < room.maxPlayers;
@@ -682,9 +684,11 @@ export const socketHandler = (io: Server): void => {
             return;
           }
 
-          // Initialize room in memory with current timestamp
+          // Initialize room in memory with current timestamp and amount_stack
           currentRoom = {
             ...dbRoom,
+            amount_stack: dbRoom.amount_stack,
+            betAmount: dbRoom.amount_stack,
             players: [],
             gameState: {
               status: 'waiting',
@@ -724,7 +728,15 @@ export const socketHandler = (io: Server): void => {
           });
           
           if (callback) {
-            callback({ success: true, room });
+            const responseRoom = {
+              ...room,
+              amount_stack: room.amount_stack,
+              betAmount: room.amount_stack
+            };
+            callback({ 
+              success: true,
+              room: responseRoom
+            });
           }
           return;
         }
@@ -921,9 +933,14 @@ export const socketHandler = (io: Server): void => {
 
         // Send proper callback response
         if (callback) {
+          const responseRoom = {
+            ...room,
+            amount_stack: room.amount_stack,
+            betAmount: room.amount_stack
+          };
           callback({ 
             success: true,
-            room
+            room: responseRoom
           });
         }
       } catch (error) {

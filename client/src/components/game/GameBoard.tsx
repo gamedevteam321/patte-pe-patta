@@ -437,6 +437,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [previousTopCard, setPreviousTopCard] = useState<Card | null>(null);
   const [animationLocked, setAnimationLocked] = useState(false);
   const [displayedCenterCard, setDisplayedCenterCard] = useState<Card | null>(null);
+  // Add state for initial player count
+  const [initialPlayerCount, setInitialPlayerCount] = useState<number>(0);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -1032,6 +1034,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState?.status, isHost, startGame, gameState?.gameStarted]);
 
+  // Add effect to capture initial player count when game starts
+  useEffect(() => {
+    if (gameState?.gameStarted && !initialPlayerCount && currentRoom?.maxPlayers) {
+      setInitialPlayerCount(gameState.players.length);
+    }
+  }, [gameState?.gameStarted, initialPlayerCount]);
+
   // Add effect to track room state changes specifically for auto-start
   useEffect(() => {
     if (!socket) return;
@@ -1526,68 +1535,48 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
-    const playerCount = gameState.players.length;
-    const poolAmount = (currentRoom?.betAmount || 0) * playerCount;
+    const poolAmount = (currentRoom?.betAmount || 0) * gameState.requiredPlayers;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
-          <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
-            Game Over!
-          </h2>
-          <div className="text-xl text-center text-white mb-6">
-            {isUserWinner ? (
-              <span className="text-green-400">Congratulations! You won! 🎉</span>
-            ) : (
-              <span className="text-yellow-400">{winner?.username} won the game!</span>
-            )}
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="bg-[#0B0C10] p-4 sm:p-6 md:p-8 rounded-lg w-full max-w-lg mx-auto my-auto">
+          {/* Game Over Header */}
+          <div className="text-center space-y-2 mb-4">
+            <h2 className="text-2xl sm:text-3xl font-bold text-blue-300">
+              Game Over!
+            </h2>
+            <div className="text-lg sm:text-xl text-white">
+              {isUserWinner ? (
+                <span className="text-green-400">Congratulations! You won! 🎉</span>
+              ) : (
+                <span className="text-yellow-400">{winner?.username} won the game!</span>
+              )}
+            </div>
           </div>
           
           {/* Pool Amount Display */}
-          <div className="bg-[#1A1B1E] p-4 rounded-lg mb-6">
+          <div className="bg-[#1A1B1E] p-3 sm:p-4 rounded-lg mb-4">
             <div className="text-center">
               <div className="text-gray-400 text-sm mb-1">Total Pool Amount</div>
-              <div className="text-2xl font-bold text-green-400">₹{poolAmount}</div>
+              <div className="text-xl sm:text-2xl font-bold text-green-400">₹{poolAmount}</div>
               <div className="text-xs text-gray-500 mt-1">
-                ({playerCount} players × ₹{currentRoom?.betAmount || 0} bet)
+                ({gameState.requiredPlayers} players × ₹{currentRoom?.betAmount || 0} bet)
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {gameState.players.map((player) => (
-              <div
-                key={player.id}
-                className={`p-4 rounded-lg ${player.id === winner?.id
-                  ? "bg-green-500/20 border-2 border-green-500"
-                  : "bg-gray-800/50"
-                  }`}
-              >
-                <div className="text-lg font-semibold text-white">
-                  {player.username}
-                </div>
-                <div className="text-sm text-gray-300">
-                  Cards: {player.cards.length}
-                </div>
-                {player.id === winner?.id && (
-                  <div className="text-sm text-green-400 mt-1">
-                    Won ₹{poolAmount}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+         
+
+          {/* Return to Lobby Button */}
           <div className="flex justify-center">
             <Button
               onClick={() => {
-                // Clean up any game state
                 if (socket) {
                   socket.emit('leave_room', currentRoom?.id);
                 }
-                // Navigate to lobby using React Router
                 navigate('/lobby');
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors w-full sm:w-auto"
             >
               Return to Lobby
             </Button>
@@ -1621,38 +1610,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               )}
             </div>
 
-            {/* Player deck counts scoreboard */}
-
-            <div className="flex items-center space-x-4">
-              <div className="text-sm font-semibold text-white">
-                Card Counts:
-              </div>
-              <div className="flex space-x-2">
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 ${currentPlayer?.id === player.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-200'
-                      }`}
-                  >
-                    <span className="font-medium">{player.username}:</span>
-                    <Badge
-                      variant="outline"
-                      className={`ml-1 ${player.cards.length > 10
-                        ? 'bg-green-900/50 text-green-300 border-green-500/30'
-                        : player.cards.length > 5
-                          ? 'bg-blue-900/50 text-blue-300 border-blue-500/30'
-                          : 'bg-red-900/50 text-red-300 border-red-500/30'
-                        }`}
-                    >
-                      {player.cards.length}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+            {/* Bet Amount */}
+            <div className="text-sm text-gray-300">
+              Bet: ₹{currentRoom?.betAmount || 0}
             </div>
 
+            {/* Pool amount */}
+            <div className="text-sm text-gray-300">
+              Pool: ₹{currentRoom?.betAmount * players.length || 0}
+            </div>
           </div>
 
           {/* Debug info panel */}

@@ -622,7 +622,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                      {formatWaitingTime(waitingTimeLeft)}
                    </div>
                    <div className="text-sm text-gray-400">
-                     {gameState?.players?.length || 1}/{currentRoom?.maxPlayers || 2} players
+                     {gameState?.players?.length || 1}/{gameState?.requiredPlayers || 2} players
                    </div>
                  </div>
                </div>
@@ -641,7 +641,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                  <div>
                    <div className="text-sm text-gray-400">Pool Amount</div>
                    <div className="text-white text-lg">
-                     ₹{(currentRoom?.betAmount || 0) * (currentRoom?.maxPlayers || 2)}
+                     ₹{(currentRoom?.betAmount || 0) * (gameState?.players.length || 1)}
                    </div>
                  </div>
                </div>
@@ -650,7 +650,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                <div className="w-full max-w-xs mt-6">
                  <div className="flex items-center justify-between text-blue-400 mb-2">
                    <span>Players in Room</span>
-                   <span>{gameState?.players?.length || 1}/{currentRoom?.maxPlayers || 2} players joined</span>
+                   <span>{gameState?.players?.length || 1}/{gameState?.requiredPlayers || 2} players joined</span>
                  </div>
                  <div className="space-y-2">
                    {gameState?.players?.map((player) => (
@@ -665,7 +665,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                      </div>
                    ))}
                    {/* Empty slots */}
-                   {Array.from({ length: (currentRoom?.maxPlayers || 2) - (gameState?.players?.length || 1) }).map((_, index) => (
+                   {Array.from({ length: (gameState?.requiredPlayers || 2) - (gameState?.players?.length || 1) }).map((_, index) => (
                      <div
                        key={`empty-${index}`}
                        className="flex items-center gap-2 p-3 rounded bg-[#051b2c]/50"

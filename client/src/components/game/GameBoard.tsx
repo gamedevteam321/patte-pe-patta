@@ -968,13 +968,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           setTimeout(() => {
             setShowCardCollection(false);
             
+            // Clear the center pool and top card
+            setDisplayedCenterCard(null);
+            setLastPlayedCard(null);
+            setCardInMotion(null);
+            
             // If the current user is the one who matched, enable actions immediately
             if (userPlayer && userPlayer.id === data.playerId) {
               setActionsDisabled(false);
             }
             
             setMatchingCards([]);
-            setDisplayedCenterCard(null);
           }, 1500);
         }, 800);
       }, 1000);

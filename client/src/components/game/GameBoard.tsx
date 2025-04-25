@@ -431,6 +431,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showGameTable, setShowGameTable] = useState(true);
   const [disabledPlayers, setDisabledPlayers] = useState<Set<string>>(new Set());
   const [isDebugMode, setIsDebugMode] = useState(false);
+  const [hideTopCard, setHideTopCard] = useState(false);
+  const [animatingNewCard, setAnimatingNewCard] = useState<Card | null>(null);
+  const [showNewCard, setShowNewCard] = useState(false);
+  const [previousTopCard, setPreviousTopCard] = useState<Card | null>(null);
+  const [animationLocked, setAnimationLocked] = useState(false);
+  const [displayedCenterCard, setDisplayedCenterCard] = useState<Card | null>(null);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -968,6 +974,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             }
             
             setMatchingCards([]);
+            setDisplayedCenterCard(null);
           }, 1500);
         }, 800);
       }, 1000);
@@ -1007,6 +1014,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   // Add this effect to handle automatic game start when status changes to 'ready'
   useEffect(() => {
     if (gameState?.status === 'ready' && isHost && !gameState.gameStarted) {
+      console.log("Room is ready, automatically starting game");
       setTimeout(() => {
         startGame();
 
@@ -1025,7 +1033,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (!socket) return;
 
     const handleRoomReadyEvent = ({ roomId }: { roomId: string }) => {
+      console.log("Received room:ready event for room:", roomId);
       if (isHost && !gameState.gameStarted) {
+        console.log("Host detected, starting game");
         setTimeout(() => {
           startGame();
         }, 1500);
@@ -1039,21 +1049,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     };
   }, [socket, isHost, startGame, gameState?.gameStarted]);
 
-  // Add effect to reset shuffle count when it's the player's turn
-  useEffect(() => {
-    if (isUserTurn && userPlayer) {
-      // Reset shuffle count when it's the player's turn
-      userPlayer.shuffleCount = 0;
-    }
-  }, [isUserTurn, userPlayer]);
-
-  // Add this effect to handle player_auto_exited event
+  // Fix toast.error in handlePlayerAutoExited
   useEffect(() => {
     if (!socket) return;
 
     const handlePlayerAutoExited = (data: { playerId: string; username: string; reason: string }) => {
       setDisabledPlayers(prev => new Set(prev).add(data.playerId));
-      toast.error(data.reason);
+      toast({
+        title: "Player removed",
+        description: data.reason,
+        variant: "destructive"
+      });
     };
 
     socket.on('player_auto_exited', handlePlayerAutoExited);
@@ -1062,6 +1068,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       socket.off('player_auto_exited', handlePlayerAutoExited);
     };
   }, [socket]);
+
+  // Add a manual start game check on component mount
+  useEffect(() => {
+    // Check if room is ready when component mounts or gameState changes
+    if (gameState?.status === 'ready' && isHost && !gameState.gameStarted && hasMultiplePlayers) {
+      console.log("Room is ready on mount/update, starting game");
+      setTimeout(() => {
+        startGame();
+      }, 1500);
+    }
+  }, [gameState, isHost, hasMultiplePlayers]);
 
   const handleRefreshGameState = async () => {
     if (!gameState) return;
@@ -1108,8 +1125,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
     return null;
   };
-
-
 
   const handleStartGame = () => {
     if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
@@ -1165,7 +1180,68 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }, 1000);
   };
 
+  const handlePlayCard = (card: Card) => {
+    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
+    
+    // Check if player is disabled
+    if (disabledPlayers.has(userPlayer.id)) {
+      toast({
+        title: "Error",
+        description: "You have been disabled for excessive auto-play",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Lock animations immediately
+    setAnimationLocked(true);
+    
+    // Explicitly capture current top card before animation
+    if (gameState.centralPile && gameState.centralPile.length > 0) {
+      const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+      setDisplayedCenterCard(currentTopCard);
+    }
+
+    setActionsDisabled(true);
+    setLastPlayedCard(card);
+    setCardInMotion(card);
+    setIsAnimating(false); // Don't start appear animation yet
+
+    // After animation completes, update game state
+    setTimeout(() => {
+      if (socket && currentRoom && userPlayer) {
+        // Send play event to server with isHitButton flag
+        playCard(userPlayer.id, { ...card, isHitButton: true });
+
+        // Re-enable actions after a delay
+        setTimeout(() => {
+          // Now show the new card with appear animation
+          setDisplayedCenterCard(card);
+          setIsAnimating(true);
+          setActionsDisabled(false);
+          
+          // Reset animation state after a short delay
+          setTimeout(() => {
+            setIsAnimating(false);
+            setAnimationLocked(false);
+          }, 500);
+        }, 1000);
+      }
+    }, 500);
+  };
+
   const animateCardToPool = (card: Card, startPosition: { x: number, y: number }, endPosition: { x: number, y: number }) => {
+    // Lock animations to prevent updates
+    setAnimationLocked(true);
+
+    // Capture the current card to display during animation
+    // This is critically important - we save what's currently displayed before any animation
+    //if (gameState.centralPile && gameState.centralPile.length > 0) {
+      //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+      // Explicitly set what card to display during animation - the previous one
+      //setDisplayedCenterCard(currentTopCard);
+    //}
+    
     // Create card element for animation
     const cardElement = document.createElement('div');
     cardElement.className = 'card-travel';
@@ -1197,37 +1273,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       cardElement.style.top = `${endPosition.y}px`;
     }, 10);
 
-    // After animation completes, remove the animated card
+    // After animation completes, update state and clean up
     setTimeout(() => {
+      // Clean up animation elements first
       ReactDOM.unmountComponentAtNode(cardContent);
       document.body.removeChild(cardElement);
-    }, 500);
-  };
+      
+      // Now show the new card with appear animation
+      setDisplayedCenterCard(card);
+      setIsAnimating(true);
 
-  const handlePlayCard = (card: Card) => {
-    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
-    
-    // Check if player is disabled
-    if (disabledPlayers.has(userPlayer.id)) {
-      toast.error('You have been disabled for excessive auto-play');
-      return;
-    }
-
-    setActionsDisabled(true);
-    setLastPlayedCard(card);
-    setCardInMotion(card);
-
-    // After animation completes, update game state
-    setTimeout(() => {
-      if (socket && currentRoom && userPlayer) {
-        // Send play event to server with isHitButton flag
-        playCard(userPlayer.id, { ...card, isHitButton: true });
-
-        // Re-enable actions after a delay
-        setTimeout(() => {
-          setActionsDisabled(false);
-        }, 1000);
-      }
+      // Reset animation state after a short delay
+      setTimeout(() => {
+        setIsAnimating(false);
+        setAnimationLocked(false);
+      }, 500);
     }, 500);
   };
 
@@ -1327,6 +1387,57 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
+  // Update the center area display with simpler logic
+  const renderCenterArea = () => {
+    if (gameState.centralPile && gameState.centralPile.length > 0) {
+      // Simply use the displayedCenterCard state which we explicitly control during animation
+      const cardToShow = displayedCenterCard || gameState.centralPile[gameState.centralPile.length - 1];
+      
+      return (
+        <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
+          <div className="flex-1 flex flex-col justify-center items-center">
+            <div className="relative">
+              <PlayingCard
+                card={cardToShow}
+                className={isAnimating ? 'card-appear' : ''}
+              />
+
+              <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
+                {gameState.centralPile.length}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 mb-1 text-center">
+            <div className="bg-blue-900/50 p-2 rounded text-white">
+              Top Card: {cardToShow.value} of {cardToShow.suit}
+            </div>
+            {lastPlayedCard && currentPlayer && (
+              <div className="mt-1 text-gray-300 text-sm">
+                Played by: {currentPlayer.username}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="center-empty-pool">
+          {cardInMotion ? (
+            <div className="card-appear">
+              <PlayingCard card={cardInMotion} />
+            </div>
+          ) : (
+            <>
+              <div className="text-gray-300 text-lg italic mb-4">Empty Pool</div>
+              <div className="text-white text-xs">No cards in pool</div>
+            </>
+          )}
+        </div>
+      );
+    }
+  };
+
   // Update the matching cards display component
   const renderMatchingCards = () => {
     if (!showMatchingCards || matchingCards.length < 2) return null;
@@ -1388,6 +1499,25 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       };
     }
   }, [socket]);
+
+  // Track central pile changes to store the previous top card, but respect animation lock
+  useEffect(() => {
+    if (!animationLocked && gameState.centralPile && gameState.centralPile.length > 0) {
+      const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+      
+      // Only update if we're not in the middle of an animation
+      if (!animatingNewCard) {
+        setPreviousTopCard(currentTopCard);
+      }
+    }
+  }, [gameState.centralPile, animatingNewCard, animationLocked]);
+
+  // Initialize displayed center card from game state
+  useEffect(() => {
+    if (!animationLocked && gameState.centralPile && gameState.centralPile.length > 0) {
+      setDisplayedCenterCard(gameState.centralPile[gameState.centralPile.length - 1]);
+    }
+  }, [gameState.centralPile, animationLocked]);
 
   if (gameState.isGameOver) {
     const winner = gameState.winner;
@@ -1713,45 +1843,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
               {/* Center game area */}
               <div className="center-area flex items-center justify-center">
-                {gameState.centralPile && gameState.centralPile.length > 0 ? (
-                  <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
-                    <div className="flex-1 flex flex-col justify-center items-center">
-                      <div className="relative">
-                        <PlayingCard
-                          card={gameState.centralPile[gameState.centralPile.length - 1]}
-                        />
-
-                        <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
-                          {gameState.centralPile.length}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 mb-1 text-center">
-                      <div className="bg-blue-900/50 p-2 rounded text-white">
-                        Top Card: {gameState.centralPile[gameState.centralPile.length - 1].value} of {gameState.centralPile[gameState.centralPile.length - 1].suit}
-                      </div>
-                      {lastPlayedCard && currentPlayer && (
-                        <div className="mt-1 text-gray-300 text-sm">
-                          Played by: {currentPlayer.username}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="center-empty-pool">
-                    {cardInMotion ? (
-                      <div className="card-appear">
-                        <PlayingCard card={cardInMotion} />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="text-gray-300 text-lg italic mb-4">Empty Pool</div>
-                        <div className="text-white text-xs">No cards in pool</div>
-                      </>
-                    )}
-                  </div>
-                )}
+                {renderCenterArea()}
               </div>
 
               {/* Right player */}

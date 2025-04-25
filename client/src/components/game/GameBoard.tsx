@@ -329,7 +329,7 @@ const styles = `
     border-radius: 6px;
     padding: 20px;
     width: 100%;
-    min-height: 300px;
+    min-height: 200px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -599,7 +599,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
         if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
-          
+
           // Hide game table UI and stop all game activities
           setShowGameTable(false);
           setActionsDisabled(true);
@@ -609,23 +609,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           setDistributionComplete(true);
           setGameTimer(null);
           setTurnTimer(null);
-          
+
           // Find player with maximum cards
-          const maxCardsPlayer = gameState.players.reduce((prev, current) => 
+          const maxCardsPlayer = gameState.players.reduce((prev, current) =>
             (prev.cards.length > current.cards.length) ? prev : current
           );
-          
+
           // Update game state
           if (socket) {
-            socket.emit('end_game', { 
+            socket.emit('end_game', {
               roomId: currentRoom?.id,
               winnerId: maxCardsPlayer.id,
               reason: 'time_up'
             });
           }
-          
+
           endGame(maxCardsPlayer.id);
-          
+
           // Show toast notification
           toast({
             title: "Time's Up!",
@@ -868,59 +868,59 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     const handleCardMatch = (data: { playerId: string, cards: Card[] }) => {
       // Find the matching cards (the last card played and its match)
       const matchedCard = data.cards[data.cards.length - 1];
-      const matchingCard = data.cards.find(card =>
-        card.id !== matchedCard.id && card.value === matchedCard.value
-      );
+      const matchingCard = data.cards[data.cards.length - 2];
+      if (matchedCard && matchingCard && matchedCard.value === matchingCard.value) {
 
-      // First show matching cards
-      setMatchingCards([matchedCard, matchingCard].filter(Boolean));
-      setShowMatchingCards(true);
-      setActionsDisabled(true);
+        // First show matching cards
+        setMatchingCards([matchedCard, matchingCard].filter(Boolean));
+        setShowMatchingCards(true);
+        setActionsDisabled(true);
 
-      // Save the matched cards data
-      setMatchedCards(data.cards);
-      setLastMatchPlayer(data.playerId);
+        // Save the matched cards data
+        setMatchedCards(data.cards);
+        setLastMatchPlayer(data.playerId);
 
-      // Show matching cards for 1 second
-      setTimeout(() => {
-        setShowMatchingCards(false);
-        setShowMatchAnimation(true);
-
-        // Toast notification
-        const matchPlayer = players.find(p => p.id === data.playerId);
-        if (matchPlayer) {
-          toast({
-            title: `Match!`,
-            description: `${matchPlayer.username} matched ${matchedCard.value} of ${matchedCard.suit} with ${matchingCard?.value} of ${matchingCard?.suit}!`,
-            variant: "default",
-            duration: 3000,
-            className: "top-0"
-          });
-        }
-
-        // Show match animation for 0.8 seconds
+        // Show matching cards for 1 second
         setTimeout(() => {
-          setShowMatchAnimation(false);
-          setShowCardCollection(true);
+          setShowMatchingCards(false);
+          setShowMatchAnimation(true);
 
-          // Show card collection for 1.5 seconds
+          // Toast notification
+          const matchPlayer = players.find(p => p.id === data.playerId);
+          if (matchPlayer) {
+            toast({
+              title: `Match!`,
+              description: `${matchPlayer.username} matched ${matchedCard.value} of ${matchedCard.suit} with ${matchingCard?.value} of ${matchingCard?.suit}!`,
+              variant: "default",
+              duration: 3000,
+              className: "top-0"
+            });
+          }
+
+          // Show match animation for 0.8 seconds
           setTimeout(() => {
-            setShowCardCollection(false);
-            
-            // Clear the center pool and top card
-            setDisplayedCenterCard(null);
-            setLastPlayedCard(null);
-            setCardInMotion(null);
-            
-            // If the current user is the one who matched, enable actions immediately
-            if (userPlayer && userPlayer.id === data.playerId) {
-              setActionsDisabled(false);
-            }
-            
-            setMatchingCards([]);
-          }, 1500);
-        }, 800);
-      }, 1000);
+            setShowMatchAnimation(false);
+            setShowCardCollection(true);
+
+            // Show card collection for 1.5 seconds
+            setTimeout(() => {
+              setShowCardCollection(false);
+
+              // Clear the center pool and top card
+              setDisplayedCenterCard(null);
+              setLastPlayedCard(null);
+              setCardInMotion(null);
+
+              // If the current user is the one who matched, enable actions immediately
+              if (userPlayer && userPlayer.id === data.playerId) {
+                setActionsDisabled(false);
+              }
+
+              setMatchingCards([]);
+            }, 1500);
+          }, 800);
+        }, 1000);
+      }
     };
 
     socket.on('card_match', handleCardMatch);
@@ -976,7 +976,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (gameState?.gameStarted && !initialPlayerCount) {
       // Set initial player count to the number of players when game starts
       setInitialPlayerCount(gameState.players.length);
-      
+
       // Debug log to verify the count
       console.log('Setting initial player count:', {
         playerCount: gameState.players.length,
@@ -1139,7 +1139,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const handlePlayCard = (card: Card) => {
     if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
-    
+
     // Check if player is disabled
     if (disabledPlayers.has(userPlayer.id)) {
       toast({
@@ -1152,13 +1152,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     // Lock animations immediately
     setAnimationLocked(true);
-    
+
     // Explicitly capture current top card before animation
     //if (gameState.centralPile && gameState.centralPile.length > 0) {
-      //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-      //setDisplayedCenterCard(currentTopCard);
+    //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+    //setDisplayedCenterCard(currentTopCard);
     //}
-    
+
     setActionsDisabled(true);
     setLastPlayedCard(card);
     setCardInMotion(card);
@@ -1176,7 +1176,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           setDisplayedCenterCard(card);
           //setIsAnimating(true);
           setActionsDisabled(false);
-          
+
           // Reset animation state after a short delay
           setTimeout(() => {
             setIsAnimating(false);
@@ -1194,11 +1194,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Capture the current card to display during animation
     // This is critically important - we save what's currently displayed before any animation
     //if (gameState.centralPile && gameState.centralPile.length > 0) {
-      //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-      // Explicitly set what card to display during animation - the previous one
-      //setDisplayedCenterCard(currentTopCard);
+    //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
+    // Explicitly set what card to display during animation - the previous one
+    //setDisplayedCenterCard(currentTopCard);
     //}
-    
+
     // Create card element for animation
     const cardElement = document.createElement('div');
     cardElement.className = 'card-travel';
@@ -1235,7 +1235,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // Clean up animation elements first
       ReactDOM.unmountComponentAtNode(cardContent);
       document.body.removeChild(cardElement);
-      
+
       // Now show the new card with appear animation
       setDisplayedCenterCard(card);
       //setIsAnimating(true);
@@ -1349,15 +1349,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (gameState.centralPile && gameState.centralPile.length > 0) {
       // Add null check for cardToShow
       const cardToShow = hideTopCard ? null : (displayedCenterCard || null);
-      
+
       return (
-        <div className="bg-[#004080] p-4 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[300px]">
+        <div className="bg-[#004080] p-2 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[200px]">
           <div className="flex-1 flex flex-col justify-center items-center">
             {cardToShow && (  // Add conditional rendering
               <div className="relative">
                 <PlayingCard
                   card={cardToShow}
-                  
+
                 />
                 <div className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 z-10">
                   {gameState.centralPile.length}
@@ -1466,9 +1466,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   useEffect(() => {
     if (!animationLocked && gameState.centralPile && gameState.centralPile.length > 0) {
       const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-      
+
       // Only update if we're not in the middle of an animation
-      if (!animatingNewCard ) {
+      if (!animatingNewCard) {
         setPreviousTopCard(currentTopCard);
       }
     }
@@ -1522,7 +1522,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               )}
             </div>
 
-           
+
 
             {/* Pool amount using initialPlayerCount */}
             <div className="text-sm text-gray-300 bg-green-900/70 p-2 rounded-lg">

@@ -1512,23 +1512,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 </span>
               </div>
               <div className="h-4 w-px bg-gray-600" />
-              <div className="text-sm text-gray-300">
+              <div className="text-sm text-gray-300 bg-blue-900/70 p-2 rounded-lg">
                 Players: {players.length}/{gameState.requiredPlayers}
               </div>
               {gameTimer !== null && (
-                <div className="text-sm text-gray-300">
+                <div className="text-sm text-gray-300 bg-blue-900/70 p-2 rounded-lg">
                   Time: {formatTime(gameTimer)}
                 </div>
               )}
             </div>
 
-            {/* Bet Amount */}
-            <div className="text-sm text-gray-300">
-              Bet: ₹{currentRoom?.betAmount || 0}
-            </div>
+           
 
             {/* Pool amount using initialPlayerCount */}
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-gray-300 bg-green-900/70 p-2 rounded-lg">
               Pool: ₹{(currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length)}
             </div>
           </div>

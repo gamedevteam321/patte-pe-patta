@@ -8,6 +8,7 @@ import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, Use
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 import ReactDOM from 'react-dom';
+import GameOverPanel from './GameOverPanel';
 
 // Add these animation styles
 const styles = `
@@ -599,10 +600,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         if (remaining <= 0 && gameState && !gameState.isGameOver) {
           clearInterval(interval);
           
-          // Hide game table UI
+          // Hide game table UI and stop all game activities
           setShowGameTable(false);
-          
-          // Stop all game activities
           setActionsDisabled(true);
           setIsPlayingCard(false);
           setCardInMotion(null);
@@ -616,7 +615,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             (prev.cards.length > current.cards.length) ? prev : current
           );
           
-          // Update game state to stopped
+          // Update game state
           if (socket) {
             socket.emit('end_game', { 
               roomId: currentRoom?.id,
@@ -625,56 +624,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             });
           }
           
-          // End the game with the player who has most cards
           endGame(maxCardsPlayer.id);
           
-          // Exit all players from the game
-          if (socket) {
-            socket.emit('leave_room', currentRoom?.id);
-          }
-
-          // Show game over screen with winner
-          const gameOverScreen = (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-[#0B0C10] p-8 rounded-lg max-w-md w-full mx-4">
-                <h2 className="text-3xl font-bold text-center text-blue-300 mb-4">
-                  Time's Up! Game Over!
-                </h2>
-                <div className="text-xl text-center text-white mb-6">
-                  <span className="text-green-400">{maxCardsPlayer.username} wins with {maxCardsPlayer.cards.length} cards! 🎉</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {gameState.players.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`p-4 rounded-lg ${player.id === maxCardsPlayer.id
-                        ? "bg-green-500/20 border-2 border-green-500"
-                        : "bg-gray-800/50"
-                        }`}
-                    >
-                      <div className="text-lg font-semibold text-white">
-                        {player.username}
-                      </div>
-                      <div className="text-sm text-gray-300">
-                        Cards: {player.cards.length}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-center">
-                  <Button
-                    onClick={() => {
-                      navigate('/lobby');
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2"
-                  >
-                    Return to Lobby
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-
           // Show toast notification
           toast({
             title: "Time's Up!",
@@ -683,26 +634,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             duration: 5000,
             className: "top-0"
           });
-
-          // Show game over screen
-          const gameOverContainer = document.createElement('div');
-          gameOverContainer.id = 'game-over-screen';
-          document.body.appendChild(gameOverContainer);
-          ReactDOM.render(gameOverScreen, gameOverContainer);
         }
       }, 1000);
 
-      return () => {
-        clearInterval(interval);
-        // Clean up game over screen if it exists
-        const gameOverScreen = document.getElementById('game-over-screen');
-        if (gameOverScreen) {
-          ReactDOM.unmountComponentAtNode(gameOverScreen);
-          gameOverScreen.remove();
-        }
-      };
+      return () => clearInterval(interval);
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame, socket, currentRoom, navigate]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame, socket, currentRoom]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.turnEndTime) {
@@ -1034,12 +971,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState?.status, isHost, startGame, gameState?.gameStarted]);
 
-  // Add effect to capture initial player count when game starts
+  // Update the effect to set initialPlayerCount when game starts
   useEffect(() => {
-    if (gameState?.gameStarted && !initialPlayerCount && currentRoom?.maxPlayers) {
+    if (gameState?.gameStarted && !initialPlayerCount) {
+      // Set initial player count to the number of players when game starts
       setInitialPlayerCount(gameState.players.length);
+      
+      // Debug log to verify the count
+      console.log('Setting initial player count:', {
+        playerCount: gameState.players.length,
+        players: gameState.players
+      });
     }
-  }, [gameState?.gameStarted, initialPlayerCount]);
+  }, [gameState?.gameStarted, gameState?.players, initialPlayerCount]);
 
   // Add effect to track room state changes specifically for auto-start
   useEffect(() => {
@@ -1212,7 +1156,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Explicitly capture current top card before animation
     if (gameState.centralPile && gameState.centralPile.length > 0) {
       const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-      setDisplayedCenterCard(currentTopCard);
+      //setDisplayedCenterCard(currentTopCard);
     }
 
     setActionsDisabled(true);
@@ -1535,54 +1479,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
-    const poolAmount = (currentRoom?.betAmount || 0) * gameState.requiredPlayers;
+    const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length);
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-        <div className="bg-[#0B0C10] p-4 sm:p-6 md:p-8 rounded-lg w-full max-w-lg mx-auto my-auto">
-          {/* Game Over Header */}
-          <div className="text-center space-y-2 mb-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-blue-300">
-              Game Over!
-            </h2>
-            <div className="text-lg sm:text-xl text-white">
-              {isUserWinner ? (
-                <span className="text-green-400">Congratulations! You won! 🎉</span>
-              ) : (
-                <span className="text-yellow-400">{winner?.username} won the game!</span>
-              )}
-            </div>
-          </div>
-          
-          {/* Pool Amount Display */}
-          <div className="bg-[#1A1B1E] p-3 sm:p-4 rounded-lg mb-4">
-            <div className="text-center">
-              <div className="text-gray-400 text-sm mb-1">Total Pool Amount</div>
-              <div className="text-xl sm:text-2xl font-bold text-green-400">₹{poolAmount}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                ({gameState.requiredPlayers} players × ₹{currentRoom?.betAmount || 0} bet)
-              </div>
-            </div>
-          </div>
-
-         
-
-          {/* Return to Lobby Button */}
-          <div className="flex justify-center">
-            <Button
-              onClick={() => {
-                if (socket) {
-                  socket.emit('leave_room', currentRoom?.id);
-                }
-                navigate('/lobby');
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors w-full sm:w-auto"
-            >
-              Return to Lobby
-            </Button>
-          </div>
-        </div>
-      </div>
+      <GameOverPanel
+        gameState={gameState}
+        currentRoom={currentRoom}
+        userId={userId}
+        socket={socket}
+        initialPlayerCount={initialPlayerCount || gameState.players.length}
+        reason={gameTimer === 0 ? 'time_up' : 'normal'}
+      />
     );
   }
 
@@ -1615,9 +1522,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               Bet: ₹{currentRoom?.betAmount || 0}
             </div>
 
-            {/* Pool amount */}
+            {/* Pool amount using initialPlayerCount */}
             <div className="text-sm text-gray-300">
-              Pool: ₹{currentRoom?.betAmount * players.length || 0}
+              Pool: ₹{(currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length)}
             </div>
           </div>
 

@@ -623,7 +623,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               reason: 'time_up'
             });
           }
-
+          // Set game over state immediately
+          gameState.isGameOver = true;
+          gameState.winner = maxCardsPlayer;
           endGame(maxCardsPlayer.id);
 
           // Show toast notification
@@ -631,7 +633,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             title: "Time's Up!",
             description: `${maxCardsPlayer.username} wins with ${maxCardsPlayer.cards.length} cards!`,
             variant: "default",
-            duration: 5000,
+            duration: 1000,
             className: "top-0"
           });
         }
@@ -691,7 +693,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               title: "Player removed",
               description: `${player.username} was removed for inactivity`,
               variant: "destructive",
-              duration: 3000,
+              duration: 1000,
               className: "top-0"
             });
           }
@@ -892,7 +894,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               title: `Match!`,
               description: `${matchPlayer.username} matched ${matchedCard.value} of ${matchedCard.suit} with ${matchingCard?.value} of ${matchingCard?.suit}!`,
               variant: "default",
-              duration: 3000,
+              duration: 1000,
               className: "top-0"
             });
           }
@@ -964,7 +966,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         toast({
           title: "Starting game",
           description: "Game is starting automatically...",
-          duration: 3000,
+          duration: 1000,
           className: "top-0"
         });
       }, 1500); // Short delay for visual feedback
@@ -1093,7 +1095,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     toast({
       title: "Starting game",
       description: "Initializing game state...",
-      duration: 3000,
+      duration: 1000,
       className: "top-0"
     });
   };

@@ -174,7 +174,9 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           setIsAutoStarting(true);
           // Add a short delay to make sure all clients are ready
           setTimeout(() => {
-            socket.emit('start_game', roomId);
+            if(gameState?.status === 'waiting') {
+              socket.emit('start_game', roomId);
+            }
           }, 2000);
         } else if (waitingTimeExpired && updatedRoom.players[0]?.id === socket.id) {
           // If timer expired and current player is host, they can start the game
@@ -206,10 +208,10 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
         // Check if room is now full
         const isNowFull = updatedRoom.players.length >= updatedRoom.gameState.requiredPlayers;
-        if (isNowFull) {
+        if (isNowFull && gameState?.status === 'waiting') {
           setIsAutoStarting(true);
           setTimeout(() => {
-            socket.emit('start_game', roomId);
+           socket.emit('start_game', roomId);
           }, 2000);
         }
       }
@@ -217,7 +219,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
     // Handle when room is ready to start
     const handleRoomReady = (data: { roomId: string }) => {
-      if (data.roomId === roomId) {
+      if (data.roomId === roomId && gameState?.status === 'waiting') {
         setIsAutoStarting(true);
         // Add a short delay before starting
         setTimeout(() => {
@@ -290,7 +292,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
         setWaitingTimeLeft(newTime);
         
         // Check if timer has expired and there are players in the room
-        if (newTime === 0 && currentRoom?.players && currentRoom.players.length > 0) {
+        if (gameState?.status === 'waiting' && newTime === 0 && currentRoom?.players && currentRoom.players.length > 0) {
           socket?.emit('start_game', currentRoom.id);
         }
       }, 1000);

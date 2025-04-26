@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -56,12 +55,13 @@ export default {
         game: {
           background: "#0B0C10",
           card: "#0a4b76", // Updated to a richer blue for the center area
-          green: "#25d366",
+          green: "#00A649",
           blue: "#0047ab", // Updated to royal blue
           yellow: "#ffd700",
           red: "#ff3b30",
-          cyan: "#0047ab" // Also updated to royal blue
-        }
+          cyan: "#1475E1"
+        },
+        'blue': '#1A2C38'
       },
       borderRadius: {
         lg: "var(--radius)",

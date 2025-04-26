@@ -47,11 +47,11 @@ const Login = () => {
 
   return (
     <Layout showNav={false}>
-      <div className="container max-w-md mx-auto px-4 py-8">
-        <Card className="glass-panel border-white/10">
+      <div className="container flex items-center justify-center min-h-screen max-w-md mx-auto px-4 py-8 bg-blue">
+        <Card className="glass-panel border-white/50">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center text-game-cyan">Login</CardTitle>
-            <CardDescription className="text-center text-gray-400">
+            <CardTitle className="text-2xl font-bold text-center text-white">Login</CardTitle>
+            <CardDescription className="text-center text-white">
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
@@ -87,7 +87,7 @@ const Login = () => {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-game-green hover:bg-game-green/80 text-black"
+                className="w-full bg-game-blue hover:bg-game-green/80 text-black"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -96,7 +96,7 @@ const Login = () => {
                     Logging in...
                   </div>
                 ) : (
-                  <div className="flex items-center">
+                  <div className="text-white flex items-center">
                     <LogIn className="mr-2 h-4 w-4" />
                     Login
                   </div>
@@ -105,9 +105,9 @@ const Login = () => {
             </form>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-white">
               Don't have an account?{" "}
-              <Link to="/register" className="text-game-cyan hover:underline">
+              <Link to="/register" className="text-game-yellow hover:underline">
                 Register here
               </Link>
             </p>

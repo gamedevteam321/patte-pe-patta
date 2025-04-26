@@ -37,16 +37,16 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
+    <div className="min-h-screen bg-blue">
       {showNav && (
-        <nav className="bg-black/50 backdrop-blur-sm border-b border-white/10">
+        <nav className="bg-blue backdrop-blur-sm border-b border-white/90">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
                 <Button
                   variant="ghost"
                   onClick={() => navigate("/")}
-                  className="text-game-cyan hover:text-game-cyan/80"
+                  className="text-white hover:text-game-cyan/80"
                 >
                   <Home className="h-5 w-5" />
                 </Button>
@@ -59,7 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                     <Button
                       variant="ghost"
                       onClick={() => setIsMenuOpen(!isMenuOpen)}
-                      className="text-gray-400 hover:text-white"
+                      className="text-white hover:text-blue"
                     >
                       <Menu className="h-5 w-5" />
                     </Button>
@@ -68,7 +68,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                       <Button
                         variant="ghost"
                         onClick={() => navigate("/profile")}
-                        className="text-gray-400 hover:text-white"
+                        className="text-white hover:text-blue"
                       >
                         <User className="h-5 w-5 mr-2" />
                         {user?.username || "Profile"}
@@ -76,7 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                       <Button
                         variant="ghost"
                         onClick={() => navigate("/transactions")}
-                        className="text-gray-400 hover:text-white"
+                        className="text-white hover:text-blue"
                       >
                         <History className="h-5 w-5 mr-2" />
                         Transactions
@@ -84,7 +84,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                       <Button
                         variant="ghost"
                         onClick={handleLogout}
-                        className="text-gray-400 hover:text-white"
+                        className="text-white hover:text-blue"
                       >
                         <LogOut className="h-5 w-5 mr-2" />
                         Logout
@@ -99,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                   <Button
                     variant="ghost"
                     onClick={() => navigate("/login")}
-                    className="text-gray-400 hover:text-white"
+                    className="text-white hover:text-blue"
                   >
                     Login
                   </Button>

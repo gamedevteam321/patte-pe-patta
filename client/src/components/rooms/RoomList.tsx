@@ -204,12 +204,13 @@ const RoomList: React.FC<RoomListProps> = ({
     <div className="space-y-4">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Available Rooms</h2>
-          <div className="flex items-center gap-4">
+          <h2 className="text-white text-2xl font-bold">Available Rooms</h2>
+          <div className="flex items-center gap-4 text-white">
             <ToggleGroup
               type="single"
               value={viewMode}
               onValueChange={(value) => setViewMode(value as 'list' | 'grid')}
+              className="[&>button[data-state=on]]:bg-game-blue [&>button[data-state=on]]:text-white [&>button[data-state=on]>span>svg]:text-white"
             >
               <ToggleGroupItem value="list" aria-label="List view">
                 <List className="h-4 w-4" />
@@ -235,29 +236,29 @@ const RoomList: React.FC<RoomListProps> = ({
               type="single"
               value={filter}
               onValueChange={(value) => setFilter(value as 'all' | 'public' | 'private' | 'my')}
-              className="flex-wrap"
+              className="flex-wrap [&>button[data-state=on]]:bg-game-blue [&>button[data-state=on]]:text-white [&>button[data-state=on]>span>svg]:text-white"
             >
               <ToggleGroupItem value="all" aria-label="All rooms">
-                <span className="flex items-center gap-2">
+                <span className="text-white flex items-center gap-2">
                   <List className="h-4 w-4" />
                   All
                 </span>
               </ToggleGroupItem>
               <ToggleGroupItem value="public" aria-label="Public rooms">
-                <span className="flex items-center gap-2">
+                <span className="text-white flex items-center gap-2">
                   <Globe className="h-4 w-4" />
                   Public
                 </span>
               </ToggleGroupItem>
               <ToggleGroupItem value="private" aria-label="Private rooms">
-                <span className="flex items-center gap-2">
+                <span className="text-white flex items-center gap-2">
                   <Lock className="h-4 w-4" />
                   Private
                 </span>
               </ToggleGroupItem>
               {user && (
                 <ToggleGroupItem value="my" aria-label="My rooms">
-                  <span className="flex items-center gap-2">
+                  <span className="text-white flex items-center gap-2">
                     <Home className="h-4 w-4" />
                     My Rooms
                   </span>
@@ -280,7 +281,7 @@ const RoomList: React.FC<RoomListProps> = ({
       ) : viewMode === 'list' ? (
         <div className="space-y-4">
           {filteredRooms.map((room) => (
-            <Card key={room.id} className="hover:bg-accent/50 transition-colors">
+            <Card key={room.id} className="hover:bg-black/10 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">

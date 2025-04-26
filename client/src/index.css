@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@400;600;700&display=swap');
 
 @tailwind base;
@@ -56,7 +55,7 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-[#0B0C10] border border-[#25d366]/20 rounded-lg shadow-md;
+    @apply bg-[#213743] border border-white/50 rounded-lg shadow-md;
   }
   
   .card-back {

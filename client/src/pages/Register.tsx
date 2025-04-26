@@ -56,14 +56,14 @@ const Register = () => {
     <Layout showNav={false}>
       <div className="container max-w-md mx-auto px-4 py-16">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 text-game-cyan text-glow">Satta Kings Arena</h1>
-          <p className="text-gray-400">Create a new account</p>
+          <h1 className="text-4xl font-bold mb-2 text-white text-glow">Patte pe Patta</h1>
+          <p className="text-white">Create a new account</p>
         </div>
 
         <Card className="glass-panel border-white/10">
           <CardHeader>
             <CardTitle className="text-game-magenta">Register</CardTitle>
-            <CardDescription>Create an account and get 1000 free coins</CardDescription>
+            
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit}>
@@ -119,7 +119,7 @@ const Register = () => {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-game-magenta text-black hover:bg-game-magenta/80"
+                  className="bg-game-magenta text-white hover:bg-game-magenta/80"
                 >
                   {isLoading ? "Creating account..." : "Register"}
                   <UserPlus className="ml-2 h-4 w-4" />
@@ -128,14 +128,14 @@ const Register = () => {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <div className="text-sm text-gray-400 text-center">
+            <div className="text-sm text-white text-center">
               Already have an account?{" "}
-              <Link to="/login" className="text-game-cyan hover:underline">
+              <Link to="/login" className="text-game-yellow hover:underline">
                 Login
               </Link>
             </div>
             <div className="text-sm text-gray-400 text-center">
-              <Link to="/" className="text-game-cyan hover:underline">
+              <Link to="/" className="text-game-yellow hover:underline">
                 Back to Home
               </Link>
             </div>

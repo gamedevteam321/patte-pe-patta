@@ -89,7 +89,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({ trigger }) => {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" className="bg-game-green hover:bg-game-green/80 text-white">
+          <Button variant="outline" className="bg-game-blue hover:bg-game-green/80 text-white">
             <KeyRound className="mr-2 h-4 w-4" />
             Join by Code
           </Button>

@@ -51,8 +51,8 @@ export const BalanceDisplay: React.FC = () => {
                 <span className="balance-amount">{formatCurrency(balance.real)}</span>
             </div> */}
             <div className="balance-section">
-                <span className="balance-label">Balance:</span>
-                <span className="balance-amount">{formatCurrency(balance.demo)}</span>
+                <span className="balance-label text-white">Balance:</span>
+                <span className="balance-amount text-white">{formatCurrency(balance.demo)}</span>
             </div>
         </div>
     );

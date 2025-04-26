@@ -93,7 +93,7 @@ const Lobby: React.FC = () => {
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-[#4169E1]">Game Lobby</h1>
+              <h1 className="text-3xl font-bold text-white">Game Lobby</h1>
               <p className="text-muted-foreground mt-1">
                 Join an existing room or create your own
               </p>
@@ -111,7 +111,7 @@ const Lobby: React.FC = () => {
               <div className="flex flex-row gap-2 w-full max-w-md">
                 <Button
                   onClick={() => navigate("/room/create")}
-                  className="bg-game-green hover:bg-game-green/80 text-white"
+                  className="bg-game-blue hover:bg-game-green/80 text-white"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Create Room
@@ -122,7 +122,7 @@ const Lobby: React.FC = () => {
           </div>
 
           {/* Available Rooms Section */}
-          <div className="bg-[#0B0C10] rounded-lg p-6">
+          <div className=" rounded-lg p-6">
             <RoomList />
           </div>
 

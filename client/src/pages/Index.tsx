@@ -1,99 +1,263 @@
-
-import React from "react";
+import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { PlayCircle, Trophy, Users, Coins } from "lucide-react";
+import { PlayCircle, Coins, Clock, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 400;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const games = [
+    {
+      id: "classic",
+      title: "Patte pe Patta",
+      description: "Classic game mode with standard stakes",
+      icon: <PlayCircle className="h-8 w-8" />,
+      activePlayers: 128
+    },
+    {
+      id: "high-stakes",
+      title: "Patte pe Patta (High Stakes)",
+      description: "Higher stakes, intense gameplay",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "speed",
+      title: "Speed Patte",
+      description: "Fast-paced version with time limits",
+      icon: <PlayCircle className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "tournament",
+      title: "Tournament Mode",
+      description: "Compete in organized tournaments",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "team",
+      title: "Team Battle",
+      description: "Play in teams of 2",
+      icon: <PlayCircle className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "royale",
+      title: "Battle Royale",
+      description: "Last player standing wins",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "practice",
+      title: "Practice Mode",
+      description: "Play against AI",
+      icon: <PlayCircle className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "custom",
+      title: "Custom Rules",
+      description: "Create your own game rules",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "seasonal",
+      title: "Seasonal Events",
+      description: "Limited time special modes",
+      icon: <PlayCircle className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "ranked",
+      title: "Ranked Play",
+      description: "Compete for leaderboard position",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "casual",
+      title: "Casual Play",
+      description: "Relaxed games with friends",
+      icon: <PlayCircle className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    },
+    {
+      id: "challenge",
+      title: "Daily Challenges",
+      description: "Complete daily objectives",
+      icon: <Coins className="h-8 w-8" />,
+      comingSoon: true,
+      activePlayers: 0
+    }
+  ];
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <section className="bg-blue p-4 md:p-8 mb-8 animate-slide-in">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4 text-white text-glow">
-              Patte pe Patta
-            </h1>
-            <p className="text-lg mb-8 text-gray-300">
-              The ultimate multiplayer card game experience with real-time gameplay and coin-based betting
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              {user ? (
-                <Button
-                  className="bg-game-green hover:bg-game-green/80 text-black text-lg py-4 md:py-6 px-6 md:px-8"
-                  onClick={() => navigate("/lobby")}
-                >
-                  <PlayCircle className="mr-2 h-5 md:h-6 w-5 md:w-6" />
-                  Play Now
-                </Button>
-              ) : (
-                <Button
-                  className="bg-game-cyan hover:bg-game-cyan/80 text-white text-lg py-4 md:py-6 px-6 md:px-8"
-                  onClick={() => navigate("/register")}
-                >
-                  Join Now - Get 1000 Free Coins!
-                </Button>
-              )}
+      <div className="w-full">
+        {/* Hero Section */}
+        <div 
+          className="relative w-full h-[60vh] bg-cover bg-center"
+          style={{ backgroundImage: 'url(/hero-bg.png)' }}
+        >
+          <div className="absolute inset-0 bg-black/30">
+            <div className="container mx-auto h-full">
+              <div className="flex items-center h-full">
+                <div className="w-full md:w-1/2 px-4">
+                  <h2 className="text-4xl md:text-6xl font-bold text-white mb-4 text-glow">
+                    Experience the Thrill
+                  </h2>
+                  <p className="text-xl text-gray-200 max-w-2xl mb-8">
+                    Join the ultimate card game experience with real-time multiplayer action
+                  </p>
+                  {!user && (
+                    <div>
+                      <Button
+                        onClick={() => navigate("/register")}
+                        className="bg-game-cyan hover:bg-game-cyan/80 text-white text-lg py-6 px-8 w-full md:w-auto"
+                      >
+                        Register Now
+                      </Button>
+                      <div className="mt-4 pl-7">
+                        <p className="text-gray-400 mb-2">Or sign up with</p>
+                        <div className="flex gap-6">
+                          <button 
+                            className="bg-[#2F4553] hover:bg-[#2F4553]/90 p-2 rounded-md transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,0.5)] active:translate-x-[1px] active:translate-y-[1px]"
+                            onClick={() => navigate("/register")}
+                          >
+                            <img src="/facebook.svg" alt="Facebook" className="w-6 h-6" />
+                          </button>
+                          <button 
+                            className="bg-[#2F4553] hover:bg-[#2F4553]/90 p-2 rounded-md transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,0.5)] active:translate-x-[1px] active:translate-y-[1px]"
+                            onClick={() => navigate("/register")}
+                          >
+                            <img src="/google.svg" alt="Google" className="w-6 h-6" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block w-1/2 h-full relative">
+                  <img 
+                    src="/lady-hero.png" 
+                    alt="Lady Hero" 
+                    className="absolute bottom-0 right-0 h-full object-contain"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
-          <div className="glass-panel p-4 md:p-6 flex flex-col items-center text-center">
-            <Users className="h-10 w-10 md:h-12 md:w-12 mb-3 md:mb-4 text-yellow" />
-            <h2 className="text-white text-lg md:text-xl font-bold mb-2">Multiplayer Rooms</h2>
-            <p className="text-gray-300 text-sm md:text-base">
-              Create or join rooms with 2-4 players and compete for the prize pool
-            </p>
-          </div>
-          
-          <div className="glass-panel p-4 md:p-6 flex flex-col items-center text-center">
-            <Coins className="h-10 w-10 md:h-12 md:w-12 mb-3 md:mb-4 text-yellow" />
-            <h2 className="text-white text-lg md:text-xl font-bold mb-2">Betting System</h2>
-            <p className="text-gray-300 text-sm md:text-base">
-              Place bets with your coins and win big when you beat your opponents
-            </p>
-          </div>
-          
-          <div className="glass-panel p-4 md:p-6 flex flex-col items-center text-center">
-            <Trophy className="h-10 w-10 md:h-12 md:w-12 mb-3 md:mb-4 text-yellow" />
-            <h2 className="text-white text-lg md:text-xl font-bold mb-2">Leaderboards</h2>
-            <p className="text-gray-300 text-sm md:text-base">
-              Track your stats and climb the ranks to become the ultimate champion
-            </p>
           </div>
         </div>
 
-        <section className="glass-panel p-4 md:p-8">
-          <h2 className="text-xl md:text-2xl font-bold mb-4 text-center text-game-magenta">How To Play</h2>
-          <div className="max-w-3xl mx-auto">
-            <div className="mb-6">
-              <h3 className="text-lg md:text-xl font-semibold mb-2 text-white">Game Rules</h3>
-              <ul className="list-disc pl-6 space-y-2 text-gray-300 text-sm md:text-base">
-                <li>Players are dealt an equal number of cards from a standard 52-card deck</li>
-                <li>On your turn, play the top card from your deck to the center pile</li>
-                <li>If your card matches the top card on the pile, you collect all cards in the pile</li>
-                <li>Use the shuffle option once per game to randomize your remaining cards</li>
-                <li>The player with the most cards when the timer ends wins the pot</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg md:text-xl font-semibold mb-2 text-white">Quick Tips</h3>
-              <ul className="list-disc pl-6 space-y-2 text-gray-300 text-sm md:text-base">
-                <li>Watch the timer - you only have 10 seconds per turn</li>
-                <li>Save your shuffle for when you need it most</li>
-                <li>Choose your bet amount wisely based on your coin balance</li>
-              </ul>
+        {/* Game Selection Section */}
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <PlayCircle className="h-6 w-6 text-game-cyan" />
+              Trending Games
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => scroll('left')}
+                className="bg-[#2F4553]/50 hover:bg-[#2F4553] p-2 rounded-md transition-all"
+              >
+                <ChevronLeft className="h-4 w-4 text-white" />
+              </button>
+              <button
+                onClick={() => scroll('right')}
+                className="bg-[#2F4553]/50 hover:bg-[#2F4553] p-2 rounded-md transition-all"
+              >
+                <ChevronRight className="h-4 w-4 text-white" />
+              </button>
             </div>
           </div>
-        </section>
+
+          <div 
+            ref={scrollContainerRef}
+            className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {games.map((game, index) => (
+              <div 
+                key={game.id} 
+                className={`
+                  flex-none w-[200px]
+                  glass-panel rounded-lg overflow-hidden
+                  transition-all duration-300 
+                  ${game.comingSoon ? 'opacity-60' : 'hover:scale-105 hover:shadow-2xl'} 
+                  relative
+                `}
+              >
+                <div className="absolute top-2 left-2 z-10 bg-black/50 rounded px-2 py-1">
+                  <span className="text-white text-sm font-bold">{index + 1}</span>
+                </div>
+                {game.comingSoon && (
+                  <div className="absolute top-2 right-2 z-10 bg-yellow-500/90 rounded px-2 py-1">
+                    <span className="text-black text-xs font-bold">COMING SOON</span>
+                  </div>
+                )}
+                <div className="aspect-[4/3] w-full bg-gradient-to-b from-game-cyan/20 to-blue-900/20 relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {game.icon}
+                  </div>
+                </div>
+                <div className="p-3">
+                  <h3 className="text-white font-bold mb-1 truncate">{game.title}</h3>
+                  <p className="text-gray-400 text-sm mb-2 line-clamp-2 h-10">
+                    {game.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full animate-pulse" 
+                        style={{ backgroundColor: game.comingSoon ? '#666' : '#1FFF20' }} 
+                      />
+                      <span className="text-xs text-gray-400">
+                        {game.activePlayers} playing
+                      </span>
+                    </div>
+                    {!game.comingSoon && (
+                      <button
+                        onClick={() => user ? navigate(`/lobby?game=${game.id}`) : navigate('/register')}
+                        className="text-xs bg-game-cyan hover:bg-game-cyan/80 text-white px-2 py-1 rounded transition-colors"
+                      >
+                        Play
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </Layout>
   );

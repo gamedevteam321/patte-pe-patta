@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,14 +8,14 @@ import { Edit2, Trophy, Award, XCircle } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const avatarOptions = [
-  "/avatars/avatar1.png",
-  "/avatars/avatar2.png",
-  "/avatars/avatar3.png",
-  "/avatars/avatar4.png",
-  "/avatars/avatar5.png",
-  "/avatars/avatar6.png",
-  "/avatars/avatar7.png",
-  "/avatars/avatar8.png",
+  "/avatars/a1.png",
+  "/avatars/a2.png",
+  "/avatars/a3.png",
+  "/avatars/a4.png",
+  "/avatars/a5.png",
+  "/avatars/a6.png",
+  "/avatars/a7.png",
+  "/avatars/a8.png",
 ];
 
 const Profile = () => {
@@ -46,12 +45,12 @@ const Profile = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-center text-game-cyan text-glow">My Profile</h1>
+        <h1 className="text-3xl font-bold mb-8 text-center text-white text-glow">My Profile</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <Card className="glass-panel border-white/10 col-span-1">
             <CardHeader>
-              <CardTitle className="text-game-cyan">Player Info</CardTitle>
+              <CardTitle className="text-white">Player Info</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
               <div className="relative mb-4">
@@ -91,10 +90,7 @@ const Profile = () => {
               <h2 className="text-xl font-bold mt-2">{user.username}</h2>
               <p className="text-muted-foreground mb-4">{user.email}</p>
 
-              <div className="flex items-center justify-center space-x-2 mb-4">
-                <span className="text-lg font-bold text-game-yellow">{user.coins}</span>
-                <span className="text-gray-400">coins</span>
-              </div>
+              
             </CardContent>
           </Card>
 
@@ -123,7 +119,7 @@ const Profile = () => {
                 </div>
               </div>
 
-              <h3 className="text-lg font-semibold mb-4 text-game-green">Achievements</h3>
+              <h3 className="text-lg font-semibold mb-4 text-white">Achievements</h3>
               <div className="space-y-4">
                 <div className="flex items-center p-3 glass-panel">
                   <div className="mr-4 bg-gradient-to-br from-game-cyan to-game-green p-2 rounded-full">
@@ -161,7 +157,7 @@ const Profile = () => {
 
         <div className="mt-8 text-center">
           <Button 
-            className="bg-game-green hover:bg-game-green/80 text-black"
+            className="bg-game-green hover:bg-game-green/80 text-white"
             onClick={() => navigate("/lobby")}
           >
             Play Now

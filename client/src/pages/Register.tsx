@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -77,7 +76,7 @@ const Register = () => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
-                    className="bg-black/50 border-white/20"
+                    className="bg-white border-white/20 text-black"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -89,7 +88,7 @@ const Register = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="bg-black/50 border-white/20"
+                    className="bg-white border-white/20 text-black"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -101,7 +100,7 @@ const Register = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="bg-black/50 border-white/20"
+                    className="bg-white border-white/20 text-black"
                   />
                 </div>
                 <div className="grid gap-2">
@@ -113,13 +112,13 @@ const Register = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="bg-black/50 border-white/20"
+                    className="bg-white border-white/20 text-black"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-game-magenta text-white hover:bg-game-magenta/80"
+                  className="bg-game-blue text-white hover:bg-game-blue/80"
                 >
                   {isLoading ? "Creating account..." : "Register"}
                   <UserPlus className="ml-2 h-4 w-4" />

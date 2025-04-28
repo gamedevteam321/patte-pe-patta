@@ -89,35 +89,35 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({ trigger }) => {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" className="bg-game-blue hover:bg-game-green/80 text-white">
+          <Button variant="outline" className="bg-game-blue hover:bg-game-green text-white">
             <KeyRound className="mr-2 h-4 w-4" />
             Join by Code
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-game-card">
+      <DialogContent className="sm:max-w-[350px] bg-blue border-white">
         <DialogHeader>
-          <DialogTitle className="text-game-green flex items-center text-lg">
+          <DialogTitle className="text-white flex items-center text-lg">
             <KeyRound className="mr-2 h-5 w-5" />
             Join by Room Code
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleJoinRoom} className="space-y-4 mt-4">
-          <div className="space-y-2">
+          <div className="space-y-2 text-white">
             <Label htmlFor="roomCode">Room Code</Label>
             <Input
               id="roomCode"
               placeholder="Enter room code"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
-              className="input-field"
+              className="input-field bg-white text-black"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-2 text-white">
             <Label htmlFor="roomPassword">Password (if required)</Label>
             <Input
               id="roomPassword"
@@ -125,7 +125,7 @@ const JoinRoomDialog: React.FC<JoinRoomDialogProps> = ({ trigger }) => {
               placeholder="Enter room password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
+              className="input-field bg-white text-black focus:ring-white focus:ring-2"
             />
           </div>
           

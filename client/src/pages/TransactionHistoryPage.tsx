@@ -3,7 +3,7 @@ import { useBalance } from '../context/BalanceContext';
 import { TransactionHistory } from '../components/Balance/TransactionHistory';
 import { balanceService } from '../services/api/balance';
 import { BalanceType } from '../types/balance';
-import './TransactionHistoryPage.css';
+import Layout from '../components/Layout';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,60 +62,66 @@ export const TransactionHistoryPage: React.FC = () => {
     };
 
     return (
-        <div className="transaction-history-page text-gray-400">
-            <h1>Transaction History</h1>
-            
-            <div className="filters">
-                <div className="filter-group">
-                    <label htmlFor="balanceType">Balance Type:</label>
-                    <select
-                        id="balanceType"
-                        value={filterType}
-                        onChange={(e) => handleFilterChange(e.target.value as BalanceType | 'all')}
-                    >
-                        <option value="all">All</option>
-                        <option value="demo">Demo</option>
-                        <option value="real">Real</option>
-                    </select>
+        <Layout>
+            <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <h1 className="text-3xl font-bold text-center text-white mb-8">Transaction History</h1>
+                
+                <div className="flex flex-wrap gap-6 mb-8">
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="balanceType" className="text-sm font-medium text-white">Balance Type:</label>
+                        <select
+                            id="balanceType"
+                            value={filterType}
+                            onChange={(e) => handleFilterChange(e.target.value as BalanceType | 'all')}
+                            className="min-w-[200px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                        >
+                            <option value="all">All</option>
+                            <option value="demo">Demo</option>
+                            <option value="real">Real</option>
+                        </select>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="transactionType" className="text-sm font-medium text-white">Transaction Type:</label>
+                        <select
+                            id="transactionType"
+                            value={filterTransactionType}
+                            onChange={(e) => handleTransactionTypeChange(e.target.value)}
+                            className="min-w-[200px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                        >
+                            {transactionTypes.map(type => (
+                                <option key={type} value={type}>
+                                    {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="filter-group">
-                    <label htmlFor="transactionType">Transaction Type:</label>
-                    <select
-                        id="transactionType"
-                        value={filterTransactionType}
-                        onChange={(e) => handleTransactionTypeChange(e.target.value)}
-                    >
-                        {transactionTypes.map(type => (
-                            <option key={type} value={type}>
-                                {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                <TransactionHistory transactions={paginatedTransactions} />
+
+                {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-4 mt-8">
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-black"
+                        >
+                            Previous
+                        </button>
+                        <span className="text-sm text-black">
+                            Page {currentPage} of {totalPages}
+                        </span>
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-black"
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
             </div>
-
-            <TransactionHistory transactions={paginatedTransactions} />
-
-            {totalPages > 1 && (
-                <div className="pagination">
-                    <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                    >
-                        Previous
-                    </button>
-                    <span>
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                    >
-                        Next
-                    </button>
-                </div>
-            )}
-        </div>
+        </Layout>
     );
 }; 

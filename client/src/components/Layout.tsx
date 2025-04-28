@@ -42,14 +42,13 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
         <nav className="bg-blue backdrop-blur-sm border-b border-white/90">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              <div className="flex items-center">
-                <Button
-                  variant="ghost"
+              <div className="flex items-center gap-4">
+                <img 
+                  src="/Logo-new.png" 
+                  alt="Patte pe Patta"
+                  className="h-8 cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => navigate("/")}
-                  className="text-white hover:text-game-cyan/80"
-                >
-                  <Home className="h-5 w-5" />
-                </Button>
+                />
               </div>
 
               {isAuthenticated && (
@@ -99,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                   <Button
                     variant="ghost"
                     onClick={() => navigate("/login")}
-                    className="text-white hover:text-blue"
+                    className="text-white hover:text-white"
                   >
                     Login
                   </Button>

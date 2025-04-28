@@ -1,7 +1,6 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/format';
 import { Transaction } from '../../services/api/balance';
-import './TransactionHistory.css';
 
 interface TransactionHistoryProps {
     transactions: Transaction[];
@@ -9,23 +8,30 @@ interface TransactionHistoryProps {
 
 export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions }) => {
     if (!transactions || transactions.length === 0) {
-        return <div className="transactions-empty">No transactions found</div>;
+        return (
+            <div className="text-center p-5 text-gray-600 bg-gray-50 rounded-md">
+                No transactions found
+            </div>
+        );
     }
 
     return (
-        <div className="transactions-container">
-            <div className="transactions-list">
+        <div className="bg-[#0F212E] relative rounded-lg shadow-sm p-5 max-w-3xl mx-auto my-5">
+            <div className="flex flex-col gap-3">
                 {transactions.map((transaction) => (
-                    <div key={transaction.id} className="transaction-item">
-                        <div className="transaction-info">
-                            <span className="transaction-description">
+                    <div 
+                        key={transaction.id} 
+                        className="flex justify-between items-center p-4 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+                    >
+                        <div className="flex flex-col gap-1">
+                            <span className="font-medium text-white">
                                 {transaction.description}
                             </span>
-                            <span className="transaction-date">
+                            <span className="text-sm text-white">
                                 {new Date(transaction.createdAt).toLocaleDateString()}
                             </span>
                         </div>
-                        <div className={`transaction-amount ${transaction.type}`}>
+                        <div className={`font-bold text-lg ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
                             {transaction.type === 'credit' ? '+' : '-'}
                             {formatCurrency(transaction.amount)}
                         </div>

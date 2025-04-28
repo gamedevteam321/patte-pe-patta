@@ -68,7 +68,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="bg-black/50 border-white/20"
+                  className="bg-white border-white/20 text-black"
                 />
               </div>
               <div className="space-y-2">
@@ -82,7 +82,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="bg-black/50 border-white/20"
+                  className="bg-white border-white/20 text-black"
                 />
               </div>
               <Button

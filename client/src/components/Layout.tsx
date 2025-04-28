@@ -44,6 +44,12 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center gap-4">
                 <img 
+                  src="images/patte_pe_patta.svg" 
+                  alt="Patte pe Patta"
+                  className="h-8 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => navigate("/")}
+                />
+                <img 
                   src="/Logo-new.png" 
                   alt="Patte pe Patta"
                   className="h-8 cursor-pointer hover:opacity-80 transition-opacity"

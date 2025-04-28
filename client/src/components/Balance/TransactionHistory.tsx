@@ -25,14 +25,14 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                     >
                         <div className="flex flex-col gap-1">
                             <span className="font-medium text-white">
-                                {transaction.description}
+                            {Number(transaction.amount) > 0 ? 'credit' : 'debit'}
                             </span>
                             <span className="text-sm text-white">
-                                {new Date(transaction.createdAt).toLocaleDateString()}
+                                {transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString() : 'N/A'}
                             </span>
                         </div>
-                        <div className={`font-bold text-lg ${transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                            {transaction.type === 'credit' ? '+' : '-'}
+                        <div className={`font-bold text-lg ${ Number(transaction.amount) > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {Number(transaction.amount) > 0 ? '+' : ''}
                             {formatCurrency(transaction.amount)}
                         </div>
                     </div>

@@ -14,6 +14,16 @@
             "date": 1745498226493,
             "name": "logs\\balance-2025-04-24.log",
             "hash": "796817abe99e154198e5e94d22e74a170e76955b1b9a41697e6538379367dd85"
+        },
+        {
+            "date": 1745668424941,
+            "name": "logs\\balance-2025-04-26.log",
+            "hash": "ccad7710035fbb0b3bc3b240c1a8a67db2b1f7b699836fb9c10a76a5970b7554"
+        },
+        {
+            "date": 1745813888660,
+            "name": "logs\\balance-2025-04-28.log",
+            "hash": "0f12f338057cd27d1578a4a429594bbed69cb4511a8c1057aa54ab6b7f846bc9"
         }
     ],
     "hashType": "sha256"

@@ -1499,15 +1499,22 @@ export const socketHandler = (io: Server): void => {
                 roomId
               });
               
-              const newBalance = await BalanceService.processGameResult(
+              const newBalance = await BalanceService.processGameResultWithNotification(
                 lastPlayer.userId,
                 true, // isWinner
                 totalPoolAmount,
-                'demo' // balanceType
+                'demo', // balanceType
+                roomId,
+                {
+                  socketId: lastPlayer.id,
+                  totalPlayers: room.players.length,
+                  amountPerPlayer: room.amount_stack
+                }
               );
               
               console.log('Credited pool amount to winner:', {
                 winnerId: lastPlayer.userId,
+                socketId: lastPlayer.id,
                 amount: totalPoolAmount,
                 newBalance,
                 roomId
@@ -1516,6 +1523,7 @@ export const socketHandler = (io: Server): void => {
               // Emit balance update to all clients in the room
               io.to(roomId).emit('balance:update', {
                 userId: lastPlayer.userId,
+                socketId: lastPlayer.id,
                 demo: newBalance,
                 real: 0
               });
@@ -1524,6 +1532,7 @@ export const socketHandler = (io: Server): void => {
               const winnerSocket = io.sockets.sockets.get(lastPlayer.id);
               if (winnerSocket) {
                 winnerSocket.emit('balance:update', {
+                  userId: lastPlayer.userId,
                   demo: newBalance,
                   real: 0
                 });
@@ -1698,21 +1707,29 @@ export const socketHandler = (io: Server): void => {
 
         // Use the winner from gameState instead of trying to find them again
         const winner = room.gameState.winner;
+        console.log('end_game Winner:', winner);
         if (winner) {
           // Calculate total pool amount (bet amount * number of players)
           const totalPoolAmount = room.amount_stack * room.players.length;
           console.log('Total pool amount:', totalPoolAmount);
           // Credit the pool amount to the winner
           try {
-            const newBalance = await BalanceService.processGameResult(
+            const newBalance = await BalanceService.processGameResultWithNotification(
               winner.userId,
               true, // isWinner
               totalPoolAmount,
-              'demo' // balanceType
+              'demo', // balanceType
+              roomId,
+              {
+                socketId: winner.id,
+                totalPlayers: room.players.length,
+                amountPerPlayer: room.amount_stack
+              }
             );
             
             console.log('Credited pool amount to winner:', {
               winnerId: winner.userId,
+              socketId: winner.id,
               amount: totalPoolAmount,
               newBalance,
               roomId
@@ -1721,14 +1738,16 @@ export const socketHandler = (io: Server): void => {
             // Emit balance update to all clients in the room
             io.to(roomId).emit('balance:update', {
               userId: winner.userId,
+              socketId: winner.id,
               demo: newBalance,
-              real: 0 // Since we're using demo balance
+              real: 0
             });
 
             // Also emit to the winner's socket specifically
             const winnerSocket = io.sockets.sockets.get(winner.id);
             if (winnerSocket) {
               winnerSocket.emit('balance:update', {
+                userId: winner.userId,
                 demo: newBalance,
                 real: 0
               });

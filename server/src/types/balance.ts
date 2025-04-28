@@ -3,6 +3,7 @@ export type BalanceType = 'demo' | 'real';
 export interface UserBalance {
     id: string;
     user_id: string;
+    balance: number;
     demo_balance: number;
     real_balance: number;
     daily_demo_limit: number;
@@ -10,7 +11,6 @@ export interface UserBalance {
     withdrawal_limit: number;
     referral_bonus: number;
     referral_count: number;
-    vip_level: number;
     total_wins: number;
     total_games: number;
     win_streak: number;
@@ -32,17 +32,27 @@ export interface UserBalance {
     updated_at: string;
 }
 
+export type TransactionType = 
+    | 'deposit'
+    | 'withdrawal'
+    | 'game_win'
+    | 'game_loss'
+    | 'tournament_entry'
+    | 'tournament_prize'
+    | 'event_bonus'
+    | 'achievement_bonus'
+    | 'referral_bonus'
+    | 'daily_bonus';  // Removed vip_level_up
+
 export interface BalanceTransaction {
     id: string;
     user_id: string;
-    transaction_type: string;
+    transaction_type: TransactionType;
     amount: number;
     balance_type: BalanceType;
-    room_id: string | null;
-    tournament_id: string | null;
-    event_id: string | null;
-    metadata: any;
+    metadata: Record<string, any>;
     created_at: string;
+    updated_at: string;
 }
 
 export interface LoyaltyReward {
@@ -155,13 +165,13 @@ export interface UserAchievement {
     updated_at: string;
 }
 
-export interface VIPLevel {
-    level: number;
+export interface Room {
+    id: string;
     name: string;
-    min_games: number;
-    min_wins: number;
-    win_rate: number;
-    bonus_multiplier: number;
-    daily_bonus: number;
+    entry_fee: number;
+    max_players: number;
+    game_type: GameType;
+    status: RoomStatus;
     created_at: string;
+    updated_at: string;
 } 

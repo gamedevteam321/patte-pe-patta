@@ -247,7 +247,7 @@ CREATE TABLE vip_levels (
 CREATE TABLE balance_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id),
-    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('deposit', 'withdrawal', 'game_win', 'game_loss', 'room_entry', 'room_exit', 'referral_bonus', 'daily_bonus', 'achievement_bonus', 'tournament_entry', 'tournament_prize', 'event_bonus')),
+    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('deposit', 'withdrawal', 'game_win', 'game_loss', 'room_entry', 'room_exit', 'referral_bonus', 'daily_bonus', 'achievement_bonus', 'tournament_entry', 'tournament_prize', 'event_bonus', 'vip_level_up')),
     amount INTEGER NOT NULL,
     balance_type TEXT NOT NULL CHECK (balance_type IN ('demo', 'real')),
     room_id UUID REFERENCES rooms(id),
@@ -1226,7 +1226,7 @@ COMMENT ON COLUMN user_balance.total_loyalty_points IS 'Total loyalty points ear
 COMMENT ON COLUMN user_balance.chat_level IS 'Chat level (1-10)';
 COMMENT ON COLUMN user_balance.chat_points IS 'Points earned from chat activity';
 COMMENT ON COLUMN user_balance.last_chat_reward IS 'Last time chat reward was claimed';
-COMMENT ON COLUMN balance_transactions.transaction_type IS 'Type of transaction: deposit, withdrawal, game_win, game_loss, room_entry, room_exit, referral_bonus, daily_bonus, achievement_bonus, tournament_entry, tournament_prize, event_bonus';
+COMMENT ON COLUMN balance_transactions.transaction_type IS 'Type of transaction: deposit, withdrawal, game_win, game_loss, room_entry, room_exit, referral_bonus, daily_bonus, achievement_bonus, tournament_entry, tournament_prize, event_bonus, vip_level_up';
 COMMENT ON COLUMN balance_transactions.balance_type IS 'Type of balance affected: demo or real';
 COMMENT ON COLUMN balance_history.demo_balance IS 'Historical demo balance at recording time';
 COMMENT ON COLUMN balance_history.real_balance IS 'Historical real balance at recording time';

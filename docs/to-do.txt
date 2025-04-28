@@ -7,8 +7,8 @@
 [x] add demo money in game
 [] when user create room if no one join or game aborted than refund money
 [] when player created a room and left and then joined back and won game then money is not credited into his balance
-
-
+[x] Match cards are showing in different suits, not matching one.
+[] Validate when user won on last card then do not close game of that player
 
 
 

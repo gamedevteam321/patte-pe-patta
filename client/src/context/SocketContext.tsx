@@ -61,7 +61,7 @@ export interface RoomData {
   players: Player[];
   isPrivate: boolean;
   password?: string;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'completed';
   betAmount?: number;
   createdAt?: string;
   updatedAt?: string;

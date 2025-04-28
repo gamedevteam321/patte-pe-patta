@@ -146,7 +146,7 @@ export class BalanceService {
             p_balance_type: balanceType
         });
 
-        if (error) throw error;
+        if (error){console.log('process_game_result : error', error); throw error;}
         return data;
     }
 
@@ -289,5 +289,26 @@ export class BalanceService {
 
             throw error;
         }
+    }
+
+    static async processGameResultWithNotification(
+        userId: string,
+        isWinner: boolean,
+        amount: number,
+        balanceType: BalanceType,
+        roomId: string,
+        metadata: any = {}
+    ): Promise<number> {
+        const { data, error } = await supabase.rpc('process_game_result_with_notification', {
+            p_user_id: userId,
+            p_is_winner: isWinner,
+            p_amount: amount,
+            p_balance_type: balanceType,
+            p_room_id: roomId,
+            p_metadata: metadata
+        });
+
+        if (error) throw error;
+        return data;
     }
 } 

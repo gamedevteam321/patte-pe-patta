@@ -3,7 +3,7 @@ export interface GameRoom {
   name: string;
   maxPlayers: number;
   currentPlayers: number;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'completed';
   createdBy: string;
   createdAt: string;
 }
@@ -23,6 +23,6 @@ export interface GameState {
     coins: number;
   }[];
   currentPlayer: string;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'completed';
   winner?: string;
 } 

@@ -260,14 +260,14 @@ export const socketHandler = (io: Server): void => {
             throw error;
           }
           
-          console.log('Raw rooms data from database:', roomsData?.map(room => ({
-            id: room.id,
-            code: room.code,
-            status: room.status,
-            name: room.name,
-            player_count: room.player_count,
-            max_players: room.max_players
-          })));
+          // console.log('Raw rooms data from database:', roomsData?.map(room => ({
+          //   id: room.id,
+          //   code: room.code,
+          //   status: room.status,
+          //   name: room.name,
+          //   player_count: room.player_count,
+          //   max_players: room.max_players
+          // })));
           
           // If no rooms data, return empty array
           if (!roomsData) {
@@ -280,30 +280,30 @@ export const socketHandler = (io: Server): void => {
           
           // Ensure roomsData is always an array
           const roomsArray = Array.isArray(roomsData) ? roomsData : [roomsData];
-          console.log('Processed rooms array:', roomsArray.map(room => ({
-            id: room.id,
-            code: room.code,
-            status: room.status,
-            name: room.name,
-            player_count: room.player_count,
-            max_players: room.max_players
-          })));
+          // console.log('Processed rooms array:', roomsArray.map(room => ({
+          //   id: room.id,
+          //   code: room.code,
+          //   status: room.status,
+          //   name: room.name,
+          //   player_count: room.player_count,
+          //   max_players: room.max_players
+          // })));
           
           // Filter out full rooms and add in-memory data including player count
           const availableRooms = roomsArray.map(room => {
             const inMemoryRoom = rooms.get(room.id) || { players: [] };
             const playerCount = inMemoryRoom.players ? inMemoryRoom.players.length : 0;
             
-            console.log('Processing room:', {
-              roomId: room.id,
-              roomCode: room.code,
-              roomName: room.name,
-              status: room.status,
-              playerCount,
-              maxPlayers: room.max_players,
-              isInMemory: rooms.has(room.id),
-              amount_stack: room.amount_stack
-            });
+            // console.log('Processing room:', {
+            //   roomId: room.id,
+            //   roomCode: room.code,
+            //   roomName: room.name,
+            //   status: room.status,
+            //   playerCount,
+            //   maxPlayers: room.max_players,
+            //   isInMemory: rooms.has(room.id),
+            //   amount_stack: room.amount_stack
+            // });
             
             return {
               id: room.id,
@@ -320,24 +320,24 @@ export const socketHandler = (io: Server): void => {
             };
           }).filter(room => {
             const isAvailable = room.players.length < room.maxPlayers;
-            console.log('Room availability check:', {
-              roomId: room.id,
-              roomCode: room.code,
-              roomName: room.name,
-              playerCount: room.players.length,
-              maxPlayers: room.maxPlayers,
-              isAvailable
-            });
+            // console.log('Room availability check:', {
+            //   roomId: room.id,
+            //   roomCode: room.code,
+            //   roomName: room.name,
+            //   playerCount: room.players.length,
+            //   maxPlayers: room.maxPlayers,
+            //   isAvailable
+            // });
             return isAvailable;
           });
           
-          console.log('Final available rooms after filtering:', availableRooms.map(room => ({
-            id: room.id,
-            code: room.code,
-            name: room.name,
-            playerCount: room.players.length,
-            maxPlayers: room.maxPlayers
-          })));
+          // console.log('Final available rooms after filtering:', availableRooms.map(room => ({
+          //   id: room.id,
+          //   code: room.code,
+          //   name: room.name,
+          //   playerCount: room.players.length,
+          //   maxPlayers: room.maxPlayers
+          // })));
           
           if (callback) {
             callback({ success: true, rooms: availableRooms });
@@ -1499,15 +1499,22 @@ export const socketHandler = (io: Server): void => {
                 roomId
               });
               
-              const newBalance = await BalanceService.processGameResult(
+              const newBalance = await BalanceService.processGameResultWithNotification(
                 lastPlayer.userId,
                 true, // isWinner
                 totalPoolAmount,
-                'demo' // balanceType
+                'demo', // balanceType
+                roomId,
+                {
+                  socketId: lastPlayer.id,
+                  totalPlayers: room.players.length,
+                  amountPerPlayer: room.amount_stack
+                }
               );
               
               console.log('Credited pool amount to winner:', {
                 winnerId: lastPlayer.userId,
+                socketId: lastPlayer.id,
                 amount: totalPoolAmount,
                 newBalance,
                 roomId
@@ -1516,6 +1523,7 @@ export const socketHandler = (io: Server): void => {
               // Emit balance update to all clients in the room
               io.to(roomId).emit('balance:update', {
                 userId: lastPlayer.userId,
+                socketId: lastPlayer.id,
                 demo: newBalance,
                 real: 0
               });
@@ -1524,6 +1532,7 @@ export const socketHandler = (io: Server): void => {
               const winnerSocket = io.sockets.sockets.get(lastPlayer.id);
               if (winnerSocket) {
                 winnerSocket.emit('balance:update', {
+                  userId: lastPlayer.userId,
                   demo: newBalance,
                   real: 0
                 });
@@ -1698,21 +1707,29 @@ export const socketHandler = (io: Server): void => {
 
         // Use the winner from gameState instead of trying to find them again
         const winner = room.gameState.winner;
+        console.log('end_game Winner:', winner);
         if (winner) {
           // Calculate total pool amount (bet amount * number of players)
           const totalPoolAmount = room.amount_stack * room.players.length;
           console.log('Total pool amount:', totalPoolAmount);
           // Credit the pool amount to the winner
           try {
-            const newBalance = await BalanceService.processGameResult(
+            const newBalance = await BalanceService.processGameResultWithNotification(
               winner.userId,
               true, // isWinner
               totalPoolAmount,
-              'demo' // balanceType
+              'demo', // balanceType
+              roomId,
+              {
+                socketId: winner.id,
+                totalPlayers: room.players.length,
+                amountPerPlayer: room.amount_stack
+              }
             );
             
             console.log('Credited pool amount to winner:', {
               winnerId: winner.userId,
+              socketId: winner.id,
               amount: totalPoolAmount,
               newBalance,
               roomId
@@ -1721,14 +1738,16 @@ export const socketHandler = (io: Server): void => {
             // Emit balance update to all clients in the room
             io.to(roomId).emit('balance:update', {
               userId: winner.userId,
+              socketId: winner.id,
               demo: newBalance,
-              real: 0 // Since we're using demo balance
+              real: 0
             });
 
             // Also emit to the winner's socket specifically
             const winnerSocket = io.sockets.sockets.get(winner.id);
             if (winnerSocket) {
               winnerSocket.emit('balance:update', {
+                userId: winner.userId,
                 demo: newBalance,
                 real: 0
               });
@@ -1820,7 +1839,7 @@ export const socketHandler = (io: Server): void => {
             // Update room status in database
             const { error: updateError } = await supabase
               .from('rooms')
-              .update({ status: 'finished' })
+              .update({ status: 'completed' })
               .eq('id', roomId);
 
             if (updateError) {

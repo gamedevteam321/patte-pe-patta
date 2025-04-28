@@ -1,6 +1,7 @@
 import { supabase } from '../../utils/supabase';
 import { UserBalance, BalanceTransaction, BalanceType } from '../../types/balance';
 import { logError, logBalanceOperation, logBalanceError } from '../../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 export class BalanceService {
     static async getUserBalance(userId: string): Promise<UserBalance> {
@@ -310,5 +311,25 @@ export class BalanceService {
 
         if (error) throw error;
         return data;
+    }
+
+    static async processRoomRefund(
+        roomId: string,
+        userId: string,
+        amount: number,
+        balanceType: string
+    ): Promise<void> {
+        const transactionId = uuidv4();
+        const { error } = await supabase.rpc('process_room_refund', {
+            p_room_id: roomId,
+            p_user_id: userId,
+            p_amount: amount,
+            p_balance_type: balanceType,
+            p_transaction_id: transactionId
+        });
+
+        if (error) {
+            throw new Error(`Failed to process room refund: ${error.message}`);
+        }
     }
 } 

@@ -209,11 +209,12 @@ const Index = () => {
             {games.map((game, index) => (
               <div 
                 key={game.id} 
+                onClick={() => !game.comingSoon && (user ? navigate(`/lobby?game=${game.id}`) : navigate('/register'))}
                 className={`
                   flex-none w-[200px]
                   glass-panel rounded-lg overflow-hidden
                   transition-all duration-300 
-                  ${game.comingSoon ? 'opacity-60' : 'hover:scale-105 hover:shadow-2xl'} 
+                  ${game.comingSoon ? 'opacity-60' : 'hover:scale-105 hover:shadow-2xl cursor-pointer'} 
                   relative
                 `}
               >
@@ -246,7 +247,10 @@ const Index = () => {
                     </div>
                     {!game.comingSoon && (
                       <button
-                        onClick={() => user ? navigate(`/lobby?game=${game.id}`) : navigate('/register')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          user ? navigate(`/lobby?game=${game.id}`) : navigate('/register');
+                        }}
                         className="text-xs bg-game-cyan hover:bg-game-cyan/80 text-white px-2 py-1 rounded transition-colors"
                       >
                         Play

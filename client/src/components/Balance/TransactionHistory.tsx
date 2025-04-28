@@ -25,10 +25,17 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transact
                     >
                         <div className="flex flex-col gap-1">
                             <span className="font-medium text-white">
-                            {Number(transaction.amount) > 0 ? 'credit' : 'debit'}
+                            {Number(transaction.amount) > 0 ? 'Credit' : 'Debit'}
                             </span>
                             <span className="text-sm text-white">
-                                {transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString() : 'N/A'}
+                                {transaction.created_at ? new Date(transaction.created_at).toLocaleString('en-IN', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                }) : 'N/A'}
                             </span>
                         </div>
                         <div className={`font-bold text-lg ${ Number(transaction.amount) > 0 ? 'text-green-500' : 'text-red-500'}`}>

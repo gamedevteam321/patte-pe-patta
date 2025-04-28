@@ -8,7 +8,7 @@ export interface Transaction {
     type: 'credit' | 'debit';
     balanceType: BalanceType;
     description: string;
-    createdAt: string;
+    created_at: string;
     transactionType: string;
 }
 

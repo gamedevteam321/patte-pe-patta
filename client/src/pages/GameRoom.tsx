@@ -537,12 +537,12 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
   return (
     <Layout>
-      <div className="container max-w-[1000px] mx-auto px-4 py-4 bg-[#0B0C10] rounded-lg shadow-md">
-        <div className="flex items-center justify-between mb-4">
+      <div className="container max-w-[1000px] mx-auto px-4 py-8 mt-10  bg-[#0F212E] rounded-lg shadow-md">
+        <div className="flex items-center justify-between mb-16">
           <div>
-            <h1 className="text-3xl font-bold text-[#4169E1]">{currentRoom?.name} </h1>
+            <h1 className="text-3xl font-bold text-white">{currentRoom?.name} </h1>
             {lastSyncTime && (
-              <p className="text-xs text-blue-300">
+              <p className="text-xs text-white">
                 {currentRoom?.code && `[${currentRoom.code}]`}-Last synced: {lastSyncTime.toLocaleTimeString()}
               </p>
             )}
@@ -588,7 +588,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
            {/* show auto start timer */}
           
            {(!gameState || gameState.status === 'waiting') && (
-             <div className="flex flex-col items-center justify-center p-6 bg-[#1A1B1E] rounded-lg mb-4">
+             <div className="flex flex-col items-center justify-center p-6 bg-[#0F212E] rounded-lg mb-4">
                <div className="text-lg text-gray-300 mb-4">Game starts in:</div>
                
                {/* Countdown Clock */}
@@ -630,7 +630,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                </div>
 
                {/* Status Message */}
-               <div className="text-xl font-semibold text-yellow-400 mb-6">
+               <div className="text-xl font-semibold text-white mb-6">
                  Waiting for players
                </div>
 
@@ -650,7 +650,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
 
                {/* Players List */}
                <div className="w-full max-w-xs mt-6">
-                 <div className="flex items-center justify-between text-blue-400 mb-2">
+                 <div className="flex items-center justify-between text-white mb-2">
                    <span>Players in Room</span>
                    <span>{gameState?.players?.length || 1}/{gameState?.requiredPlayers || 2} players joined</span>
                  </div>

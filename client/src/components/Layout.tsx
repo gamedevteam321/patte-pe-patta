@@ -6,6 +6,7 @@ import { User, LogOut, Home, Menu, History } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import { BalanceDisplay } from "./Balance/BalanceDisplay";
+import Footer from "./Footer";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
   };
 
   return (
-    <div className="min-h-screen bg-blue">
+    <div className="min-h-screen bg-blue flex flex-col">
       {showNav && (
         <nav className="bg-blue backdrop-blur-sm border-b border-white/90">
           <div className="container mx-auto px-4">
@@ -152,7 +153,10 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
           </div>
         </nav>
       )}
-      <main>{children}</main>
+      <main className="flex-grow">
+        {children}
+      </main>
+      <Footer />
     </div>
   );
 };

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, Home, Menu, History } from "lucide-react";
+import { User, LogOut, Home, Menu, History, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import { BalanceDisplay } from "./Balance/BalanceDisplay";
@@ -18,6 +18,18 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const isMobile = useIsMobile();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
 
   const handleLogout = async () => {
     try {
@@ -58,107 +70,104 @@ const Layout: React.FC<LayoutProps> = ({ children, showNav = true }) => {
                 />
               </div>
 
-              {isAuthenticated && (
-                <div className="flex items-center space-x-4">
-                  <BalanceDisplay />
-                  {isMobile ? (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setIsMenuOpen(!isMenuOpen)}
-                      className="text-white hover:text-blue"
-                    >
-                      <Menu className="h-5 w-5" />
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="ghost"
-                        onClick={() => navigate("/profile")}
-                        className="text-white hover:text-blue"
-                      >
-                        <User className="h-5 w-5 mr-2" />
-                        {user?.username || "Profile"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => navigate("/transactions")}
-                        className="text-white hover:text-blue"
-                      >
-                        <History className="h-5 w-5 mr-2" />
-                        Transactions
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={handleLogout}
-                        className="text-white hover:text-blue"
-                      >
-                        <LogOut className="h-5 w-5 mr-2" />
-                        Logout
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {!isAuthenticated && (
-                <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4">
+                <BalanceDisplay />
+                {isAuthenticated ? (
                   <Button
                     variant="ghost"
-                    onClick={() => navigate("/login")}
-                    className="text-white hover:text-white"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="text-white hover:text-blue"
                   >
-                    Login
+                    <Menu className="h-5 w-5" />
                   </Button>
-                  <Button
-                    onClick={() => navigate("/register")}
-                    className="bg-game-cyan hover:bg-game-cyan/80 text-white"
-                  >
-                    Register
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {isMobile && isMenuOpen && isAuthenticated && (
-              <div className="py-2 space-y-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    navigate("/profile");
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-gray-400 hover:text-white"
-                >
-                  <User className="h-5 w-5 mr-2" />
-                  Profile
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    navigate("/transactions");
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-gray-400 hover:text-white"
-                >
-                  <History className="h-5 w-5 mr-2" />
-                  Transactions
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    handleLogout();
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full text-gray-400 hover:text-white"
-                >
-                  <LogOut className="h-5 w-5 mr-2" />
-                  Logout
-                </Button>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigate("/login")}
+                      className="text-white hover:text-white"
+                    >
+                      Login
+                    </Button>
+                    <Button
+                      onClick={() => navigate("/register")}
+                      className="bg-game-cyan hover:bg-game-cyan/80 text-white"
+                    >
+                      Register
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </nav>
       )}
+
+      {/* Side Panel */}
+      <div 
+        className={`
+          fixed top-0 right-0 h-full w-64 bg-[#2F4553] transform transition-transform duration-300 ease-in-out z-50
+          ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}
+        `}
+      >
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-6">
+            
+            <Button
+              variant="ghost"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-white hover:text-blue"
+            >
+              <X className="h-5 w-5 text-white " />
+            </Button>
+          </div>
+          
+          <div className="space-y-2 ">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                navigate("/profile");
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-white hover:text-white justify-start"
+            >
+              <User className="h-5 w-5 mr-2" />
+              {user?.username || "Profile"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                navigate("/transactions");
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-white hover:text-white justify-start"
+            >
+              <History className="h-5 w-5 mr-2" />
+              Transactions
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                handleLogout();
+                setIsMenuOpen(false);
+              }}
+              className="w-full text-white hover:text-white justify-start"
+            >
+              <LogOut className="h-5 w-5 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay */}
+      {isMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
       <main className="flex-grow">
         {children}
       </main>

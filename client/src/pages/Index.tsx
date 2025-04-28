@@ -28,7 +28,7 @@ const Index = () => {
       title: "Patte pe Patta",
       description: "Classic game mode with standard stakes",
       icon: <PlayCircle className="h-8 w-8" />,
-      activePlayers: 128
+      activePlayers: 12800
     },
     {
       id: "high-stakes",

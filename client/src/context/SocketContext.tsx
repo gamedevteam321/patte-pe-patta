@@ -49,6 +49,7 @@ export interface GameState {
   };
   waitingStartTime: number;
   waitingTimer: number;
+  autoStartEnabled: boolean;
 }
 
 // Database schema types
@@ -66,6 +67,7 @@ export interface RoomData {
   createdAt?: string;
   updatedAt?: string;
   gameState?: GameState;
+  playerCount: number;
 }
 
 interface UserData {

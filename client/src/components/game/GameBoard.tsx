@@ -90,6 +90,15 @@ const styles = `
     justify-content: center;
     align-items: center;
     user-select: none;
+    background-image: url('/cardback.png');
+    background-size: cover;
+    background-position: center;
+  }
+
+  .card-content.opponent-card {
+    background-image: url('/cardback.png');
+    background-size: cover;
+    background-position: center;
   }
 
   .card-value-display {
@@ -206,7 +215,7 @@ const styles = `
   }
 
   .player-container {
-    background-color: #e2e2e2;
+    background-color: transparent;
     border-radius: 50%;
     padding: 10px;
     width: 160px;
@@ -215,7 +224,7 @@ const styles = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
     border: 2px solid #4169E1;
     position: relative;
     z-index: 10;
@@ -227,16 +236,17 @@ const styles = `
   /* Timer progress circle styles */
   .timer-progress {
     position: absolute;
-    top: -10px;
-    left: -10px;
-    width: calc(100% + 20px);
-    height: calc(100% + 20px);
+    top: -15px;
+    left: -15px;
+    width: calc(100% + 30px);
+    height: calc(100% + 30px);
     transform: rotate(-90deg);
+    background: transparent;
   }
 
   .timer-progress circle {
-    fill: none;
-    stroke-width: 8;
+    fill: transparent;
+    stroke-width: 10;
     stroke-linecap: round;
   }
 
@@ -462,7 +472,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
   const isUserTurn = gameState.gameStarted && currentPlayer?.id === userPlayer?.id;
-  const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId;
+  const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId && !gameState.gameStarted;
   const hasMultiplePlayers = players.length > 1;
   //const positionedPlayers = getPlayerPositions();
   const getPlayerPositions = () => {
@@ -1353,7 +1363,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       const cardToShow = hideTopCard ? null : (displayedCenterCard || null);
 
       return (
-        <div className="bg-[#004080] p-2 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[200px]">
+        <div className="bg-[#0F212E] p-2 relative border-2 border-blue-500 rounded-lg w-full h-full flex flex-col min-h-[200px]">
           <div className="flex-1 flex flex-col justify-center items-center">
             {cardToShow && (  // Add conditional rendering
               <div className="relative">
@@ -1576,7 +1586,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
           {renderGameStateMessage()}
 
-          <div className={`relative bg-[#0B0C10] border border-blue-900/20 rounded-lg p-4`}>
+          <div className={`relative bg-blue border border-blue-900/20 rounded-lg p-4`}>
             <div className={`game-board ${!gameState.centralPile || gameState.centralPile.length === 0 ? 'game-board-empty-pool' : ''}`}>
               {/* Top player */}
               <div className="top-player flex justify-center">
@@ -1585,20 +1595,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   .map(({ player, position, isUser }) => (
                     <div key={player.id} className="player-container">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1609,6 +1619,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
                     </div>
                   ))}
@@ -1621,20 +1637,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   .map(({ player, position, isUser }) => (
                     <div key={player.id} className="player-container">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1645,6 +1661,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
                     </div>
                   ))}
@@ -1657,20 +1679,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   .map(({ player, position, isUser }) => (
                     <div key={player.id} className="player-container">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1681,6 +1703,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
                     </div>
                   ))}
@@ -1693,20 +1721,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   .map(({ player, position, isUser }) => (
                     <div key={player.id} className="player-container">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1717,6 +1745,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
                     </div>
                   ))}
@@ -1734,20 +1768,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                   .map(({ player, position, isUser }) => (
                     <div key={player.id} className="player-container">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1758,6 +1792,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
                     </div>
                   ))}
@@ -1768,22 +1808,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                 {positionedPlayers
                   .filter(p => p.position === "bottom")
                   .map(({ player, position, isUser }) => (
-                    <div key={player.id} className="player-container">
+                    <div key={player.id} className="player-container flex flex-col items-center gap-4">
                       {gameState.gameStarted && player.id === currentPlayer?.id && turnTimer !== null && (
-                        <svg className="timer-progress" viewBox="0 0 170 170">
+                        <svg className="timer-progress" viewBox="0 0 200 200">
                           <circle
                             className="progress-bg"
-                            cx="85"
-                            cy="85"
-                            r="75"
+                            cx="100"
+                            cy="100"
+                            r="90"
                           />
                           <circle
                             className={`progress-bar ${turnTimer <= (isDebugMode ? 500 : 5000) ? 'warning' : ''}`}
-                            cx="85"
-                            cy="85"
-                            r="75"
-                            strokeDasharray={`${2 * Math.PI * 75}`}
-                            strokeDashoffset={2 * Math.PI * 75 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
+                            cx="100"
+                            cy="100"
+                            r="90"
+                            strokeDasharray={`${2 * Math.PI * 90}`}
+                            strokeDashoffset={2 * Math.PI * 90 * (1 - (turnTimer || 0) / MAX_TURN_TIME)}
                           />
                         </svg>
                       )}
@@ -1794,10 +1834,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                         position={position}
                         turnTimeRemaining={player.id === currentPlayer?.id ? turnTimer : undefined}
                         className={`player-deck-${position}`}
+                        gameState={gameState}
+                        isUserTurn={isUserTurn}
+                        actionsDisabled={actionsDisabled}
+                        handleShuffleDeck={handleShuffleDeck}
+                        MAX_SHUFFLE_COUNT={MAX_SHUFFLE_COUNT}
+                        onCardClick={handlePlayCard}
                       />
 
                       {gameState.gameStarted && userPlayer && (
-                        <div className="mt-4 flex justify-center space-x-4">
+                        <div className="absolute left-48 top-10 flex flex-col space-y-2">
                           <Button
                             onClick={() => handlePlayCard(userPlayer.cards[0])}
                             disabled={!isUserTurn || actionsDisabled}

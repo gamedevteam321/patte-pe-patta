@@ -15,8 +15,11 @@ const PlayingCard: React.FC<PlayingCardProps> = ({ card, isBack = false, classNa
 
   if (isBack) {
     return (
-      <div className={`w-16 h-24 bg-blue-600 rounded-lg shadow-lg border-2 border-white/20 flex items-center justify-center ${className}`}>
-        <div className="text-white text-2xl font-bold">🂠</div>
+      <div className={`w-16 h-24 rounded-lg shadow-lg border-2 border-white/20 flex items-center justify-center ${className}`} style={{
+        backgroundImage: 'url(/cardback.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}>
       </div>
     );
   }

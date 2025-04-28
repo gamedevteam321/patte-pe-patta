@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { Card, Player } from "../../types/game";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Clock, Coins, Timer, Award, ChevronDown, ChevronUp } from "lucide-react";
+import { UserCircle, Clock, Coins, Timer, Award, ChevronDown, ChevronUp, Send, Shuffle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PlayerDeckProps {
   player: Player;
@@ -12,6 +13,12 @@ interface PlayerDeckProps {
   onCardClick?: (card: Card) => void;
   turnTimeRemaining?: number;
   className?: string;
+  gameState?: any;
+  isUserTurn?: boolean;
+  actionsDisabled?: boolean;
+  handleShuffleDeck?: () => void;
+  MAX_SHUFFLE_COUNT?: number;
+  MAX_TURN_TIME?: number;
 }
 
 const PlayerDeck: React.FC<PlayerDeckProps> = ({
@@ -21,7 +28,13 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
   isUser,
   onCardClick,
   turnTimeRemaining,
-  className = ""
+  className = "",
+  gameState,
+  isUserTurn,
+  actionsDisabled,
+  handleShuffleDeck,
+  MAX_SHUFFLE_COUNT,
+  MAX_TURN_TIME
 }) => {
   const [showCardStats, setShowCardStats] = useState(false);
   
@@ -91,61 +104,6 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
 
   return (
     <div className={`flex flex-col items-center ${getPositionStyles(position)} ${isCurrentPlayer ? "player-active" : ""} ${className}`}>
-      <div className={`flex items-center space-x-2 mb-2 p-2 rounded-full ${isCurrentPlayer ? "bg-blue-500/20 border border-blue-400" : ""}`}>
-        <UserCircle className={`h-5 w-5 ${isCurrentPlayer ? "text-blue-400 animate-pulse" : "text-gray-400"}`} />
-        <div className="flex flex-col">
-          <span className={`text-sm font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
-            {player.username}
-          </span>
-          {!!player.autoPlayCount && (player.autoPlayCount > 0) && (
-            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-red-500/20 text-red-300 mt-1">
-              Auto-play: {player.autoPlayCount}/2
-            </Badge>
-          )}
-        </div>
-        {/* <div className="flex items-center gap-1">
-          <Badge variant="outline" className="text-xs px-1.5 py-0 bg-orange-500/20 text-orange-300">
-            <Award className="h-3 w-3 mr-1 text-yellow-400" />
-            {cardScore} cards
-          </Badge>
-          <button 
-            onClick={() => setShowCardStats(!showCardStats)} 
-            className="text-gray-400 hover:text-gray-300 focus:outline-none"
-          >
-            {showCardStats ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
-            )}
-          </button>
-        </div> */}
-      </div>
-      {/* {isCurrentPlayer && (
-        <Badge variant="default" className="ml-1 bg-blue-600">
-          <Timer className="h-3 w-3 mr-1" />
-          Current
-        </Badge>
-      )} */}
-      
-      {/* Position indicator */}
-      {/* <Badge variant="outline" className="ml-1 text-xs bg-gray-800/70 text-gray-300 border-gray-600">
-        {getPositionLabel(position)}
-      </Badge> */}
-
-      {showCardStats && (
-        <div className="mb-2 text-xs text-gray-300 bg-gray-800/50 p-1.5 rounded-md">
-          <div className="flex justify-between gap-4">
-            <span>Cards in deck: <strong className="text-blue-300">{player.cards?.length || 0}</strong></span>
-            <span>Score: <strong className="text-green-300">{cardScore}</strong></span>
-          </div>
-          <div className="mt-1 pt-1 border-t border-gray-700 text-center">
-            <span className="text-xs text-yellow-300">
-              Acquire 1 matching cards to win!
-            </span>
-          </div>
-        </div>
-      )}
-
       <div className={`relative ${isCurrentPlayer ? "scale-105" : ""} transition-all duration-300`}>
         {hasCardsInDeck ? (
           <div className={`flex justify-center ${position === "left" || position === "right" ? "flex-col" : "flex-row"}`}>
@@ -164,21 +122,57 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
         
         {/* Card count badge */}
         {hasCardsInDeck && (
-          <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 group">
+          <div className="absolute -top-4 -right-4 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 group">
             {player.cards.length}
             <span className="absolute -bottom-8 right-0 hidden group-hover:block bg-black/80 text-white text-xs p-1 rounded whitespace-nowrap">
               {player.username}'s deck
             </span>
           </div>
         )}
+
+        {/* Username display for non-left/right positions */}
+        {turnTimeRemaining !== undefined && isCurrentPlayer && !["left", "right"].includes(position) && (
+          <div className="absolute -left-44 top-1/2 -translate-y-1/2 mr-4">
+            <div className={`flex flex-col items-center space-y-1 p-2 rounded-full ${isCurrentPlayer ? "bg-blue-500/20 border border-blue-400" : ""}`}>
+              <div className="flex items-center space-x-2">
+                <UserCircle className={`h-4 w-4 ${isCurrentPlayer ? "text-blue-400 animate-pulse" : "text-gray-400"}`} />
+                <span className={`text-xs font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
+                  {player.username}
+                </span>
+              </div>
+            </div>
+            {!!player.autoPlayCount && (player.autoPlayCount > 0) && (
+              <div className="mt-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1 whitespace-nowrap min-w-[120px] text-center">
+                <span className="text-xs text-red-300">
+                  Auto-play: {player.autoPlayCount}/2
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {turnTimeRemaining !== undefined && isCurrentPlayer && (
-        <div className="mt-2">
-          <Badge variant="outline" className={`text-xs ${turnTimeRemaining < 5000 ? "border-red-500 text-red-400 animate-pulse" : "border-green-500 text-green-400"}`}>
-            <Clock className="h-3 w-3 mr-1" />
-            {Math.ceil(turnTimeRemaining / 1000)}s
-          </Badge>
+        <div className="mt-2 w-full max-w-[120px]">
+          <div className="text-center">
+            <span className="text-xs text-gray-300">
+              {Math.ceil(turnTimeRemaining / 1000)}s
+            </span>
+          </div>
+        </div>
+      )}
+
+      {showCardStats && (
+        <div className="mb-2 text-xs text-gray-300 bg-gray-800/50 p-1.5 rounded-md">
+          <div className="flex justify-between gap-4">
+            <span>Cards in deck: <strong className="text-blue-300">{player.cards?.length || 0}</strong></span>
+            <span>Score: <strong className="text-green-300">{cardScore}</strong></span>
+          </div>
+          <div className="mt-1 pt-1 border-t border-gray-700 text-center">
+            <span className="text-xs text-yellow-300">
+              Acquire 1 matching cards to win!
+            </span>
+          </div>
         </div>
       )}
       
@@ -212,6 +206,54 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           z-index: 10 !important;
         }
       `}</style>
+
+      {/* Hit and Shuffle buttons for left and right players */}
+      {(position === "left" || position === "right") && isUser && gameState?.gameStarted && (
+        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex flex-col space-y-2">
+          <Button
+            onClick={() => onCardClick?.(player.cards[0])}
+            disabled={!isUserTurn || actionsDisabled}
+            className={`hit-button ${isUserTurn && !actionsDisabled
+              ? 'bg-green-600 hover:bg-green-700'
+              : 'bg-gray-600'
+              } text-white transition-colors duration-200`}
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Your Turn - Hit!
+          </Button>
+
+          <Button
+            onClick={handleShuffleDeck}
+            disabled={!isUserTurn || actionsDisabled || (player?.shuffleCount ?? 0) >= 2}
+            className={`${isUserTurn && !actionsDisabled && (player?.shuffleCount ?? 0) < 2
+              ? 'bg-[#4169E1] hover:bg-[#3158c4]'
+              : 'bg-gray-600'
+              } text-white`}
+          >
+            <Shuffle className="h-5 w-5 mr-1" />
+            Shuffle ({MAX_SHUFFLE_COUNT - (player?.shuffleCount ?? 0)} left)
+          </Button>
+        </div>
+      )}
+
+      {/* Name and autoplay count for left and right players */}
+      {(position === "left" || position === "right") && (
+        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 flex flex-col items-center">
+          <div className="flex items-center space-x-2 bg-blue-500/20 border border-blue-400 rounded-full px-3 py-1">
+            <UserCircle className="h-4 w-4 text-blue-400" />
+            <span className="text-xs font-medium text-blue-300">
+              {player.username}
+            </span>
+          </div>
+          {!!player.autoPlayCount && (player.autoPlayCount > 0) && (
+            <div className="mt-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1 whitespace-nowrap min-w-[120px] text-center">
+              <span className="text-xs text-red-300">
+                Auto-play: {player.autoPlayCount}/2
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

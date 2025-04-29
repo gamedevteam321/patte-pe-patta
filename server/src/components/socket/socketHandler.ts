@@ -1356,6 +1356,88 @@ export const socketHandler = (io: Server): void => {
       }
     });
 
+    // Handle purchase shuffle
+    socket.on('purchase_shuffle', async ({ roomId, playerId, amount }) => {
+      try {
+        const room = rooms.get(roomId);
+        if (!room || !room.gameState) {
+          console.log('Room or game state not found for shuffle purchase');
+          return;
+        }
+
+        const player = room.gameState.players.find(p => p.id === playerId);
+        if (!player) {
+          console.log('Player not found for shuffle purchase');
+          return;
+        }
+
+        // Process the payment
+        try {
+          const newBalance = await BalanceService.processGameResultWithNotification(
+            player.userId,
+            false, // isWinner (false since this is a purchase)
+            amount,
+            'demo', // balanceType (using demo balance for purchases)
+            roomId,
+            {
+              socketId: player.id,
+              reason: 'shuffle_purchase',
+              isLastPayout: true
+            }
+          );
+
+          console.log('Successfully processed shuffle purchase:', {
+            playerId: player.userId,
+            socketId: player.id,
+            amount,
+            newBalance,
+            roomId
+          });
+
+          // Emit balance update to all clients in the room
+          io.to(roomId).emit('balance:update', {
+            userId: player.userId,
+            socketId: player.id,
+            demo: newBalance,
+            real: 0
+          });
+
+          // Also emit to the player's socket specifically
+          const playerSocket = io.sockets.sockets.get(player.id);
+          if (playerSocket) {
+            playerSocket.emit('balance:update', {
+              userId: player.userId,
+              demo: newBalance,
+              real: 0
+            });
+          }
+
+          // Reset shuffle count to allow one more shuffle
+          player.shuffleCount = 0;
+
+          // Emit the updated game state
+          io.to(roomId).emit('game_state_updated', room.gameState);
+
+          // Notify the player of successful purchase
+          socket.emit('shuffle_purchased', {
+            success: true,
+            message: 'Successfully purchased additional shuffle'
+          });
+
+        } catch (error) {
+          console.error('Failed to process shuffle purchase:', error);
+          socket.emit('error', { 
+            message: 'Failed to process shuffle purchase. Please try again.' 
+          });
+        }
+      } catch (error) {
+        console.error('Error in purchase_shuffle:', error);
+        socket.emit('error', { 
+          message: 'An error occurred while processing your request.' 
+        });
+      }
+    });
+
     // Handle play card
     socket.on('play_card', async ({ id, card, roomId }) => {
       try {

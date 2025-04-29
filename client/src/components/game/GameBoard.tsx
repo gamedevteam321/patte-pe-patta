@@ -4,11 +4,12 @@ import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, UserCircle } from "lucide-react";
+import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, UserCircle, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
 import ReactDOM from 'react-dom';
 import GameOverPanel from './GameOverPanel';
+import { useBalance } from "@/context/BalanceContext";
 
 // Add these animation styles
 const styles = `
@@ -450,6 +451,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [displayedCenterCard, setDisplayedCenterCard] = useState<Card | null>(null);
   // Add state for initial player count
   const [initialPlayerCount, setInitialPlayerCount] = useState<number>(0);
+  const [showShufflePurchasePopup, setShowShufflePurchasePopup] = useState(false);
+  const [hasPurchasedShuffleThisTurn, setHasPurchasedShuffleThisTurn] = useState(false);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -1509,6 +1512,80 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   //   }
   // }, [gameState.centralPile, animationLocked]);
 
+  const { deductBalance } = useBalance();
+
+  // Add effect to reset hasPurchasedShuffleThisTurn when turn changes
+  useEffect(() => {
+    if (gameState?.currentPlayerIndex !== undefined && userPlayer) {
+      const isUserTurn = gameState.players[gameState.currentPlayerIndex]?.id === userPlayer.id;
+      if (!isUserTurn) {
+        setHasPurchasedShuffleThisTurn(false);
+      }
+    }
+  }, [gameState?.currentPlayerIndex, userPlayer]);
+
+  const handlePurchaseShuffle = async () => {
+    if (!socket || !currentRoom || !userPlayer) return;
+
+    // Check if player has already purchased a shuffle this turn
+    if (hasPurchasedShuffleThisTurn) {
+      toast({
+        title: "Purchase Limit Reached",
+        description: "You can only purchase one shuffle per turn",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Emit event to server to purchase shuffle
+      socket.emit('purchase_shuffle', {
+        roomId: currentRoom.id,
+        playerId: userPlayer.id,
+        amount: 10
+      });
+
+      // Listen for the response
+      socket.once('shuffle_purchased', (response) => {
+        if (response.success) {
+          // Update local state
+          userPlayer.shuffleCount = (userPlayer.shuffleCount || 0) - 1; // Decrease shuffle count by 1
+          setHasPurchasedShuffleThisTurn(true); // Mark that player has purchased a shuffle this turn
+          setShowShufflePurchasePopup(false);
+          
+          toast({
+            title: "Shuffle Purchased",
+            description: "You have purchased an additional shuffle for ₹10",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: response.message || "Failed to purchase shuffle. Please try again.",
+            variant: "destructive"
+          });
+        }
+      });
+
+      // Listen for any errors
+      socket.once('error', (error) => {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to purchase shuffle. Please try again.",
+          variant: "destructive"
+        });
+      });
+
+    } catch (error) {
+      console.error("Error purchasing shuffle:", error);
+      toast({
+        title: "Error",
+        description: "Failed to purchase shuffle. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
@@ -1872,17 +1949,29 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             Your Turn - Hit!
                           </Button>
 
-                          <Button
-                            onClick={handleShuffleDeck}
-                            disabled={!isUserTurn || actionsDisabled || (userPlayer?.shuffleCount ?? 0) >= 2}
-                            className={`${isUserTurn && !actionsDisabled && (userPlayer?.shuffleCount ?? 0) < 2
-                              ? 'bg-[#4169E1] hover:bg-[#3158c4]'
-                              : 'bg-gray-600'
-                              } text-white`}
-                          >
-                            <Shuffle className="h-5 w-5 mr-1" />
-                            Shuffle ({MAX_SHUFFLE_COUNT - (userPlayer?.shuffleCount ?? 0)} left)
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={handleShuffleDeck}
+                              disabled={!isUserTurn || actionsDisabled || (userPlayer?.shuffleCount ?? 0) >= 2}
+                              className={`${isUserTurn && !actionsDisabled && (userPlayer?.shuffleCount ?? 0) < 2
+                                ? 'bg-[#4169E1] hover:bg-[#3158c4]'
+                                : 'bg-gray-600'
+                                } text-white flex-1`}
+                            >
+                              <Shuffle className="h-5 w-5 mr-1" />
+                              Shuffle ({MAX_SHUFFLE_COUNT - (userPlayer?.shuffleCount ?? 0)} left)
+                            </Button>
+
+                            {(userPlayer?.shuffleCount ?? 0) >= 2 && !hasPurchasedShuffleThisTurn && (
+                              <Button
+                                onClick={() => setShowShufflePurchasePopup(true)}
+                                className="bg-green-600 hover:bg-green-700 text-white p-2"
+                                title="Purchase additional shuffle"
+                              >
+                                <Plus className="h-5 w-5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1895,6 +1984,32 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       {renderMatchingCards()}
       {renderMatchAnimation()}
       {renderCardCollection()}
+
+      {/* Shuffle Purchase Popup */}
+      {showShufflePurchasePopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-[#1F2937] p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-white mb-4">Purchase Additional Shuffle</h3>
+            <p className="text-gray-300 mb-4">
+              Would you like to purchase an additional shuffle for ₹10?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={() => setShowShufflePurchasePopup(false)}
+                className="bg-gray-600 hover:bg-gray-700 text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePurchaseShuffle}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Purchase (₹10)
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{styles}</style>
     </>
   );

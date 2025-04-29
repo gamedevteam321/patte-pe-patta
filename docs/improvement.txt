@@ -1,3 +1,13 @@
+
+1. number of deck optional in starting
+2. number of card = pool amount
+3. faster game
+4. Probability of card 
+5. Time  + card = house money
+6. shuffle sale on game
+
+
+
 Server Improvements Plan
 ======================
 

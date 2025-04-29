@@ -254,7 +254,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
 
       {/* Name and autoplay count for left and right players */}
       {(position === "left" || position === "right") && (
-        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 flex flex-col items-center">
+        <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 flex flex-col items-center">
           <div className="flex items-center space-x-2 bg-blue-500/20 border border-blue-400 rounded-full px-3 py-1">
             <UserCircle className="h-4 w-4 text-blue-400" />
             <span className="text-xs font-medium text-blue-300">

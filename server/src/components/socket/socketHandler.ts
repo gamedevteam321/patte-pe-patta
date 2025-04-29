@@ -88,11 +88,11 @@ const isAutoPlay = (player: Player, card: Card): boolean => {
 
   // Get current time
   // const currentTime = Date.now();
-  
+
   // // Check if player took more than MAX_WAITING_TIME to play
   // const timeSinceLastPlay = currentTime - (player.lastPlayTime || 0);
   // const tookTooLong = timeSinceLastPlay >= MAX_WAITING_TIME;
-  
+
   // Auto-play is detected if:
   // 1. Player took more than MAX_WAITING_TIME to play
   // 2. Auto-play count is less than max
@@ -102,7 +102,7 @@ const isAutoPlay = (player: Player, card: Card): boolean => {
 
 // Initialize Supabase client with service role key to bypass RLS
 const supabase = createClient(
-  process.env.SUPABASE_URL || '', 
+  process.env.SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
   {
     auth: {
@@ -163,8 +163,8 @@ async function recordRoomHistory(roomId: string, userId: string, action: 'join' 
 const findNextActivePlayer = (players: Player[], currentIndex: number): number => {
   let nextIndex = (currentIndex + 1) % players.length;
   while (
-    players[nextIndex] && 
-    !players[nextIndex].isActive && 
+    players[nextIndex] &&
+    !players[nextIndex].isActive &&
     nextIndex !== currentIndex
   ) {
     nextIndex = (nextIndex + 1) % players.length;
@@ -201,24 +201,24 @@ export const socketHandler = (io: Server): void => {
     if (player.autoPlayCount === MAX_AUTO_PLAY_COUNT) {
       // Disable the player
       player.isActive = false;
-      
+
       // Notify all players about the auto-exit
       io.to(room.id).emit('player_auto_exited', {
         playerId: player.id,
         username: player.username,
         reason: `${player.username} was disabled for excessive auto-play`
       });
-      
+
       // Update game state
       if (room.gameState.currentTurn === player.id) {
         // Find next active player
         // const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
         // room.gameState.currentPlayerIndex = nextPlayerIndex;
         // room.gameState.currentTurn = room.gameState.players[nextPlayerIndex]?.id;
-        
+
         // // Reset turn timer for next player
         // room.gameState.turnEndTime = Date.now() + MAX_WAITING_TIME;
-        
+
         // Emit turn change
         io.to(room.id).emit('turn_changed', {
           nextPlayerId: room.gameState.currentTurn,
@@ -238,7 +238,7 @@ export const socketHandler = (io: Server): void => {
     socket.on('fetch_rooms', async (callback?: (response: { success: boolean; rooms: Partial<Room>[]; error?: string }) => void) => {
       let retries = 0;
       const maxRetries = 3;
-      
+
       while (retries < maxRetries) {
         try {
           console.log('Fetching rooms from database...');
@@ -254,12 +254,12 @@ export const socketHandler = (io: Server): void => {
             .from('rooms')
             .select('*')
             .eq('status', 'waiting');
-          
+
           if (error) {
             console.error('Supabase query error:', error);
             throw error;
           }
-          
+
           // console.log('Raw rooms data from database:', roomsData?.map(room => ({
           //   id: room.id,
           //   code: room.code,
@@ -268,7 +268,7 @@ export const socketHandler = (io: Server): void => {
           //   player_count: room.player_count,
           //   max_players: room.max_players
           // })));
-          
+
           // If no rooms data, return empty array
           if (!roomsData) {
             console.log('No rooms found in database');
@@ -277,7 +277,7 @@ export const socketHandler = (io: Server): void => {
             }
             return;
           }
-          
+
           // Ensure roomsData is always an array
           const roomsArray = Array.isArray(roomsData) ? roomsData : [roomsData];
           // console.log('Processed rooms array:', roomsArray.map(room => ({
@@ -288,12 +288,12 @@ export const socketHandler = (io: Server): void => {
           //   player_count: room.player_count,
           //   max_players: room.max_players
           // })));
-          
+
           // Filter out full rooms and add in-memory data including player count
           const availableRooms = roomsArray.map(room => {
             const inMemoryRoom = rooms.get(room.id) || { players: [] };
             const playerCount = inMemoryRoom.players ? inMemoryRoom.players.length : 0;
-            
+
             // console.log('Processing room:', {
             //   roomId: room.id,
             //   roomCode: room.code,
@@ -304,7 +304,7 @@ export const socketHandler = (io: Server): void => {
             //   isInMemory: rooms.has(room.id),
             //   amount_stack: room.amount_stack
             // });
-            
+
             return {
               id: room.id,
               name: room.name || "Game Room",
@@ -330,7 +330,7 @@ export const socketHandler = (io: Server): void => {
             // });
             return isAvailable;
           });
-          
+
           // console.log('Final available rooms after filtering:', availableRooms.map(room => ({
           //   id: room.id,
           //   code: room.code,
@@ -338,7 +338,7 @@ export const socketHandler = (io: Server): void => {
           //   playerCount: room.players.length,
           //   maxPlayers: room.maxPlayers
           // })));
-          
+
           if (callback) {
             callback({ success: true, rooms: availableRooms });
           }
@@ -346,7 +346,7 @@ export const socketHandler = (io: Server): void => {
         } catch (error) {
           console.error(`Error fetching rooms (attempt ${retries + 1}/${maxRetries}):`, error instanceof Error ? error.message : 'Unknown error');
           retries++;
-          
+
           if (retries === maxRetries) {
             console.error('Max retries reached, returning empty room list');
             if (callback) {
@@ -363,7 +363,7 @@ export const socketHandler = (io: Server): void => {
     // Handle room creation
     socket.on('create_room', async (roomData: any, callback?: (response: any) => void) => {
       try {
-        console.log('Room creation request received:', { 
+        console.log('Room creation request received:', {
           userId: roomData.userId,
           roomName: roomData.name,
           maxPlayers: roomData.maxPlayers,
@@ -635,8 +635,8 @@ export const socketHandler = (io: Server): void => {
         }
 
         if (callback) {
-          callback({ 
-            success: true, 
+          callback({
+            success: true,
             room: roomWithPlayers,
             roomId,
             roomCode
@@ -656,17 +656,17 @@ export const socketHandler = (io: Server): void => {
       try {
         const { roomId, userId, username, password } = roomData;
         console.log('Join room request received:', { roomId, userId, username });
-        
+
         if (!userId) {
           console.log('Join room failed: Authentication required');
           socket.emit('room:error', { message: 'Authentication required' });
           if (callback) callback({ success: false, error: 'Authentication required' });
           return;
         }
-        
+
         // Check if room exists in memory first
         let currentRoom = rooms.get(roomId);
-        
+
         // If not in memory, try to find it in the database
         if (!currentRoom) {
           console.log('Room not found in memory, checking database...');
@@ -720,20 +720,20 @@ export const socketHandler = (io: Server): void => {
           existingPlayer.id = socket.id;
           socket.join(roomId);
           console.log('Reconnecting existing player:', existingPlayer);
-          
+
           // Record reconnection in history
           await recordRoomHistory(roomId, userId, 'reconnect', socket.id, {
             previousSocketId: existingPlayer.id,
             username: existingPlayer.username
           });
-          
+
           if (callback) {
             const responseRoom = {
               ...room,
               amount_stack: room.amount_stack,
               betAmount: room.amount_stack
             };
-            callback({ 
+            callback({
               success: true,
               room: responseRoom
             });
@@ -810,10 +810,10 @@ export const socketHandler = (io: Server): void => {
           try {
             console.log(`Processing balance deduction for user ${userId} joining room ${roomId}`);
             console.log(`Bet amount from room: ${room.amount_stack}`);
-            
+
             // Generate a transaction ID for the balance deduction
             const transactionId = crypto.randomUUID();
-            
+
             // Call the supabase function to process the room entry fee
             const { data: balanceData, error: balanceError } = await supabase.rpc(
               'process_room_entry',
@@ -825,32 +825,32 @@ export const socketHandler = (io: Server): void => {
                 p_transaction_id: transactionId
               }
             );
-            
+
             if (balanceError) {
               console.error(`Balance deduction error: ${JSON.stringify(balanceError)}`);
-              socket.emit('room:error', { 
-                message: 'Failed to process entry fee', 
-                details: balanceError.message || 'Balance deduction failed' 
+              socket.emit('room:error', {
+                message: 'Failed to process entry fee',
+                details: balanceError.message || 'Balance deduction failed'
               });
-              
+
               if (callback) {
                 callback({ success: false, error: 'Failed to process entry fee' });
               }
               return;
             }
-            
+
             console.log(`Balance deduction successful: ${JSON.stringify(balanceData)}`);
           } catch (error) {
             console.error(`Exception in balance processing: ${error instanceof Error ? error.message : String(error)}`);
             socket.emit('room:error', { message: 'Failed to process entry fee', details: String(error) });
-            
+
             if (callback) {
               callback({ success: false, error: 'Failed to process entry fee' });
             }
             return;
           }
         }
-        
+
         // Add player to room in memory
         const newPlayer = {
           id: socket.id,
@@ -863,7 +863,7 @@ export const socketHandler = (io: Server): void => {
         };
 
         room.players.push(newPlayer);
-        
+
         // Add player to game state
         if (room.gameState) {
           room.gameState.players.push({
@@ -881,7 +881,7 @@ export const socketHandler = (io: Server): void => {
             io.to(roomId).emit('room:ready', { roomId });
           }
         }
-        
+
         rooms.set(roomId, room);
         socket.join(roomId);
 
@@ -899,7 +899,7 @@ export const socketHandler = (io: Server): void => {
         io.to(roomId).emit('player_joined', {
           player: newPlayer
         });
-        
+
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
@@ -938,7 +938,7 @@ export const socketHandler = (io: Server): void => {
             amount_stack: room.amount_stack,
             betAmount: room.amount_stack
           };
-          callback({ 
+          callback({
             success: true,
             room: responseRoom
           });
@@ -971,7 +971,7 @@ export const socketHandler = (io: Server): void => {
         }
 
         player.isReady = !player.isReady;
-        
+
         // Update readiness in database
         const { error } = await supabase
           .from('profiles')
@@ -1006,7 +1006,7 @@ export const socketHandler = (io: Server): void => {
     socket.on('leave_room', async (roomId) => {
       try {
         console.log('Player leaving room:', { socketId: socket.id, roomId });
-        
+
         const room = rooms.get(roomId);
         if (!room) {
           console.log('Room not found for leave_room:', roomId);
@@ -1017,17 +1017,17 @@ export const socketHandler = (io: Server): void => {
         const playerIndex = room.players.findIndex(p => p.id === socket.id);
         if (playerIndex !== -1) {
           const player = room.players[playerIndex];
-          
+
           // Record leave in history before removing player
           await recordRoomHistory(roomId, player.userId, 'leave', socket.id, {
             username: player.username,
             isHost: player.isHost,
             playerCount: room.players.length - 1
           });
-          
+
           // Remove player from room
           room.players.splice(playerIndex, 1);
-          
+
           // Update player count in database
           await supabase
             .from('rooms')
@@ -1040,9 +1040,9 @@ export const socketHandler = (io: Server): void => {
             newHost.isHost = true;
             await supabase
               .from('rooms')
-              .update({ 
+              .update({
                 host_id: newHost.userId,
-                host_name: newHost.username 
+                host_name: newHost.username
               })
               .eq('id', roomId);
           }
@@ -1057,7 +1057,7 @@ export const socketHandler = (io: Server): void => {
           }
 
           // Notify remaining players
-          io.to(roomId).emit('player_left', { 
+          io.to(roomId).emit('player_left', {
             playerId: socket.id,
             playerName: player.username,
             isHost: player.isHost
@@ -1069,7 +1069,7 @@ export const socketHandler = (io: Server): void => {
 
         // Leave the socket room
         socket.leave(roomId);
-        
+
       } catch (error) {
         console.error('Error in leave_room:', error);
       }
@@ -1079,19 +1079,19 @@ export const socketHandler = (io: Server): void => {
     socket.on('disconnect', async () => {
       try {
         console.log('User disconnected:', socket.id);
-        
+
         // Find all rooms where this player is present
         for (const [roomId, room] of rooms.entries()) {
           const playerIndex = room.players.findIndex(p => p.id === socket.id);
           if (playerIndex !== -1) {
             const player = room.players[playerIndex];
-            
+
             // Update player count in database
             await supabase
               .from('rooms')
               .update({ player_count: room.players.length - 1 })
               .eq('id', roomId);
-            
+
             // If player was host, assign new host or delete room
             if (player.isHost) {
               if (room.players.length > 1) {
@@ -1101,9 +1101,9 @@ export const socketHandler = (io: Server): void => {
                   newHost.isHost = true;
                   await supabase
                     .from('rooms')
-                    .update({ 
+                    .update({
                       host_id: newHost.userId,
-                      host_name: newHost.username || newHost.name 
+                      host_name: newHost.username || newHost.name
                     })
                     .eq('id', roomId);
                 }
@@ -1121,7 +1121,7 @@ export const socketHandler = (io: Server): void => {
 
             // Remove player from room
             room.players.splice(playerIndex, 1);
-            
+
             // Update game state if game was in progress
             if (room.gameState && room.gameState.status === 'in_progress') {
               // Handle game state cleanup
@@ -1133,14 +1133,14 @@ export const socketHandler = (io: Server): void => {
               }
               io.to(roomId).emit('game_state_updated', room.gameState);
             }
-            
+
             // Notify remaining players
-            io.to(roomId).emit('player_left', { 
+            io.to(roomId).emit('player_left', {
               playerId: socket.id,
               playerName: player.username || player.name,
               isHost: player.isHost
             });
-            
+
             // Emit rooms updated to all clients
             io.emit('rooms_updated');
           }
@@ -1161,7 +1161,7 @@ export const socketHandler = (io: Server): void => {
     socket.on('start_game', async (roomId, callback) => {
       try {
         console.log('Start game request received for room:', roomId);
-        
+
         const room = rooms.get(roomId);
         if (!room) {
           throw new Error('Room not found');
@@ -1170,7 +1170,7 @@ export const socketHandler = (io: Server): void => {
         // Check if room is full or waiting timer has expired
         const isRoomFull = room.players.length >= room.gameState.requiredPlayers;
         const waitingTimeElapsed = Date.now() - room.gameState.waitingStartTime >= room.gameState.waitingTimer;
-        
+
         // Check if we have enough players to start
         if (room.players.length < 2) {
           console.log('Not enough players to start:', {
@@ -1179,7 +1179,7 @@ export const socketHandler = (io: Server): void => {
           });
           throw new Error('Need at least 2 players to start the game');
         }
-        
+
         if (!isRoomFull && !waitingTimeElapsed && !room.gameState.autoStartEnabled) {
           console.log('Room not ready to start:', {
             status: room.gameState.status,
@@ -1226,7 +1226,7 @@ export const socketHandler = (io: Server): void => {
 
         const deck = shuffleDeck(createDeck());
         const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
-        
+
         // Update game state
         room.gameState.status = 'in_progress';
         room.gameState.gameStarted = true;
@@ -1307,9 +1307,9 @@ export const socketHandler = (io: Server): void => {
       } catch (error) {
         console.error('Error starting game:', error);
         if (callback) {
-          callback({ 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Failed to start game' 
+          callback({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to start game'
           });
         }
       }
@@ -1359,12 +1359,12 @@ export const socketHandler = (io: Server): void => {
     // Handle play card
     socket.on('play_card', async ({ id, card, roomId }) => {
       try {
-        console.log('Play card request received:', { 
-          playerId: id, 
-          roomId, 
-          card: `${card.value}-${card.suit}` 
+        console.log('Play card request received:', {
+          playerId: id,
+          roomId,
+          card: `${card.value}-${card.suit}`
         });
-        
+
         const room = rooms.get(roomId);
         if (!room) {
           console.error('Room not found:', roomId);
@@ -1391,7 +1391,7 @@ export const socketHandler = (io: Server): void => {
           const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
           room.gameState.currentPlayerIndex = nextPlayerIndex;
           room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
-          
+
           // Emit turn change
           io.to(roomId).emit('turn_changed', {
             nextPlayerId: room.gameState.currentTurn,
@@ -1422,10 +1422,10 @@ export const socketHandler = (io: Server): void => {
         }
 
         // Verify card exists in player's deck
-        const cardIndex = player.cards.findIndex(c => 
+        const cardIndex = player.cards.findIndex(c =>
           c.value === card.value && c.suit === card.suit
         );
-        
+
         if (cardIndex === -1) {
           console.error('Card not found in player\'s deck:', {
             playerId: id,
@@ -1467,7 +1467,7 @@ export const socketHandler = (io: Server): void => {
 
         // Remove card from player's deck
         const [playedCard] = player.cards.splice(cardIndex, 1);
-        
+
         // Check if player has no cards left after playing
         if (player.cards.length === 0) {
           console.log('Player has no cards left, checking for winner:', {
@@ -1475,10 +1475,10 @@ export const socketHandler = (io: Server): void => {
             username: player.username,
             activePlayers: room.gameState.players.filter(p => p.isActive !== false).length
           });
-          
+
           // Disable player instead of removing them
           player.isActive = false;
-          
+
           // Check if only one active player remains
           const activePlayers = room.gameState.players.filter(p => p.isActive !== false);
           console.log('Active players after disabling:', {
@@ -1493,7 +1493,7 @@ export const socketHandler = (io: Server): void => {
               winnerName: lastPlayer.username,
               roomId: roomId
             });
-            
+
             // Set the last player as winner and end the game
             room.gameState.isGameOver = true;
             room.gameState.winner = lastPlayer;
@@ -1514,7 +1514,7 @@ export const socketHandler = (io: Server): void => {
 
             // Calculate total pool amount
             const totalPoolAmount = room.amount_stack * room.players.length;
-            
+
             // Process the payout directly here
             try {
               const newBalance = await BalanceService.processGameResultWithNotification(
@@ -1531,7 +1531,7 @@ export const socketHandler = (io: Server): void => {
                   isLastPayout: true
                 }
               );
-              
+
               console.log('Successfully credited pool amount to winner:', {
                 winnerId: lastPlayer.userId,
                 socketId: lastPlayer.id,
@@ -1571,7 +1571,7 @@ export const socketHandler = (io: Server): void => {
             // Emit rooms updated to all clients
             io.emit('rooms_updated');
           }
-          
+
           // Notify all players about the player being disabled
           io.to(roomId).emit('player_disabled', {
             playerId: player.id,
@@ -1579,7 +1579,7 @@ export const socketHandler = (io: Server): void => {
             reason: 'no_cards'
           });
         }
-        
+
         // Get the current top card before adding the new one
         const centralPileLength = room.gameState.centralPile.length;
         const topCard = centralPileLength > 0 ? room.gameState.centralPile[centralPileLength - 1] : null;
@@ -1591,13 +1591,13 @@ export const socketHandler = (io: Server): void => {
         let hasMatch = false;
         if (topCard && topCard.value === playedCard.value) {
           hasMatch = true;
-          
+
           console.log('Match found with top card:', {
             playedCard: `${playedCard.value}-${playedCard.suit}`,
             topCard: `${topCard.value}-${topCard.suit}`,
             player: player.username
           });
-          
+
           // Handle match animation
           room.gameState.matchAnimation = {
             isActive: true,
@@ -1605,23 +1605,23 @@ export const socketHandler = (io: Server): void => {
             playerId: id,
             timestamp: Date.now()
           };
-          
+
           // Collect ALL cards from central pile
           const allCentralPileCards = [...room.gameState.centralPile];
           const totalCardsCollected = allCentralPileCards.length;
-          
+
           console.log('Player collecting all central pile cards:', {
             player: player.username,
             totalCardsCollected,
             matchValue: playedCard.value
           });
-          
+
           // Clear the central pile
           room.gameState.centralPile = [];
-          
+
           // Add all cards to player's deck
           player.cards.push(...allCentralPileCards);
-          
+
           // Emit match event
           io.to(roomId).emit('card_match', {
             playerId: id,
@@ -1637,17 +1637,17 @@ export const socketHandler = (io: Server): void => {
           room.gameState.currentPlayerIndex = nextPlayerIndex;
           room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
         }
-        
+
         // Set turn end time (15 seconds from now)
         room.gameState.turnEndTime = Date.now() + 15000;
-        
+
         console.log('Turn changed to next player:', {
           previousPlayerIndex: playerIndex,
           newPlayerIndex: room.gameState.currentPlayerIndex,
           newPlayerName: room.gameState.players[room.gameState.currentPlayerIndex].username,
           hadMatch: hasMatch
         });
-        
+
         // Update game state for all players
         io.to(roomId).emit('game_state_updated', {
           ...room.gameState,
@@ -1656,7 +1656,7 @@ export const socketHandler = (io: Server): void => {
             autoPlayCount: p.autoPlayCount || 0
           }))
         });
-        
+
         // Notify players of turn change
         io.to(roomId).emit('turn_changed', {
           previousPlayerId: id,
@@ -1675,8 +1675,8 @@ export const socketHandler = (io: Server): void => {
         // Set a timeout to clear the match animation state after 3 seconds
         setTimeout(() => {
           // Only clear if this is still the active match
-          if (room && room.gameState && room.gameState.matchAnimation && 
-              room.gameState.matchAnimation.cardId === playedCard.id) {
+          if (room && room.gameState && room.gameState.matchAnimation &&
+            room.gameState.matchAnimation.cardId === playedCard.id) {
             room.gameState.matchAnimation.isActive = false;
             // Emit updated game state
             io.to(roomId).emit('game_state_updated', room.gameState);
@@ -1691,9 +1691,9 @@ export const socketHandler = (io: Server): void => {
     socket.on('end_game', async ({ roomId, winnerId, reason }) => {
       try {
         const room = rooms.get(roomId);
-        console.log('End game request received:', { 
-          roomId, 
-          winnerId, 
+        console.log('End game request received:', {
+          roomId,
+          winnerId,
           reason,
           roomStatus: room?.status,
           gameState: room?.gameState
@@ -1772,7 +1772,7 @@ export const socketHandler = (io: Server): void => {
               isLastPayout: true
             }
           );
-          
+
           console.log('Successfully credited pool amount to winner:', {
             winnerId: winner.userId,
             socketId: winner.id,
@@ -1855,10 +1855,10 @@ export const socketHandler = (io: Server): void => {
         }
 
         const waitingTimeElapsed = Date.now() - room.gameState.waitingStartTime >= room.gameState.waitingTimer;
-        
+
         if (waitingTimeElapsed) {
           console.log('Waiting timer expired for room:', roomId);
-          
+
           if (room.players.length > 1) {
             // Auto-start the game if more than one player
             console.log('Auto-starting game with multiple players');
@@ -1867,7 +1867,7 @@ export const socketHandler = (io: Server): void => {
           } else {
             // Close room and kick the single player if only one player
             console.log('Closing room due to insufficient players');
-            
+
             // Notify the player
             io.to(roomId).emit('room_closed', {
               reason: 'Insufficient players when timer expired'

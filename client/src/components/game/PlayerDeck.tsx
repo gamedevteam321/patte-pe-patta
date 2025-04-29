@@ -103,8 +103,8 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
   };
 
   return (
-    <div className={`flex flex-col items-center ${getPositionStyles(position)} ${isCurrentPlayer ? "player-active" : ""} ${className}`}>
-      <div className={`relative ${isCurrentPlayer ? "scale-105" : ""} transition-all duration-300`}>
+    <div className={`flex flex-col items-center ${getPositionStyles(position)} ${isCurrentPlayer ? "player-active" : ""} ${!player.isActive ? "player-disabled" : ""} ${className}`}>
+      <div className={`relative ${isCurrentPlayer ? "scale-105" : ""} transition-all duration-300 ${!player.isActive ? "opacity-50" : ""}`}>
         {hasCardsInDeck ? (
           <div className={`flex justify-center ${position === "left" || position === "right" ? "flex-col" : "flex-row"}`}>
             {/* Show only one card */}
@@ -192,6 +192,22 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
           border-right: 8px solid transparent;
           border-top: 8px solid #3b82f6;
           animation: bounce 1s infinite;
+        }
+        .player-disabled {
+          opacity: 0.5;
+          pointer-events: none;
+        }
+        .player-disabled::after {
+          content: 'Disabled';
+          position: absolute;
+          top: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: rgba(0, 0, 0, 0.7);
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 12px;
         }
         .first-card-highlight {
           box-shadow: 0 0 8px 2px rgba(59, 130, 246, 0.6);

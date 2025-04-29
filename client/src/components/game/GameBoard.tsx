@@ -625,6 +625,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             (prev.cards.length > current.cards.length) ? prev : current
           );
 
+          // Set game over state and winner immediately
+          gameState.isGameOver = true;
+          gameState.winner = maxCardsPlayer;
+          
           // Update game state
           if (socket) {
             socket.emit('end_game', {
@@ -633,10 +637,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               reason: 'time_up'
             });
           }
-          // Set game over state immediately
-          gameState.isGameOver = true;
-          gameState.winner = maxCardsPlayer;
-          endGame(maxCardsPlayer.id);
 
           // Show toast notification
           toast({
@@ -842,12 +842,28 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       }
     };
 
+    const handlePlayerDisabled = (data: any) => {
+      const { playerId } = data;
+      setDisabledPlayers(prev => new Set(Array.from(prev).concat(playerId)));
+      
+      // Show toast notification
+      toast({
+        title: "Player Disabled",
+        description: `${data.username} has been disabled (no cards left)`,
+        variant: "default",
+        duration: 3000,
+        className: "top-0"
+      });
+    };
+
     socket.on('turn_changed', handleTurnChange);
     socket.on('play_card', handlePlayCardEvent);
+    socket.on('player_disabled', handlePlayerDisabled);
 
     return () => {
       socket.off('turn_changed', handleTurnChange);
       socket.off('play_card', handlePlayCardEvent);
+      socket.off('player_disabled', handlePlayerDisabled);
     };
   }, [socket, userPlayer, players, positionedPlayers]);
 

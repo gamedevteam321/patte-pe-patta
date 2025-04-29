@@ -24,6 +24,11 @@
             "date": 1745815345246,
             "name": "logs\\balance-2025-04-28.log",
             "hash": "ba6acbf6473d3fcc65b46239aae67006853b110f014ad2d699359df912c9e1c4"
+        },
+        {
+            "date": 1745902321008,
+            "name": "logs\\balance-2025-04-29.log",
+            "hash": "486484427c92bb081d552b880524102ae662c4ae20cfdccc7446e0b6791e66a9"
         }
     ],
     "hashType": "sha256"

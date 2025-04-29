@@ -1470,35 +1470,53 @@ export const socketHandler = (io: Server): void => {
         
         // Check if player has no cards left after playing
         if (player.cards.length === 0) {
-          console.log('Player has no cards left, removing from game:', {
+          console.log('Player has no cards left, checking for winner:', {
             playerId: player.id,
-            username: player.username
+            username: player.username,
+            activePlayers: room.gameState.players.filter(p => p.isActive !== false).length
           });
           
-          // Remove player from game state
-          room.gameState.players = room.gameState.players.filter(p => p.id !== player.id);
+          // Disable player instead of removing them
+          player.isActive = false;
           
-          // Check if only one player remains
-          if (room.gameState.players.length === 1) {
-            const lastPlayer = room.gameState.players[0];
-            console.log('Only one player remains, declaring winner:', {
+          // Check if only one active player remains
+          const activePlayers = room.gameState.players.filter(p => p.isActive !== false);
+          console.log('Active players after disabling:', {
+            count: activePlayers.length,
+            players: activePlayers.map(p => ({ id: p.id, username: p.username }))
+          });
+
+          if (activePlayers.length === 1) {
+            const lastPlayer = activePlayers[0];
+            console.log('Declaring winner by cards:', {
               winnerId: lastPlayer.id,
-              winnerName: lastPlayer.username
+              winnerName: lastPlayer.username,
+              roomId: roomId
             });
             
             // Set the last player as winner and end the game
             room.gameState.isGameOver = true;
             room.gameState.winner = lastPlayer;
+
+            // Update room status to completed
+            room.status = 'completed';
+            rooms.set(roomId, room);
+
+            // Update room status in database
+            const { error: updateError } = await supabase
+              .from('rooms')
+              .update({ status: 'completed' })
+              .eq('id', roomId);
+
+            if (updateError) {
+              console.error('Failed to update room status:', updateError);
+            }
+
+            // Calculate total pool amount
+            const totalPoolAmount = room.amount_stack * room.players.length;
             
-            // Process the winner's balance credit directly here instead of emitting an event
+            // Process the payout directly here
             try {
-              const totalPoolAmount = room.amount_stack * room.players.length;
-              console.log('Processing winner balance credit:', {
-                winnerId: lastPlayer.userId,
-                amount: totalPoolAmount,
-                roomId
-              });
-              
               const newBalance = await BalanceService.processGameResultWithNotification(
                 lastPlayer.userId,
                 true, // isWinner
@@ -1508,11 +1526,13 @@ export const socketHandler = (io: Server): void => {
                 {
                   socketId: lastPlayer.id,
                   totalPlayers: room.players.length,
-                  amountPerPlayer: room.amount_stack
+                  amountPerPlayer: room.amount_stack,
+                  reason: 'last_player_standing',
+                  isLastPayout: true
                 }
               );
               
-              console.log('Credited pool amount to winner:', {
+              console.log('Successfully credited pool amount to winner:', {
                 winnerId: lastPlayer.userId,
                 socketId: lastPlayer.id,
                 amount: totalPoolAmount,
@@ -1540,24 +1560,20 @@ export const socketHandler = (io: Server): void => {
             } catch (error) {
               console.error('Failed to credit pool amount to winner:', error);
             }
-            
-            // Notify all players about the game over
+
+            // Emit game_over event to notify all clients
             io.to(roomId).emit('game_over', {
               winner: lastPlayer,
-              reason: 'last_player_standing'
+              reason: 'last_player_standing',
+              poolAmount: totalPoolAmount
             });
-          } else if (room.gameState.players.length === 0) {
-            room.gameState.isGameOver = true;
-            console.log('All players removed, game over');
-          } else {
-            // Adjust current player index if needed
-            if (room.gameState.currentPlayerIndex >= room.gameState.players.length) {
-              room.gameState.currentPlayerIndex = 0;
-            }
+
+            // Emit rooms updated to all clients
+            io.emit('rooms_updated');
           }
           
-          // Notify all players about the player removal
-          io.to(roomId).emit('player_removed', {
+          // Notify all players about the player being disabled
+          io.to(roomId).emit('player_disabled', {
             playerId: player.id,
             username: player.username,
             reason: 'no_cards'
@@ -1587,7 +1603,7 @@ export const socketHandler = (io: Server): void => {
             isActive: true,
             cardId: playedCard.id,
             playerId: id,
-            timestamp: Date.now() // Add timestamp to track when the match occurred
+            timestamp: Date.now()
           };
           
           // Collect ALL cards from central pile
@@ -1611,22 +1627,15 @@ export const socketHandler = (io: Server): void => {
             playerId: id,
             cards: allCentralPileCards
           });
-        }
 
-        // After card play logic
-        if (!hasMatch) {
-          // Move to next active player
+          // Keep the same player's turn after a match
+          room.gameState.currentTurn = player.id;
+          room.gameState.currentPlayerIndex = room.gameState.players.findIndex(p => p.id === player.id);
+        } else {
+          // Move to next active player only if there was no match
           const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
           room.gameState.currentPlayerIndex = nextPlayerIndex;
           room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
-        } else {
-          // If there was a match, check if current player is still active
-          if (!room.gameState.players[room.gameState.currentPlayerIndex].isActive) {
-            // Find next active player
-            const nextPlayerIndex = findNextActivePlayer(room.gameState.players, room.gameState.currentPlayerIndex);
-            room.gameState.currentPlayerIndex = nextPlayerIndex;
-            room.gameState.currentTurn = room.gameState.players[nextPlayerIndex].id;
-          }
         }
         
         // Set turn end time (15 seconds from now)
@@ -1679,12 +1688,25 @@ export const socketHandler = (io: Server): void => {
       }
     });
 
-    socket.on('end_game', async ({ roomId, winnerId }) => {
+    socket.on('end_game', async ({ roomId, winnerId, reason }) => {
       try {
         const room = rooms.get(roomId);
-        console.log('End game request received:', { roomId, winnerId });
+        console.log('End game request received:', { 
+          roomId, 
+          winnerId, 
+          reason,
+          roomStatus: room?.status,
+          gameState: room?.gameState
+        });
+
         if (!room) {
           console.error('Room not found:', roomId);
+          return;
+        }
+
+        // Check if game is already over to prevent duplicate payouts
+        if (room.status === 'completed') {
+          console.log('Game already ended, skipping duplicate end_game event');
           return;
         }
 
@@ -1705,63 +1727,87 @@ export const socketHandler = (io: Server): void => {
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
-        // Use the winner from gameState instead of trying to find them again
-        const winner = room.gameState.winner;
-        console.log('end_game Winner:', winner);
-        if (winner) {
-          // Calculate total pool amount (bet amount * number of players)
-          const totalPoolAmount = room.amount_stack * room.players.length;
-          console.log('Total pool amount:', totalPoolAmount);
-          // Credit the pool amount to the winner
-          try {
-            const newBalance = await BalanceService.processGameResultWithNotification(
-              winner.userId,
-              true, // isWinner
-              totalPoolAmount,
-              'demo', // balanceType
-              roomId,
-              {
-                socketId: winner.id,
-                totalPlayers: room.players.length,
-                amountPerPlayer: room.amount_stack
-              }
-            );
-            
-            console.log('Credited pool amount to winner:', {
-              winnerId: winner.userId,
-              socketId: winner.id,
-              amount: totalPoolAmount,
-              newBalance,
-              roomId
-            });
+        // Find the winner if not already set in gameState
+        let winner = room.gameState.winner;
+        if (!winner && winnerId) {
+          winner = room.gameState.players.find(p => p.id === winnerId);
+          if (winner) {
+            room.gameState.winner = winner;
+          }
+        }
 
-            // Emit balance update to all clients in the room
-            io.to(roomId).emit('balance:update', {
-              userId: winner.userId,
+        console.log('Processing winner payout:', {
+          winnerId: winner?.id,
+          winnerName: winner?.username,
+          reason,
+          roomId
+        });
+
+        if (!winner) {
+          console.error('No winner found in game state');
+          return;
+        }
+
+        // Calculate total pool amount (bet amount * number of players)
+        const totalPoolAmount = room.amount_stack * room.players.length;
+        console.log('Calculating pool amount:', {
+          amountPerPlayer: room.amount_stack,
+          totalPlayers: room.players.length,
+          totalPoolAmount
+        });
+
+        // Credit the pool amount to the winner
+        try {
+          const newBalance = await BalanceService.processGameResultWithNotification(
+            winner.userId,
+            true, // isWinner
+            totalPoolAmount,
+            'demo', // balanceType
+            roomId,
+            {
               socketId: winner.id,
+              totalPlayers: room.players.length,
+              amountPerPlayer: room.amount_stack,
+              reason: reason || 'game_ended',
+              isLastPayout: true
+            }
+          );
+          
+          console.log('Successfully credited pool amount to winner:', {
+            winnerId: winner.userId,
+            socketId: winner.id,
+            amount: totalPoolAmount,
+            newBalance,
+            roomId,
+            reason
+          });
+
+          // Emit balance update to all clients in the room
+          io.to(roomId).emit('balance:update', {
+            userId: winner.userId,
+            socketId: winner.id,
+            demo: newBalance,
+            real: 0
+          });
+
+          // Also emit to the winner's socket specifically
+          const winnerSocket = io.sockets.sockets.get(winner.id);
+          if (winnerSocket) {
+            winnerSocket.emit('balance:update', {
+              userId: winner.userId,
               demo: newBalance,
               real: 0
             });
-
-            // Also emit to the winner's socket specifically
-            const winnerSocket = io.sockets.sockets.get(winner.id);
-            if (winnerSocket) {
-              winnerSocket.emit('balance:update', {
-                userId: winner.userId,
-                demo: newBalance,
-                real: 0
-              });
-            }
-          } catch (error) {
-            console.error('Failed to credit pool amount to winner:', error);
           }
+        } catch (error) {
+          console.error('Failed to credit pool amount to winner:', error);
         }
 
         // Notify all players about the game over
         io.to(roomId).emit('game_over', {
           winner,
-          reason: 'game_ended',
-          poolAmount: room.amount_stack * room.players.length
+          reason: reason || 'game_ended',
+          poolAmount: totalPoolAmount
         });
       } catch (error) {
         console.error('Error ending game:', error);

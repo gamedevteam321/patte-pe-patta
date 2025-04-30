@@ -265,6 +265,7 @@ const RoomList: React.FC<RoomListProps> = ({
             <div className="flex items-center gap-2">
               {room.isPrivate && <Lock className="h-4 w-4 text-gray-400" />}
               {isNewRoom && <Badge variant="secondary" className="bg-game-cyan">New</Badge>}
+            </div>
           </CardTitle>
           <CardDescription className="flex items-center gap-2">
             <Users className="h-4 w-4" />

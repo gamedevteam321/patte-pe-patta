@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { BalanceService } from '../balance/balance.service';
+import { RoomType, roomConfigs } from '../../types/game';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,8 @@ interface GameState {
   waitingStartTime: number;
   autoStartEnabled: boolean;
   debugMode: boolean;
+  roomType: RoomType;
+  config: any;
 }
 
 interface Room {
@@ -68,6 +71,8 @@ interface Room {
   max_players: number;
   amount_stack: number;
   created_at: string;
+  roomType: RoomType;
+  config: any;
 }
 
 // Debug mode configuration
@@ -316,7 +321,9 @@ export const socketHandler = (io: Server): void => {
               status: room.status,
               createdAt: room.created_at,
               code: room.code,
-              amount_stack: room.amount_stack || 0
+              amount_stack: room.amount_stack || 0,
+              roomType: room.room_type || RoomType.CASUAL,
+              config: room.config || roomConfigs[RoomType.CASUAL]
             };
           }).filter(room => {
             const isAvailable = room.players.length < room.maxPlayers;
@@ -368,11 +375,25 @@ export const socketHandler = (io: Server): void => {
           roomName: roomData.name,
           maxPlayers: roomData.maxPlayers,
           betAmount: roomData.betAmount,
-          isPrivate: roomData.isPrivate
+          isPrivate: roomData.isPrivate,
+          roomType: roomData.roomType
         });
 
         if (!roomData.userId) {
           const error = 'Authentication required';
+          console.error('Room creation failed:', error);
+          socket.emit('room:error', { message: error });
+          if (callback) callback({ success: false, error });
+          return;
+        }
+
+        // Get room configuration based on type
+        const roomType = (roomData.roomType || RoomType.CASUAL) as RoomType;
+        const config = roomConfigs[roomType];
+
+        // Validate bet amount against room type config
+        if (roomData.betAmount < config.minBet || roomData.betAmount > config.maxBet) {
+          const error = `Bet amount must be between ${config.minBet} and ${config.maxBet} for ${roomType} rooms`;
           console.error('Room creation failed:', error);
           socket.emit('room:error', { message: error });
           if (callback) callback({ success: false, error });
@@ -473,7 +494,9 @@ export const socketHandler = (io: Server): void => {
             is_private: roomData.isPrivate || false,
             name: roomData.name || "Game Room",
             passkey: roomData.isPrivate ? roomData.passkey : null,
-            is_demo_mode: true // Set to true for now, can be made configurable later
+            is_demo_mode: true, // Set to true for now, can be made configurable later
+            room_type: roomType,
+            config: config
           }])
           .select()
           .single();
@@ -547,7 +570,7 @@ export const socketHandler = (io: Server): void => {
 
         console.log('Room created in database:', { roomId, roomCode });
 
-        // Add to in-memory storage with additional metadata
+        // Update game state with room type configuration
         const roomWithPlayers = {
           ...supabaseRoom,
           roomName: roomData.name,
@@ -585,13 +608,15 @@ export const socketHandler = (io: Server): void => {
             gameStarted: false,
             isGameOver: false,
             gameStartTime: null,
-            roomDuration: 5 * 60 * 1000,
+            roomDuration: config.gameDuration,
             turnEndTime: null,
-            requiredPlayers: roomData.maxPlayers || 2,
+            requiredPlayers: roomData.maxPlayers || config.maxPlayers,
             waitingTimer: 3 * 60 * 1000,
             waitingStartTime: Date.now(),
             autoStartEnabled: true,
-            debugMode: false
+            debugMode: false,
+            roomType: roomType,
+            config: config
           }
         };
 

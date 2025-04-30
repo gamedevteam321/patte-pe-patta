@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Socket } from 'socket.io-client';
-import { GameState, Room } from '@/types/game';
+import { GameState, Room, RoomType } from '@/types/game';
 
 interface GameOverPanelProps {
   gameState: GameState;
@@ -30,7 +30,7 @@ const GameOverPanel: React.FC<GameOverPanelProps> = ({
     if (socket) {
       socket.emit('leave_room', currentRoom?.id);
     }
-    navigate('/lobby');
+    navigate(`/lobby?game=${currentRoom?.roomType || RoomType.CASUAL}`);
   };
 
   return (

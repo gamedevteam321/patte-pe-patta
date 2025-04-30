@@ -24,19 +24,70 @@ const Index = () => {
 
   const games = [
     {
-      id: "classic",
-      title: "Patte pe Patta",
-      description: "Classic game mode with standard stakes",
+      id: "casual",
+      title: "Casual Game",
+      description: "Relaxed gameplay with longer turn times",
       icon: <PlayCircle className="h-8 w-8" />,
-      activePlayers: 12800
+      activePlayers: 12800,
+      comingSoon: false,
+      roomType: "casual",
+      config: {
+        turnTime: 15000,
+        gameDuration: 300000,
+        maxPlayers: 4,
+        minBet: 50,
+        maxBet: 10000,
+        shufflesAllowed: 2,
+        cardDistribution: {
+          "2": 26,
+          "3": 17,
+          "4": 13
+        }
+      }
     },
     {
-      id: "high-stakes",
-      title: "Patte pe Patta (High Stakes)",
-      description: "Higher stakes, intense gameplay",
+      id: "quick",
+      title: "Quick Game",
+      description: "Fast-paced games with quick turns",
+      icon: <Clock className="h-8 w-8" />,
+      activePlayers: 0,
+      comingSoon: false,
+      roomType: "quick",
+      config: {
+        turnTime: 10000,
+        gameDuration: 180000,
+        maxPlayers: 4,
+        minBet: 50,
+        maxBet: 10000,
+        shufflesAllowed: 1,
+        cardDistribution: {
+          "2": 26,
+          "3": 17,
+          "4": 13
+        }
+      }
+    },
+    {
+      id: "competitive",
+      title: "Competitive Game",
+      description: "High-stakes games with strategic gameplay",
       icon: <Coins className="h-8 w-8" />,
-      comingSoon: true,
-      activePlayers: 0
+      activePlayers: 0,
+      comingSoon: false,
+      roomType: "competitive",
+      config: {
+        turnTime: 20000,
+        gameDuration: 480000,
+        maxPlayers: 4,
+        minBet: 50,
+        maxBet: 10000,
+        shufflesAllowed: 1,
+        cardDistribution: {
+          "2": 26,
+          "3": 17,
+          "4": 13
+        }
+      }
     },
     {
       id: "speed",
@@ -58,7 +109,7 @@ const Index = () => {
       id: "team",
       title: "Team Battle",
       description: "Play in teams of 2",
-      icon: <PlayCircle className="h-8 w-8" />,
+      icon: <Users className="h-8 w-8" />,
       comingSoon: true,
       activePlayers: 0
     },
@@ -99,14 +150,6 @@ const Index = () => {
       title: "Ranked Play",
       description: "Compete for leaderboard position",
       icon: <Coins className="h-8 w-8" />,
-      comingSoon: true,
-      activePlayers: 0
-    },
-    {
-      id: "casual",
-      title: "Casual Play",
-      description: "Relaxed games with friends",
-      icon: <PlayCircle className="h-8 w-8" />,
       comingSoon: true,
       activePlayers: 0
     },
@@ -236,6 +279,22 @@ const Index = () => {
                   <p className="text-gray-400 text-sm mb-2 line-clamp-2 h-10">
                     {game.description}
                   </p>
+                  {!game.comingSoon && game.config && (
+                    <div className="text-xs text-gray-400 mb-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
+                        <span>Turn Time: {game.config.turnTime / 1000}s</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-3 w-3" />
+                        <span>Players: {game.config.maxPlayers}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-3 w-3" />
+                        <span>Bet: {game.config.minBet} - {game.config.maxBet}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full animate-pulse" 

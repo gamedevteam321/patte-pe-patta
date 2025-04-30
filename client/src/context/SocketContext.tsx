@@ -68,6 +68,19 @@ export interface RoomData {
   updatedAt?: string;
   gameState?: GameState;
   playerCount: number;
+  roomType: 'casual' | 'quick' | 'competitive';
+  config: {
+    turnTime: number;
+    gameDuration: number;
+    maxPlayers: number;
+    minBet: number;
+    maxBet: number;
+    shufflesAllowed: number;
+    description: string;
+    cardDistribution: {
+      [key: string]: number;
+    };
+  };
 }
 
 interface UserData {
@@ -85,7 +98,14 @@ interface SocketContextType {
   gameState: GameState | null;
   canStartGame: boolean;
   fetchRooms: () => void;
-  createRoom: (roomData: { name: string; playerCount: number; betAmount: number; isPrivate: boolean; passkey?: string; hostId?: string }) => Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>;
+  createRoom: (roomData: { 
+    name: string; 
+    playerCount: number; 
+    betAmount: number; 
+    isPrivate: boolean; 
+    passkey?: string;
+    roomType?: 'casual' | 'quick' | 'competitive';
+  }) => Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }>;
   joinRoom: (roomId: string, password?: string) => Promise<boolean>;
   leaveRoom: () => void;
   startGame: () => void;
@@ -246,10 +266,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return prevRooms.map(room => room.id === roomData.id ? roomData : room);
           } else {
             // Add new room
+            toast({
+              title: "New Room Available",
+              description: `A new room "${roomData.name}" has been created`,
+              variant: "default"
+            });
             return [...prevRooms, roomData];
           }
         });
       }
+
+      // Always fetch the latest rooms after a room is created
+      console.log('Fetching latest rooms after room creation');
+      fetchRooms();
     });
 
     // Add room:deleted event handler
@@ -269,7 +298,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Add rooms_updated event handler to refresh room list
     newSocket.on('rooms_updated', () => {
       console.log('Rooms updated event received, fetching latest rooms...');
+      // Force a refresh by setting lastFetchTime to 0
+      setLastFetchTime(0);
       fetchRooms();
+    });
+
+    // Add fetch_rooms response handler
+    newSocket.on('fetch_rooms_response', (response: { success: boolean; rooms: RoomData[] }) => {
+      console.log('Received fetch_rooms response:', response);
+      if (response.success) {
+        console.log('Setting available rooms:', response.rooms);
+        setAvailableRooms(response.rooms);
+      } else {
+        console.error('Failed to fetch rooms:', response);
+        toast({
+          title: "Error",
+          description: "Failed to fetch rooms. Please try again.",
+          variant: "destructive"
+        });
+      }
     });
 
     newSocket.on('connect', handleConnect);
@@ -381,8 +428,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     betAmount: number; 
     isPrivate: boolean; 
     passkey?: string;
+    roomType?: 'casual' | 'quick' | 'competitive';
   }): Promise<{ success: boolean; roomId?: string; roomCode?: string; error?: string }> => {
-    if (!socket || !user) return { success: false, error: 'Socket not connected or user not authenticated' };
+    if (!socket || !isConnected) {
+      return { success: false, error: 'Socket not connected' };
+    }
 
     return new Promise((resolve) => {
       socket.emit('create_room', {
@@ -391,21 +441,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         betAmount: roomData.betAmount,
         isPrivate: roomData.isPrivate,
         passkey: roomData.passkey,
-        userId: user.id,
-        hostName: user.username || 'Anonymous'
-      }, (response: { success: boolean; room?: RoomData; error?: string }) => {
-        if (response.success && response.room) {
-          resolve({ 
-            success: true, 
-            roomId: response.room.id,
-            roomCode: response.room.code
-          });
+        roomType: roomData.roomType || 'casual',
+        userId: user?.id,
+        hostName: user?.username || user?.email || "Player"
+      }, (response: { success: boolean; room?: RoomData; roomId?: string; roomCode?: string; error?: string }) => {
+        if (response.success) {
+          setCurrentRoom(response.room || null);
+          resolve({ success: true, roomId: response.roomId, roomCode: response.roomCode });
         } else {
-          console.error('Failed to create room:', response.error);
-          resolve({ 
-            success: false, 
-            error: response.error || 'Failed to create room' 
-          });
+          resolve({ success: false, error: response.error });
         }
       });
     });
@@ -424,7 +468,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (response.success && response.room) {
           const roomWithBetAmount = {
             ...response.room,
-            betAmount: response.room.amount_stack || 0
+            betAmount: response.room.betAmount || 0 // Use betAmount instead of amount_stack
           };
           console.log('Joining room with bet amount:', roomWithBetAmount);
           setCurrentRoom(roomWithBetAmount);

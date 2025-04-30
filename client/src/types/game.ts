@@ -47,6 +47,25 @@ export interface GameState {
 }
 
 // Room related types
+export enum RoomType {
+  CASUAL = 'casual',
+  QUICK = 'quick',
+  COMPETITIVE = 'competitive'
+}
+
+export interface RoomConfig {
+  turnTime: number;
+  gameDuration: number;
+  maxPlayers: number;
+  minBet: number;
+  maxBet: number;
+  shufflesAllowed: number;
+  description: string;
+  cardDistribution: {
+    [key: string]: number;
+  };
+}
+
 export interface RoomData {
   id: string;
   name: string;
@@ -58,6 +77,8 @@ export interface RoomData {
   status: string;
   createdAt: string;
   code: string;
+  roomType: RoomType;
+  config: RoomConfig;
 }
 
 export interface Room {
@@ -72,6 +93,7 @@ export interface Room {
   createdAt: string;
   code: string;
   gameState: GameState;
+  roomType: RoomType;
   players?: {
     id: string;
     username: string;

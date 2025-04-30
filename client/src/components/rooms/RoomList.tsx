@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Card, 
   CardContent, 
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users, Coins, RefreshCw, List, Grid, Globe, Home } from "lucide-react";
+import { Lock, Users, Coins, RefreshCw, List, Grid, Globe, Home, Clock, Key, Plus } from "lucide-react";
 import { useSocket } from '@/context/SocketContext';
 import { useAuth } from '@/context/AuthContext';
 import JoinRoomDialog from './JoinRoomDialog';
@@ -19,46 +19,48 @@ import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
 import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { formatDistanceToNow } from 'date-fns';
-
-interface RoomItem {
-  id: string;
-  name: string;
-  status: string;
-  betAmount: number;
-  maxPlayers: number;
-  playerCount: number;
-  hostName: string;
-  isPrivate: boolean;
-  createdAt: string;
-  code: string;
-  players?: Array<{
-    id: string;
-    username: string;
-    isReady: boolean;
-  }>;
-}
+import { RoomData } from '@/context/SocketContext';
 
 interface RoomListProps {
   initialFilter?: 'all' | 'public' | 'private' | 'my';
   filterByCode?: string;
   showFilters?: boolean;
+  roomType?: string | null;
 }
 
 const RoomList: React.FC<RoomListProps> = ({ 
   initialFilter = 'all',
   filterByCode,
-  showFilters = true
+  showFilters = true,
+  roomType: propRoomType
 }) => {
-  const { availableRooms, fetchRooms, joinRoom } = useSocket();
+  const { availableRooms, fetchRooms, joinRoom, socket } = useSocket();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedRoom, setSelectedRoom] = useState<RoomItem | null>(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [selectedRoom, setSelectedRoom] = useState<RoomData | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isJoinByCodeDialogOpen, setIsJoinByCodeDialogOpen] = useState(false);
+  const [roomCode, setRoomCode] = useState('');
   const [password, setPassword] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [filter, setFilter] = useState<'all' | 'public' | 'private' | 'my'>(initialFilter);
+  const [currentGameType, setCurrentGameType] = useState<string | null>(null);
+
+  // Get game type from URL and store it
+  useEffect(() => {
+    const gameType = searchParams.get('game');
+    if (gameType) {
+      console.log('Setting game type from URL:', gameType);
+      setCurrentGameType(gameType);
+    }
+  }, [searchParams]);
+
+  // Get room type from navigation state or props
+  const effectiveRoomType = currentGameType || propRoomType || (location.state as { roomType?: string })?.roomType || null;
 
   useEffect(() => {
     const loadRooms = async () => {
@@ -79,6 +81,22 @@ const RoomList: React.FC<RoomListProps> = ({
 
     loadRooms();
   }, [fetchRooms]);
+
+  // Add listener for room creation
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRoomCreated = () => {
+      console.log('Room created event received in RoomList');
+      fetchRooms();
+    };
+
+    socket.on('room:created', handleRoomCreated);
+
+    return () => {
+      socket.off('room:created', handleRoomCreated);
+    };
+  }, [socket, fetchRooms]);
 
   // Add debug logging for room data
   useEffect(() => {
@@ -103,7 +121,7 @@ const RoomList: React.FC<RoomListProps> = ({
     }
   };
 
-  const handleJoinClick = (room: RoomItem) => {
+  const handleJoinClick = (room: RoomData) => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -133,8 +151,40 @@ const RoomList: React.FC<RoomListProps> = ({
     
     const success = await joinRoom(roomId, password);
     if (success) {
-      navigate(`/room/${roomId}`);
+      navigate(`/room/${roomId}`, { state: { gameType: currentGameType } });
     }
+  };
+
+  const handleJoinByCode = async () => {
+    if (!roomCode) {
+      toast({
+        title: "Error",
+        description: "Please enter a room code",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const success = await joinRoom(roomCode, password);
+      if (success) {
+        setIsJoinByCodeDialogOpen(false);
+        setRoomCode('');
+        setPassword('');
+        navigate(`/room/${roomCode}`, { state: { gameType: currentGameType } });
+      }
+    } catch (error) {
+      console.error('Error joining room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to join room. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateRoom = () => {
+    navigate(`/room/create${currentGameType ? `?game=${currentGameType}` : ''}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -159,43 +209,110 @@ const RoomList: React.FC<RoomListProps> = ({
     }
   };
 
-  // Cast availableRooms to the proper interface and ensure number values
-  const rooms = (availableRooms as unknown as RoomItem[]).map(room => ({
-    ...room,
-    playerCount: room.players?.length || 0,
-    maxPlayers: Number(room.maxPlayers) || 2
-  }));
-
-  // Filter rooms based on selected filter and room code
-  const filteredRooms = rooms.filter(room => {
-    // First filter by room code if provided
-    if (filterByCode && room.code !== filterByCode) {
-      return false;
+  // Filter rooms based on game type
+  const filteredRooms = React.useMemo(() => {
+    let rooms = availableRooms;
+    
+    // Filter by game type if specified
+    if (effectiveRoomType) {
+      console.log('Filtering rooms by game type:', effectiveRoomType);
+      rooms = rooms.filter(room => room.roomType === effectiveRoomType);
     }
-
-    // Then apply the selected filter
+    
+    // Apply other filters
     switch (filter) {
       case 'public':
-        return !room.isPrivate;
+        rooms = rooms.filter(room => !room.isPrivate);
+        break;
       case 'private':
-        return room.isPrivate;
+        rooms = rooms.filter(room => room.isPrivate);
+        break;
       case 'my':
-        return user && room.hostName === user.username;
-      default:
-        return true;
+        rooms = rooms.filter(room => room.hostName === user?.username);
+        break;
     }
-  });
+    
+    return rooms;
+  }, [availableRooms, effectiveRoomType, filter, user?.username]);
 
-  const calculatePoolMoney = (room: RoomItem) => {
-    const betAmount = Number(room.betAmount) || 0;
-    const joinedPlayers = Number(room.playerCount) || 0;
+  const calculatePoolMoney = (room: RoomData) => {
+    const betAmount = room.betAmount || 0;
+    const joinedPlayers = room.playerCount || 0;
     return betAmount * joinedPlayers;
+  };
+
+  const renderRoomCard = (room: RoomData) => {
+    const poolMoney = calculatePoolMoney(room);
+    const isFull = room.playerCount >= room.maxPlayers;
+    const isHost = user?.username === room.hostName;
+    const isNewRoom = Date.now() - new Date(room.createdAt || '').getTime() < 60000; // Room is new if created within last minute
+    const config = room.config || {
+      turnTime: 30000, // Default 30 seconds
+      gameDuration: 300000, // Default 5 minutes
+      maxPlayers: 4,
+      minBet: 0,
+      maxBet: 1000,
+      shufflesAllowed: 3,
+      description: 'Casual game room',
+      cardDistribution: {}
+    };
+
+    return (
+      <Card key={room.id} className={`glass-panel ${isNewRoom ? 'border-2 border-game-cyan' : ''}`}>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="truncate">{room.name}</span>
+            <div className="flex items-center gap-2">
+              {room.isPrivate && <Lock className="h-4 w-4 text-gray-400" />}
+              {isNewRoom && <Badge variant="secondary" className="bg-game-cyan">New</Badge>}
+          </CardTitle>
+          <CardDescription className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span>{room.playerCount}/{room.maxPlayers} Players</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Coins className="h-4 w-4" />
+              <span>Bet: {room.betAmount || 0}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>Turn Time: {config.turnTime / 1000}s</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">
+                {config.description}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {room.roomType?.charAt(0).toUpperCase() + (room.roomType?.slice(1) || '')}
+            </Badge>
+            <span className="text-sm text-gray-400">
+              {formatDistanceToNow(new Date(room.createdAt || ''), { addSuffix: true })}
+            </span>
+          </div>
+          <Button
+            onClick={() => handleJoinClick(room)}
+            disabled={isFull && !isHost}
+            className="bg-game-cyan hover:bg-game-cyan/80"
+          >
+            {isFull ? 'Full' : 'Join'}
+          </Button>
+        </CardFooter>
+      </Card>
+    );
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-game-cyan"></div>
       </div>
     );
   }
@@ -226,6 +343,8 @@ const RoomList: React.FC<RoomListProps> = ({
             >
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
+            
+           
           </div>
         </div>
 
@@ -271,115 +390,15 @@ const RoomList: React.FC<RoomListProps> = ({
 
       {filteredRooms.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">
-            {filter === 'all' ? 'No rooms available' :
-             filter === 'public' ? 'No public rooms available' :
-             filter === 'private' ? 'No private rooms available' :
-             'No rooms created by you'}
-          </p>
+          <p className="text-gray-400">No rooms available</p>
         </div>
       ) : viewMode === 'list' ? (
         <div className="space-y-4">
-          {filteredRooms.map((room) => (
-            <Card key={room.id} className="hover:bg-black/10 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{room.name || "Game Room"}</CardTitle>
-                    <CardDescription>
-                      Hosted by {room.hostName || "Anonymous"} • {formatDate(room.createdAt)}
-                    </CardDescription>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>Players ({room.playerCount || 0}/{room.maxPlayers || 2})</span>
-                    </div>
-                    {room.players && room.players.length > 0 && (
-                      <div className="text-sm text-muted-foreground pl-6">
-                        {room.players.map((player, index) => (
-                          <div key={player.id} className="flex items-center gap-2">
-                            <span> {player.username}</span>
-                            {player.isReady && (
-                              <Badge variant="outline" className="text-xs">Ready</Badge>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-medium">₹{room.betAmount || 0}</div>
-                      <div className="text-sm text-muted-foreground">Bet Amount</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium">₹{calculatePoolMoney(room)}</div>
-                      <div className="text-sm text-muted-foreground">Pool Amount</div>
-                    </div>
-                    <Button
-                      onClick={() => handleJoinClick(room)}
-                      disabled={room.playerCount >= room.maxPlayers}
-                    >
-                      {room.playerCount >= room.maxPlayers ? 'Full' : 'Join'}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {filteredRooms.map((room) => renderRoomCard(room))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredRooms.map((room) => (
-            <Card key={room.id} className="hover:bg-accent/50 transition-colors">
-              <CardHeader>
-                <CardTitle className="text-lg">{room.name || "Game Room"}</CardTitle>
-                <CardDescription>
-                  Hosted by {room.hostName || "Anonymous"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Created</span>
-                  <span className="text-sm">{formatDate(room.createdAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Bet Amount</span>
-                  <span className="text-sm font-medium">₹{room.betAmount || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Pool Amount</span>
-                  <span className="text-sm font-medium">₹{calculatePoolMoney(room)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Players ({room.playerCount || 0}/{room.maxPlayers || 2})
-                  </span>
-                </div>
-                {room.players && room.players.length > 0 && (
-                  <div className="space-y-1 mt-2 border-t pt-2">
-                    {room.players.map((player, index) => (
-                      <div key={player.id} className="flex items-center justify-between text-sm">
-                        <span>{player.username}</span>
-                        {player.isReady && (
-                          <Badge variant="outline" className="text-xs">Ready</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                <Button
-                  className="w-full"
-                  onClick={() => handleJoinClick(room)}
-                  disabled={room.playerCount >= room.maxPlayers}
-                >
-                  {room.playerCount >= room.maxPlayers ? 'Full' : 'Join'}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+          {filteredRooms.map((room) => renderRoomCard(room))}
         </div>
       )}
 
@@ -412,6 +431,34 @@ const RoomList: React.FC<RoomListProps> = ({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Join by Code Dialog */}
+      <Dialog open={isJoinByCodeDialogOpen} onOpenChange={setIsJoinByCodeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Join Room by Code</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Enter room code"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value)}
+            />
+            <Input
+              type="password"
+              placeholder="Enter room password (if private)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Button
+              className="w-full"
+              onClick={handleJoinByCode}
+            >
+              Join Room
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

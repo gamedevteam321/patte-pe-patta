@@ -13,7 +13,7 @@ export class GameStateManager {
 
   private initializeGameState(players: Player[]): GameState {
     return {
-      phase: 'waiting',
+      phase: GamePhase.WAITING,
       players: players.map(player => ({
         ...player,
         cards: [],
@@ -74,9 +74,9 @@ export class GameStateManager {
   }
 
   private startGame(): void {
-    this.state.phase = 'dealing';
+    this.state.phase = GamePhase.READY;
     this.dealCards();
-    this.state.phase = 'playing';
+    this.state.phase = GamePhase.IN_PROGRESS;
     this.state.currentPlayerIndex = 0;
     logInfo(`Game started in room ${this.roomId}`);
   }
@@ -94,7 +94,7 @@ export class GameStateManager {
   }
 
   public playCard(playerId: string, card: Card): void {
-    if (this.state.phase !== 'playing') {
+    if (this.state.phase !== GamePhase.IN_PROGRESS) {
       throw new GameError('INVALID_PHASE', 'Cannot play card in current phase');
     }
 
@@ -131,7 +131,7 @@ export class GameStateManager {
   }
 
   private endGame(winnerId: string): void {
-    this.state.phase = 'ended';
+    this.state.phase = GamePhase.COMPLETED;
     const winner = this.state.players.find(p => p.id === winnerId);
     if (winner) {
       winner.score += 1;
@@ -140,7 +140,7 @@ export class GameStateManager {
   }
 
   public addPlayer(player: Player): void {
-    if (this.state.phase !== 'waiting') {
+    if (this.state.phase !== GamePhase.WAITING) {
       throw new GameError('GAME_IN_PROGRESS', 'Cannot add player while game is in progress');
     }
 
@@ -153,7 +153,7 @@ export class GameStateManager {
   }
 
   public removePlayer(playerId: string): void {
-    if (this.state.phase !== 'waiting') {
+    if (this.state.phase !== GamePhase.WAITING) {
       throw new GameError('GAME_IN_PROGRESS', 'Cannot remove player while game is in progress');
     }
 

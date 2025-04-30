@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +10,41 @@ import { useSocket } from "@/context/SocketContext";
 import { useBalance } from "@/context/BalanceContext";
 import { Users, Lock, Globe } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { RoomType } from "@/types/game";
+
+// Room configurations
+const roomConfigs = {
+  [RoomType.CASUAL]: {
+    minBet: 0,
+    maxBet: 1000,
+    turnTime: 30000,
+    gameDuration: 300000,
+    maxPlayers: 4,
+    shufflesAllowed: 3,
+    description: 'Casual game room',
+    cardDistribution: {}
+  },
+  [RoomType.QUICK]: {
+    minBet: 100,
+    maxBet: 5000,
+    turnTime: 15000,
+    gameDuration: 180000,
+    maxPlayers: 4,
+    shufflesAllowed: 2,
+    description: 'Quick game room',
+    cardDistribution: {}
+  },
+  [RoomType.COMPETITIVE]: {
+    minBet: 500,
+    maxBet: 10000,
+    turnTime: 20000,
+    gameDuration: 240000,
+    maxPlayers: 4,
+    shufflesAllowed: 1,
+    description: 'Competitive game room',
+    cardDistribution: {}
+  }
+};
 
 const getRandomRoomName = () => {
   const adjectives = ["Epic", "Legendary", "Awesome", "Cool", "Lucky", "Royal", "Golden", "Mystic"];
@@ -18,11 +54,18 @@ const getRandomRoomName = () => {
   return `${randomAdjective} ${randomNoun}`;
 };
 
+const roomTypes = [
+  { value: RoomType.CASUAL, label: 'Casual', description: 'Relaxed gameplay with longer turn times' },
+  { value: RoomType.QUICK, label: 'Quick', description: 'Fast-paced games with quick turns' },
+  { value: RoomType.COMPETITIVE, label: 'Competitive', description: 'High-stakes games with more initial cards' }
+];
+
 const RoomCreate: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { balance } = useBalance();
   const { createRoom, joinRoom } = useSocket();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [roomName, setRoomName] = useState(getRandomRoomName());
   const [playerCount, setPlayerCount] = useState<string>("4");
   const [betAmount, setBetAmount] = useState<string>("50");
@@ -30,6 +73,7 @@ const RoomCreate: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [passkey, setPasskey] = useState('');
   const [passkeyError, setPasskeyError] = useState('');
+  const [selectedRoomType, setSelectedRoomType] = useState<RoomType | null>(null);
 
   const demoBalance = balance?.demo || 0;
 
@@ -38,6 +82,17 @@ const RoomCreate: React.FC = () => {
       navigate("/login");
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    // Get room type from URL
+    const gameType = searchParams.get('game');
+    if (gameType) {
+      setSelectedRoomType(gameType as RoomType);
+      // Set default bet amount based on room type
+      const config = roomConfigs[gameType as RoomType];
+      setBetAmount(config.minBet.toString());
+    }
+  }, [searchParams]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,12 +138,25 @@ const RoomCreate: React.FC = () => {
     setIsCreating(true);
     
     try {
+      const roomType = selectedRoomType || RoomType.CASUAL;
+      const config = roomConfigs[roomType];
+
+      if (betAmountNum < config.minBet || betAmountNum > config.maxBet) {
+        toast({
+          title: "Error",
+          description: `Bet amount must be between ${config.minBet} and ${config.maxBet}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const roomConfig = {
         name: roomName.trim() || `${user.username || 'Player'}'s Room`,
         playerCount: parseInt(playerCount),
         betAmount: betAmountNum,
         isPrivate,
-        passkey: isPrivate ? passkey : undefined
+        passkey: isPrivate ? passkey : undefined,
+        roomType
       };
       
       console.log("Creating room with:", roomConfig);
@@ -250,7 +318,8 @@ const RoomCreate: React.FC = () => {
                   {option.label}
                 </label>
               ))}
-               </div><div className="grid grid-rows-1 grid-flow-col gap-2"> 
+            </div>
+            <div className="grid grid-rows-1 grid-flow-col gap-2 mt-2">
               {betOptions.slice(4).map((option) => (
                 <label
                   key={option.value}
@@ -273,6 +342,11 @@ const RoomCreate: React.FC = () => {
                 </label>
               ))}
             </div>
+            {selectedRoomType && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Min: {roomConfigs[selectedRoomType].minBet}, Max: {roomConfigs[selectedRoomType].maxBet}
+              </p>
+            )}
           </div>
 
           {/* Amount Display */}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSocket, GameState, Card, Player } from "@/context/SocketContext";
+import { RoomType } from "@/types/game";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Send, Shuffle, Users, RefreshCw, Play, Clock, AlertTriangle, Timer, UserCircle, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from 'react-router-dom';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import GameOverPanel from './GameOverPanel';
 import { useBalance } from "@/context/BalanceContext";
 
@@ -1222,14 +1223,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Lock animations to prevent updates
     setAnimationLocked(true);
 
-    // Capture the current card to display during animation
-    // This is critically important - we save what's currently displayed before any animation
-    //if (gameState.centralPile && gameState.centralPile.length > 0) {
-    //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-    // Explicitly set what card to display during animation - the previous one
-    //setDisplayedCenterCard(currentTopCard);
-    //}
-
     // Create card element for animation
     const cardElement = document.createElement('div');
     cardElement.className = 'card-travel';
@@ -1246,11 +1239,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Add to body
     document.body.appendChild(cardElement);
 
-    // Render card
-    ReactDOM.render(
-      <PlayingCard card={card} />,
-      cardContent
-    );
+    // Create root and render card
+    const root = createRoot(cardContent);
+    root.render(<PlayingCard card={card} />);
 
     // Start animation
     cardElement.style.transition = `transform 0.5s ease-out, left 0.5s ease-out, top 0.5s ease-out`;
@@ -1264,12 +1255,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // After animation completes, update state and clean up
     setTimeout(() => {
       // Clean up animation elements first
-      ReactDOM.unmountComponentAtNode(cardContent);
+      root.unmount();
       document.body.removeChild(cardElement);
 
       // Now show the new card with appear animation
       setDisplayedCenterCard(card);
-      //setIsAnimating(true);
 
       // Reset animation state after a short delay
       setTimeout(() => {
@@ -1590,7 +1580,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
     const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length);
-
+    console.log("currentRoom", currentRoom);
     return (
       <GameOverPanel
         gameState={gameState}

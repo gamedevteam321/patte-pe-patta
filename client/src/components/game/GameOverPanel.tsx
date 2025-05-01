@@ -2,11 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Socket } from 'socket.io-client';
-import { GameState, Room, RoomType } from '@/types/game';
+import { GameState, RoomData, RoomType } from '@/types/game';
 
 interface GameOverPanelProps {
   gameState: GameState;
-  currentRoom: Room | null;
+  currentRoom: RoomData | null;
   userId: string;
   socket: Socket | null;
   initialPlayerCount: number;
@@ -24,13 +24,13 @@ const GameOverPanel: React.FC<GameOverPanelProps> = ({
   const navigate = useNavigate();
   const winner = gameState.winner;
   const isUserWinner = winner?.id === userId;
-  const poolAmount = (currentRoom?.betAmount || 0) * initialPlayerCount;
+  const poolAmount = (currentRoom?.betAmount || currentRoom?.amount_stack || 0) * initialPlayerCount;
 
   const handleReturnToLobby = () => {
     if (socket) {
       socket.emit('leave_room', currentRoom?.id);
     }
-    navigate(`/lobby?game=${currentRoom?.roomType || RoomType.CASUAL}`);
+    navigate(`/lobby?game=${currentRoom?.room_type || 'casual'}`);
   };
 
   return (

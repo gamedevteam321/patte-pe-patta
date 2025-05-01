@@ -69,16 +69,38 @@ export interface RoomConfig {
 export interface RoomData {
   id: string;
   name: string;
+  roomName: string;
   hostName: string;
-  maxPlayers: number;
-  playerCount: number;
+  host_name: string;
+  host_id: string;
+  max_players: number;
+  player_count: number;
   isPrivate: boolean;
-  betAmount: number;
+  is_private: boolean;
+  betAmount?: number;
+  amount_stack?: number;
   status: string;
-  createdAt: string;
+  created_at: string;
+  updated_at: string;
   code: string;
-  roomType: RoomType;
-  config: RoomConfig;
+  room_type: string;
+  game_mode: string;
+  is_demo_mode: boolean;
+  min_balance: number;
+  waiting_time: number;
+  passkey?: string | null;
+  password?: string | null;
+  current_turn: string | null;
+  created_by: string;
+  config: {
+    maxBet: number;
+    minBet: number;
+    turnTime: number;
+    maxPlayers: number;
+    description: string;
+  };
+  gameState?: GameState;
+  players?: Player[];
 }
 
 export interface Room {

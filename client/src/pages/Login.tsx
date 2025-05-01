@@ -18,7 +18,7 @@ const Login = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/lobby");
+      navigate("/");
     }
   }, [isAuthenticated, navigate]);
 
@@ -33,7 +33,7 @@ const Login = () => {
         description: "Welcome back to Patte pe Patta!",
         variant: "default",
       });
-      navigate("/lobby");
+      navigate("/");
     } catch (error) {
       toast({
         title: "Login failed",

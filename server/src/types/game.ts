@@ -24,8 +24,8 @@ export interface RoomConfig {
 
 export const roomConfigs: Record<RoomType, RoomConfig> = {
   [RoomType.CASUAL]: {
-    turnTime: 30000,        // 30 seconds per turn
-    gameDuration: 600000,   // 10 minutes
+    turnTime: 15000,        // 15 seconds per turn
+    gameDuration: 300000,   // 5 minutes
     initialCards: 5,        // 5 cards per player
     maxPlayers: 4,
     minBet: 50,
@@ -34,8 +34,8 @@ export const roomConfigs: Record<RoomType, RoomConfig> = {
     description: "Relaxed gameplay with longer turn times"
   },
   [RoomType.QUICK]: {
-    turnTime: 15000,        // 15 seconds per turn
-    gameDuration: 300000,   // 5 minutes
+    turnTime: 5000,        // 55 seconds per turn
+    gameDuration: 180000,   // 3 minutes
     initialCards: 7,        // 7 cards per player
     maxPlayers: 4,
     minBet: 100,

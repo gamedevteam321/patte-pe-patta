@@ -421,6 +421,18 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const navigate = useNavigate();
+  const {
+    gameState,
+    currentRoom,
+    playCard,
+    shuffleDeck,
+    joinRoom,
+    startGame,
+    kickInactivePlayer,
+    endGame,
+    canStartGame: canStart,
+    socket
+  } = useSocket();
   // Move state declarations inside the component
   const [isPlayingCard, setIsPlayingCard] = useState(false);
   const [cardInMotion, setCardInMotion] = useState<Card | null>(null);
@@ -455,21 +467,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [showShufflePurchasePopup, setShowShufflePurchasePopup] = useState(false);
   const [hasPurchasedShuffleThisTurn, setHasPurchasedShuffleThisTurn] = useState(false);
 
-  const MAX_TURN_TIME = isDebugMode ? 2000 : 15000; // 1 second in debug mode, 15 seconds in normal mode
+  const MAX_TURN_TIME = isDebugMode ? 2000 : (currentRoom?.config?.turnTime || 15000);; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
 
-  const {
-    gameState,
-    currentRoom,
-    playCard,
-    shuffleDeck,
-    joinRoom,
-    startGame,
-    kickInactivePlayer,
-    endGame,
-    canStartGame: canStart,
-    socket
-  } = useSocket();
+  
 
   const players = gameState.players;
   const userPlayer = players.find(p => p.userId === userId);

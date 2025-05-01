@@ -1257,7 +1257,7 @@ export const socketHandler = (io: Server): void => {
         room.gameState.gameStarted = true;
         room.gameState.gameStartTime = Date.now();
         room.gameState.currentPlayerIndex = 0; // Start with first player
-        room.gameState.turnEndTime = Date.now() + (15 * 1000);
+        room.gameState.turnEndTime =   Date.now() + room.config.turnTime;
 
         console.log('Setting initial game state:', {
           status: room.gameState.status,
@@ -1746,7 +1746,7 @@ export const socketHandler = (io: Server): void => {
         }
 
         // Set turn end time (15 seconds from now)
-        room.gameState.turnEndTime = Date.now() + 15000;
+        room.gameState.turnEndTime = Date.now() + room.config.turnTime;
 
         console.log('Turn changed to next player:', {
           previousPlayerIndex: playerIndex,

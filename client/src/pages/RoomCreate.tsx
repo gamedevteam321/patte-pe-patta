@@ -17,7 +17,7 @@ const roomConfigs = {
   [RoomType.CASUAL]: {
     minBet: 0,
     maxBet: 1000,
-    turnTime: 30000,
+    turnTime: 15000,
     gameDuration: 300000,
     maxPlayers: 4,
     shufflesAllowed: 3,
@@ -27,7 +27,7 @@ const roomConfigs = {
   [RoomType.QUICK]: {
     minBet: 100,
     maxBet: 5000,
-    turnTime: 15000,
+    turnTime: 5000,
     gameDuration: 180000,
     maxPlayers: 4,
     shufflesAllowed: 2,

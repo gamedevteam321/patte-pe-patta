@@ -54,14 +54,14 @@ export enum RoomType {
 }
 
 export interface RoomConfig {
-  turnTime: number;
-  gameDuration: number;
-  maxPlayers: number;
-  minBet: number;
   maxBet: number;
-  shufflesAllowed: number;
+  minBet: number;
+  turnTime: number;
+  maxPlayers: number;
   description: string;
-  cardDistribution: {
+  gameDuration?: number;
+  shufflesAllowed?: number;
+  cardDistribution?: {
     [key: string]: number;
   };
 }

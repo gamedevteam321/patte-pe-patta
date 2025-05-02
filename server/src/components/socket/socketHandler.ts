@@ -56,6 +56,8 @@ interface GameState {
   debugMode: boolean;
   roomType: RoomType;
   config: any;
+  cardRequestedCount: number;
+  cardVotes: Record<string, boolean>;
 }
 
 interface Room {
@@ -2026,44 +2028,163 @@ export const socketHandler = (io: Server): void => {
       });
     });
 
+    // Handle card vote request
+    socket.on('request_card_vote', ({ roomId, playerId, playerName }) => {
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      // Initialize cardVotes if it doesn't exist
+      if (room.gameState.cardVotes === undefined) {
+        room.gameState.cardVotes = {};
+      }
+
+      // Reset votes for new request
+      room.gameState.cardVotes = {};
+
+      // Send vote request to all players except the requester
+      room.gameState.players.forEach(player => {
+        if (player.id !== playerId) {
+          const playerSocket = io.sockets.sockets.get(player.id);
+          if (playerSocket) {
+            playerSocket.emit('card_vote_request', {
+              roomId,
+              playerId,
+              playerName
+            });
+          }
+        }
+      });
+    });
+
+    // Handle vote submission
+    socket.on('submit_card_vote', ({ roomId, playerId, vote }) => {
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      // Record the vote
+      room.gameState.cardVotes[playerId] = vote;
+
+      // Check if all players have voted
+      const activePlayers = room.gameState.players.filter(p => p.isActive);
+      const voters = activePlayers.filter(p => p.id !== playerId);
+      const allVoted = voters.every(voter => room.gameState.cardVotes[voter.id] !== undefined);
+
+      if (allVoted) {
+        // Count votes
+        const yesVotes = Object.values(room.gameState.cardVotes).filter(vote => vote).length;
+        const noVotes = Object.values(room.gameState.cardVotes).filter(vote => !vote).length;
+
+        // Determine if request is approved
+        const approved = noVotes === 0; // All players must vote yes
+
+        // Notify all players of the result
+        io.to(roomId).emit('card_vote_result', {
+          roomId,
+          playerId,
+          approved,
+          yesVotes,
+          noVotes
+        });
+
+        // Clear votes
+        room.gameState.cardVotes = {};
+      }
+    });
+
     // Handle new card deck request
-    socket.on('new_card_deck_request', ({ roomId, playerId}) => {
+    socket.on('new_card_deck_request', async ({ roomId, playerId}) => {
       const room = rooms.get(roomId);
       if (room) {
-        //create new card deck
-        const deck = shuffleDeck(createDeck());
-        const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
-       
-        //distribute card sequence to all players except disabled player inlcuding the player who requested the new card deck
-        // Distribute cards to players
-        room.gameState.players.filter(player => player.isActive || player.id === playerId).forEach((player, index) => {
-          player.cards = [...player.cards, ...deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer)];
-          if(player.id === playerId){
-            player.isActive = true;
-             // Notify all players about the player being disabled
-            io.to(roomId).emit('player_enabled', {
-              playerId: player.id,
+        // Find the player to get their user ID
+        const player = room.gameState.players.find(p => p.id === playerId);
+        if (!player) {
+          socket.emit('new_deck_error', {
+            message: 'Player not found'
+          });
+          return;
+        }
+
+        // Initialize cardRequestedCount if it doesn't exist
+        if (room.gameState.cardRequestedCount === undefined) {
+          room.gameState.cardRequestedCount = 0;
+        }
+
+        // Calculate the cost for new deck
+        const deckCost = room.amount_stack; // Cost per card in the deck
+
+        try {
+          // Deduct the cost from player's balance using their user ID
+          const newBalance = await BalanceService.processGameResultWithNotification(
+            player.userId, // Use user ID instead of socket ID
+            false, // isWinner
+            deckCost,
+            'demo', // balanceType
+            roomId,
+            {
+              socketId: playerId,
+              reason: 'new_deck_purchase',
+              isLastPayout: false
+            }
+          );
+
+          // Increment card request count
+          room.gameState.cardRequestedCount += 1;
+
+          // If balance deduction was successful, create and distribute new deck
+          const deck = shuffleDeck(createDeck());
+          const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
+         
+          // Distribute cards to players
+          room.gameState.players.filter(player => player.isActive || player.id === playerId).forEach((player, index) => {
+            player.cards = [...player.cards, ...deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer)];
+            if(player.id === playerId){
+              player.isActive = true;
+              // Notify all players about the player being enabled
+              io.to(roomId).emit('player_enabled', {
+                playerId: player.id,
+                username: player.username,
+                reason: 'no_cards'
+              });
+            }
+            console.log(`Distributed ${player.cards.length} cards to player:`, {
               username: player.username,
-              reason: 'no_cards'
+              userId: player.userId,
+              isFirstPlayer: index === 0,
+              shuffleCount: player.shuffleCount
             });
-        
-          }
-          console.log(`Distributed ${player.cards.length} cards to player:`, {
-            username: player.username,
-            userId: player.userId,
-            isFirstPlayer: index === 0,
-            shuffleCount: player.shuffleCount
           });
 
-          //reflect the new card deck to the player
+          // Update room state
           io.to(roomId).emit('room:updated', {
             updatedRoom: room,
           });
 
-        });
+          // Notify player about successful deck purchase
+          socket.emit('balance:update', {
+            userId: player.userId,
+            demo: newBalance,
+            real: 0
+          });
 
-        
+          // Calculate and emit updated pool amount
+          const initialPool = room.amount_stack * room.players.length;
+          const additionalPool = room.amount_stack * room.gameState.cardRequestedCount;
+          const totalPool = initialPool + additionalPool;
+          
+          io.to(roomId).emit('pool_updated', {
+            initialPool,
+            additionalPool,
+            totalPool,
+            cardRequestedCount: room.gameState.cardRequestedCount
+          });
 
+        } catch (error) {
+          console.error('Failed to process new deck request:', error);
+          // Notify player about failed purchase
+          socket.emit('new_deck_error', {
+            message: 'Insufficient balance to purchase new deck'
+          });
+        }
       }
     });
 

@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { createRoot } from 'react-dom/client';
 import GameOverPanel from './GameOverPanel';
 import { useBalance } from "@/context/BalanceContext";
+import { RoomData } from '@/context/SocketContext'; // Update the import
 
 // Add these animation styles
 const styles = `
@@ -466,11 +467,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [initialPlayerCount, setInitialPlayerCount] = useState<number>(0);
   const [showShufflePurchasePopup, setShowShufflePurchasePopup] = useState(false);
   const [hasPurchasedShuffleThisTurn, setHasPurchasedShuffleThisTurn] = useState(false);
+  const [showVotePanel, setShowVotePanel] = useState(false);
+  const [voteRequest, setVoteRequest] = useState<{
+    playerId: string;
+    playerName: string;
+    roomId: string;
+  } | null>(null);
+  const [playerVotes, setPlayerVotes] = useState<Record<string, boolean>>({});
+  const [voteTimer, setVoteTimer] = useState<number>(5);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : (currentRoom?.config?.turnTime || 15000);; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
 
-  
+  const { balance } = useBalance();
 
   const players = gameState.players;
   const userPlayer = players.find(p => p.userId === userId);
@@ -1514,8 +1523,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   //   }
   // }, [gameState.centralPile, animationLocked]);
 
-  const { deductBalance } = useBalance();
-
   // Add effect to reset hasPurchasedShuffleThisTurn when turn changes
   useEffect(() => {
     if (gameState?.currentPlayerIndex !== undefined && userPlayer) {
@@ -1588,33 +1595,216 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   };
 
+  const handleNewCardDeckRequest = () => {
+    if (!socket || !currentRoom || !userPlayer) return;
+
+    // Step 1: Check if user has enough balance
+    const deckCost = currentRoom.betAmount || 0;
+    if (!balance?.demo || balance.demo < deckCost) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You don't have enough balance to request new cards",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Step 2: Send vote request to other players
+    socket.emit('request_card_vote', {
+      roomId: currentRoom.id,
+      playerId: userPlayer.id,
+      playerName: userPlayer.username
+    });
+  };
+
+  // Handle receiving vote request
+  useEffect(() => {
+    if (!socket || !userPlayer) return;
+
+    socket.on('card_vote_request', (data) => {
+      // Only show voting panel to active players
+      const isPlayerDisabled = disabledPlayers.has(userPlayer.id);
+      if (!isPlayerDisabled) {
+        setVoteRequest(data);
+        setShowVotePanel(true);
+      }
+    });
+
+    socket.on('card_vote_result', (data) => {
+      if (data.approved) {
+        // If approved, send the new card deck request
+        socket.emit('new_card_deck_request', {
+          roomId: data.roomId,
+          playerId: data.playerId
+        });
+      } else {
+        toast({
+          title: "Request Rejected",
+          description: "Card request was rejected by other players",
+          variant: "destructive"
+        });
+      }
+      setShowVotePanel(false);
+      setVoteRequest(null);
+      setPlayerVotes({});
+    });
+
+    return () => {
+      socket.off('card_vote_request');
+      socket.off('card_vote_result');
+    };
+  }, [socket, disabledPlayers, userPlayer]);
+
+  const handleVote = (vote: boolean) => {
+    if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id)) return;
+
+    // Send vote to server
+    socket.emit('submit_card_vote', {
+      roomId: voteRequest.roomId,
+      playerId: voteRequest.playerId,
+      vote
+    });
+
+    // Update local state
+    setPlayerVotes(prev => ({
+      ...prev,
+      [userPlayer.id]: vote
+    }));
+
+    // Close the voting panel immediately
+    setShowVotePanel(false);
+    setVoteRequest(null);
+  };
+
+  // Add effect for vote timer
+  useEffect(() => {
+    if (showVotePanel && voteTimer > 0) {
+      const timer = setInterval(() => {
+        setVoteTimer(prev => prev - 1);
+      }, 1000);
+
+      return () => clearInterval(timer);
+    } else if (showVotePanel && voteTimer === 0) {
+      // Auto reject if timer reaches 0
+      handleVote(false);
+    }
+  }, [showVotePanel, voteTimer]);
+
+  // Reset timer when vote panel opens
+  useEffect(() => {
+    if (showVotePanel) {
+      setVoteTimer(5);
+    }
+  }, [showVotePanel]);
+
+  // Add this component to your JSX
+  const VotePanel = () => {
+    // Only show panel to active players
+    if (!showVotePanel || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id)) {
+      // Ensure panel is hidden if any condition is not met
+      setShowVotePanel(false);
+      return null;
+    }
+
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="bg-[#1F2937] p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-blue-500/30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-white">Card Request Vote</h3>
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-500/20 px-3 py-1 rounded-full text-sm text-blue-300">
+                Vote Required
+              </div>
+              <div className="bg-red-500/20 px-3 py-1 rounded-full text-sm text-red-300">
+                {voteTimer}s
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <p className="text-gray-300">
+              <span className="text-blue-400 font-medium">{voteRequest.playerName}</span> is requesting new cards.
+              Do you approve this request?
+            </p>
+            
+            <div className="flex gap-4 justify-center mt-6">
+              <button
+                onClick={() => handleVote(true)}
+                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Approve
+              </button>
+              <button
+                onClick={() => handleVote(false)}
+                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reject
+              </button>
+            </div>
+
+            <div className="mt-4 text-center text-sm text-gray-400">
+              {voteTimer > 0 
+                ? `You have ${voteTimer} seconds to vote`
+                : "Time's up! Auto-rejecting..."}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
     const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length);
-    console.log("currentRoom", currentRoom);
+    
+    // Create a properly typed RoomData object
+    const typedRoomData: RoomData = {
+      id: currentRoom?.id || '',
+      name: currentRoom?.name || '',
+      code: currentRoom?.code || '',
+      hostName: currentRoom?.hostName || '',
+      maxPlayers: currentRoom?.maxPlayers || 0,
+      players: currentRoom?.players || [],
+      isPrivate: currentRoom?.isPrivate || false,
+      password: currentRoom?.password,
+      status: currentRoom?.status || 'waiting',
+      betAmount: currentRoom?.betAmount || 0,
+      createdAt: currentRoom?.createdAt || '',
+      updatedAt: currentRoom?.updatedAt || '',
+      gameState: currentRoom?.gameState || null,
+      playerCount: currentRoom?.playerCount || 0,
+      roomType: currentRoom?.roomType || 'casual',
+      config: {
+        turnTime: 15000,
+        gameDuration: 300000,
+        maxPlayers: 4,
+        minBet: 50,
+        maxBet: 10000,
+        shufflesAllowed: 2,
+        description: 'Casual game room',
+        cardDistribution: {}
+      }
+    };
+    
     return (
       <GameOverPanel
         gameState={gameState}
-        currentRoom={currentRoom}
+        currentRoom={typedRoomData}
         userId={userId}
         socket={socket}
-        initialPlayerCount={initialPlayerCount || gameState.players.length}
+        initialPlayerCount={initialPlayerCount}
         reason={gameTimer === 0 ? 'time_up' : 'normal'}
       />
     );
   }
 
-  const handleNewCardDeckRequest = () => {
-    if (!socket || !currentRoom ) return;
-
-    console.log("new_card_deck_request : userPlayer", userPlayer);
-    socket.emit('new_card_deck_request', {
-      roomId: currentRoom.id,
-      playerId: userPlayer.id
-    });
-  };
-  
   return (
     <>
       {showGameTable && gameState.gameStarted && (
@@ -2036,6 +2226,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           </div>
         </div>
       )}
+      <VotePanel />
       <style>{styles}</style>
     </>
   );

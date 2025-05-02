@@ -860,15 +860,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         className: "top-0"
       });
     };
+    const handlePlayerEnabled = (data: any) => {
+      const { playerId } = data;
+      setDisabledPlayers(prev => new Set(Array.from(prev).filter(id => id !== playerId)));  
+    };
 
     socket.on('turn_changed', handleTurnChange);
     socket.on('play_card', handlePlayCardEvent);
     socket.on('player_disabled', handlePlayerDisabled);
+    socket.on('player_enabled', handlePlayerEnabled);
 
     return () => {
       socket.off('turn_changed', handleTurnChange);
       socket.off('play_card', handlePlayCardEvent);
       socket.off('player_disabled', handlePlayerDisabled);
+      socket.off('player_enabled', handlePlayerEnabled);
     };
   }, [socket, userPlayer, players, positionedPlayers]);
 
@@ -928,6 +934,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
               duration: 1000,
               className: "top-0"
             });
+            socket.emit('card_match_found', {
+              playerId: data.playerId,
+              cards: data.cards,  
+              roomId: currentRoom?.id
+            });
           }
 
           // Show match animation for 0.8 seconds
@@ -957,7 +968,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     };
 
     socket.on('card_match', handleCardMatch);
-
+    
     return () => {
       socket.off('card_match', handleCardMatch);
     };
@@ -1594,6 +1605,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   }
 
+  const handleNewCardDeckRequest = () => {
+    if (!socket || !currentRoom ) return;
+
+    console.log("new_card_deck_request : userPlayer", userPlayer);
+    socket.emit('new_card_deck_request', {
+      roomId: currentRoom.id,
+      playerId: userPlayer.id
+    });
+  };
+  
   return (
     <>
       {showGameTable && gameState.gameStarted && (
@@ -1928,9 +1949,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
                       {gameState.gameStarted && userPlayer && (
                         <div className="absolute left-48 top-10 flex flex-col space-y-2">
-                          <Button
-                            onClick={() => handlePlayCard(userPlayer.cards[0])}
-                            disabled={!isUserTurn || actionsDisabled}
+                          {/*Show card request button only if card is zero */}
+                          {userPlayer.cards.length == 0 && (
+                            <Button
+                              onClick={() => handleNewCardDeckRequest()}
+                            >
+                              Request Card  
+                            </Button>
+                          )}
+                          
+
+                          {/* show hit button only if card is not zero */}
+
+                          {userPlayer.cards.length > 0 && (
+                            <Button
+                              onClick={() => handlePlayCard(userPlayer.cards[0])}
+                              disabled={!isUserTurn || actionsDisabled}
                             className={`hit-button ${isUserTurn && !actionsDisabled
                               ? 'bg-green-600 hover:bg-green-700'
                               : 'bg-gray-600'
@@ -1939,6 +1973,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             <Send className="h-4 w-4 mr-2" />
                             Your Turn - Hit!
                           </Button>
+                          )}
 
                           <div className="flex items-center gap-2">
                             <Button

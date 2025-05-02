@@ -29,6 +29,21 @@
             "date": 1745902321008,
             "name": "logs\\balance-2025-04-29.log",
             "hash": "486484427c92bb081d552b880524102ae662c4ae20cfdccc7446e0b6791e66a9"
+        },
+        {
+            "date": 1746002750693,
+            "name": "logs\\balance-2025-04-30.log",
+            "hash": "28050e8f33bd391a688bce0c1366e61ba1641b6ef01e3e4593e96b959abfd430"
+        },
+        {
+            "date": 1746073877272,
+            "name": "logs\\balance-2025-05-01.log",
+            "hash": "45fd2f97da5fa2ccc95d41443e0e942467d09bfbd80f0dcf9ef4adcef3d53423"
+        },
+        {
+            "date": 1746164379189,
+            "name": "logs\\balance-2025-05-02.log",
+            "hash": "fe2f29fc62c03e0f156566b821d4ffed9536eaf4b6d25165c2a3c7770cd661be"
         }
     ],
     "hashType": "sha256"

@@ -13,6 +13,7 @@ import { Room } from '@/types/game';
 import { balanceService } from "@/services/api/balance";
 import { formatCurrency } from "@/utils/format";
 import { roomService } from "@/services/api/room";
+import { Card, Player } from "@/context/SocketContext";
 
 // Add constant for auto-start time (3 minutes)
 const WAIT_TIME_FOR_GAME_START = 180000; // 3 minutes in milliseconds
@@ -27,7 +28,7 @@ interface GameRoomProps {
 const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const { roomId } = useParams<{ roomId: string }>();
   const { isAuthenticated, user } = useAuth();
-  const { currentRoom, joinRoom, leaveRoom, gameState, fetchRooms, socket } = useSocket();
+  const { currentRoom, joinRoom, leaveRoom, gameState, fetchRooms, socket, playCard } = useSocket();
   const { balance, refreshBalance } = useBalance();
   const navigate = useNavigate();
   const [isJoining, setIsJoining] = useState(false);
@@ -41,6 +42,20 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
   const [canJoin, setCanJoin] = useState<boolean>(false);
   const [isDebugMode, setIsDebugMode] = useState<boolean>(false);
   const waitingTimeLeftRef = useRef<NodeJS.Timeout>();
+  const [cardRequestTimer, setCardRequestTimer] = useState<number>(10);
+  const [isCardRequestActive, setIsCardRequestActive] = useState<boolean>(false);
+  const [cardRequestVotes, setCardRequestVotes] = useState<{ [key: string]: boolean }>({});
+  const [hasVoted, setHasVoted] = useState<boolean>(false);
+  const cardRequestTimerRef = useRef<NodeJS.Timeout>();
+  const [disabledPlayers, setDisabledPlayers] = useState<Set<string>>(new Set());
+  const [actionsDisabled, setActionsDisabled] = useState<boolean>(false);
+  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const [animationLocked, setAnimationLocked] = useState<boolean>(false);
+  const [lastPlayedCard, setLastPlayedCard] = useState<Card | null>(null);
+  const [cardInMotion, setCardInMotion] = useState<Card | null>(null);
+  const [displayedCenterCard, setDisplayedCenterCard] = useState<Card | null>(null);
+  const [userPlayer, setUserPlayer] = useState<Player | null>(null);
+  const [isPlayingCard, setIsPlayingCard] = useState<boolean>(false);
 
   // Check if user can join room based on balance
   useEffect(() => {
@@ -228,14 +243,23 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       }
     };
 
+    const handleCardRefreshed = (data: any) => {
+      console.log("cards:update", data);
+      //refresh the card deck of the user
+      if(data.playerId === user?.id) {
+        setUserPlayer(data.player);
+      }
+    };
+
     socket.on('room:update', handleRoomUpdate);
     socket.on('player_joined', handlePlayerJoined);
     socket.on('room:ready', handleRoomReady);
-    
+    socket.on('cards:update', handleCardRefreshed);
     return () => {
       socket.off('room:update', handleRoomUpdate);
       socket.off('player_joined', handlePlayerJoined);
       socket.off('room:ready', handleRoomReady);
+      socket.off('cards:update', handleCardRefreshed);
     };
   }, [socket, roomId, room]);
 
@@ -511,6 +535,146 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
     }
   }, [socket, isDebugMode]);
 
+  // Add card request handler
+  const handleCardRequest = () => {
+    if (!socket || !currentRoom) return;
+    
+    setIsCardRequestActive(true);
+    setCardRequestTimer(10);
+    setCardRequestVotes({});
+    setHasVoted(false);
+    
+    socket.emit('card_request', { roomId: currentRoom.id });
+  };
+
+  // Add vote handler
+  const handleVote = (vote: boolean) => {
+    if (!socket || !currentRoom || hasVoted) return;
+    
+    socket.emit('card_request_vote', { 
+      roomId: currentRoom.id, 
+      vote 
+    });
+    setHasVoted(true);
+  };
+
+  // Add socket listeners for card request
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCardRequestReceived = (data: { playerId: string }) => {
+      if (data.playerId !== user?.id) {
+        setIsCardRequestActive(true);
+        setCardRequestTimer(10);
+        setCardRequestVotes({});
+        setHasVoted(false);
+      }
+    };
+
+    const handleCardRequestVote = (data: { playerId: string, vote: boolean }) => {
+      setCardRequestVotes(prev => ({
+        ...prev,
+        [data.playerId]: data.vote
+      }));
+    };
+
+    const handleCardRequestResult = (data: { approved: boolean }) => {
+      setIsCardRequestActive(false);
+      setCardRequestTimer(0);
+      setCardRequestVotes({});
+      setHasVoted(false);
+      
+      if (data.approved) {
+        toast({
+          title: "Card Request Approved",
+          description: "New cards will be distributed to all players",
+        });
+      } else {
+        toast({
+          title: "Card Request Denied",
+          description: "Not enough players approved the request",
+        });
+      }
+    };
+
+    socket.on('card_request_received', handleCardRequestReceived);
+    socket.on('card_request_vote', handleCardRequestVote);
+    socket.on('card_request_result', handleCardRequestResult);
+
+    return () => {
+      socket.off('card_request_received', handleCardRequestReceived);
+      socket.off('card_request_vote', handleCardRequestVote);
+      socket.off('card_request_result', handleCardRequestResult);
+    };
+  }, [socket, user?.id]);
+
+  // Add timer effect for card request
+  useEffect(() => {
+    if (isCardRequestActive && cardRequestTimer > 0) {
+      cardRequestTimerRef.current = setTimeout(() => {
+        setCardRequestTimer(prev => prev - 1);
+      }, 1000);
+    } else if (cardRequestTimer === 0) {
+      setIsCardRequestActive(false);
+      setCardRequestVotes({});
+      setHasVoted(false);
+    }
+
+    return () => {
+      if (cardRequestTimerRef.current) {
+        clearTimeout(cardRequestTimerRef.current);
+      }
+    };
+  }, [isCardRequestActive, cardRequestTimer]);
+
+  const handlePlayCard = (card: Card) => {
+    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
+
+    // Check if player is disabled
+    if (disabledPlayers.has(userPlayer.id)) {
+      toast({
+        title: "Error",
+        description: "You have been disabled for excessive auto-play",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // If player has no cards, initiate card request instead of playing
+    if (userPlayer.cards.length === 0) {
+      handleCardRequest();
+      return;
+    }
+
+    // Lock animations immediately
+    setAnimationLocked(true);
+
+    setActionsDisabled(true);
+    setLastPlayedCard(card);
+    setCardInMotion(card);
+    setIsAnimating(false);
+
+    // After animation completes, update game state
+    setTimeout(() => {
+      if (socket && currentRoom && userPlayer) {
+        // Send play event to server with isHitButton flag
+        playCard(userPlayer.id, { ...card, isHitButton: true });
+
+        // Re-enable actions after a delay
+        setTimeout(() => {
+          setDisplayedCenterCard(card);
+          setActionsDisabled(false);
+
+          // Reset animation state after a short delay
+          setTimeout(() => {
+            setIsAnimating(false);
+            setAnimationLocked(false);
+          }, 500);
+        }, 1000);
+      }
+    }, 500);
+  };
+
   if (!roomId || !user) {
     return null;
   }
@@ -685,6 +849,59 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
           
           <div>
             <GameBoard userId={user.id || ""} />
+            
+            {/* Add Card Request Button and Voting UI */}
+            {gameState?.status === 'in_progress' && (
+              <div className="mt-4 p-4 bg-[#051b2c] rounded-lg">
+                {!isCardRequestActive ? (
+                  <div className="text-center text-white">
+                    {gameState?.players?.find(p => p.id === user.id)?.cards?.length === 0 && (
+                      <p className="mb-2">You have no cards left. Click the Hit button to request new cards.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-white text-center">
+                      <p className="text-lg font-semibold">Card Request in Progress</p>
+                      <p className="text-sm text-gray-400">Time remaining: {cardRequestTimer}s</p>
+                    </div>
+                    
+                    {!hasVoted && (
+                      <div className="flex justify-center gap-4">
+                        <Button
+                          onClick={() => handleVote(true)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => handleVote(false)}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="text-white text-center">
+                      <p>Votes:</p>
+                      <div className="flex justify-center gap-2 mt-2">
+                        {Object.entries(cardRequestVotes).map(([playerId, vote]) => (
+                          <div
+                            key={playerId}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              vote ? 'bg-green-500' : 'bg-red-500'
+                            }`}
+                          >
+                            {gameState.players.find(p => p.id === playerId)?.username?.[0] || '?'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="hidden">

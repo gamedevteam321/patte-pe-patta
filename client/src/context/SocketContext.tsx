@@ -293,6 +293,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAvailableRooms(prevRooms => 
         prevRooms.map(room => room.id === updatedRoom.id ? updatedRoom : room)
       );
+      if (updatedRoom.gameState) {
+        setGameState(updatedRoom.gameState);
+      }
     });
 
     // Add rooms_updated event handler to refresh room list

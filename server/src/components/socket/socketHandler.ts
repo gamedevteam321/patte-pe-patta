@@ -201,6 +201,33 @@ const emitBalanceUpdate = async (socket: Socket, userId: string, io: Server) => 
   }
 };
 
+ // Initialize game state with deck
+ const createDeck = (): Card[] => {
+  const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+  const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  const deck: Card[] = [];
+
+  for (let suit of suits) {
+    for (let value of values) {
+      deck.push({
+        id: `${value}-${suit}`,
+        suit,
+        value,
+        rank: values.indexOf(value)
+      });
+    }
+  }
+  return deck;
+};
+
+const shuffleDeck = (deck: Card[]): Card[] => {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+};
+
 export const socketHandler = (io: Server): void => {
   const handleAutoPlayLimit = (socket: Socket, room: Room, player: Player) => {
     if (player.autoPlayCount === MAX_AUTO_PLAY_COUNT) {
@@ -1222,32 +1249,7 @@ export const socketHandler = (io: Server): void => {
           throw new Error('Only host can start the game');
         }
 
-        // Initialize game state with deck
-        const createDeck = (): Card[] => {
-          const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-          const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-          const deck: Card[] = [];
-
-          for (let suit of suits) {
-            for (let value of values) {
-              deck.push({
-                id: `${value}-${suit}`,
-                suit,
-                value,
-                rank: values.indexOf(value)
-              });
-            }
-          }
-          return deck;
-        };
-
-        const shuffleDeck = (deck: Card[]): Card[] => {
-          for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [deck[i], deck[j]] = [deck[j], deck[i]];
-          }
-          return deck;
-        };
+       
 
         const deck = shuffleDeck(createDeck());
         const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
@@ -2023,5 +2025,75 @@ export const socketHandler = (io: Server): void => {
         }
       });
     });
+
+    // Handle new card deck request
+    socket.on('new_card_deck_request', ({ roomId, playerId}) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        //create new card deck
+        const deck = shuffleDeck(createDeck());
+        const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
+       
+        //distribute card sequence to all players except disabled player inlcuding the player who requested the new card deck
+        // Distribute cards to players
+        room.gameState.players.filter(player => player.isActive || player.id === playerId).forEach((player, index) => {
+          player.cards = [...player.cards, ...deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer)];
+          if(player.id === playerId){
+            player.isActive = true;
+             // Notify all players about the player being disabled
+            io.to(roomId).emit('player_enabled', {
+              playerId: player.id,
+              username: player.username,
+              reason: 'no_cards'
+            });
+        
+          }
+          console.log(`Distributed ${player.cards.length} cards to player:`, {
+            username: player.username,
+            userId: player.userId,
+            isFirstPlayer: index === 0,
+            shuffleCount: player.shuffleCount
+          });
+
+          //reflect the new card deck to the player
+          io.to(roomId).emit('room:updated', {
+            updatedRoom: room,
+          });
+
+        });
+
+        
+
+      }
+    });
+
+    //handle card match found
+    socket.on('card_match_found', ({ playerId, cards, roomId }) => {
+      const room = rooms.get(roomId);
+      if (room) {
+        room.gameState.players.filter(player => player.id === playerId).forEach((player, index) => {
+          
+            player.isActive = true;
+             // Notify all players about the player being disabled
+            io.to(roomId).emit('player_enabled', {
+              playerId: player.id,
+              username: player.username,
+              reason: 'no_cards'
+            });
+        
+          });
+        room.gameState.matchAnimation = {
+          isActive: true,
+          cardId: cards[0].id,
+          playerId: playerId,
+          timestamp: Date.now()
+        };
+        rooms.set(roomId, room);
+        io.to(roomId).emit('room:updated', {
+          updatedRoom: room,
+        });
+      }
+    }); 
   });
-}; 
+
+  }; 

@@ -2033,27 +2033,41 @@ export const socketHandler = (io: Server): void => {
       const room = rooms.get(roomId);
       if (!room) return;
 
-      // Initialize cardVotes if it doesn't exist
-      if (room.gameState.cardVotes === undefined) {
-        room.gameState.cardVotes = {};
-      }
-
-      // Reset votes for new request
+      // Reset votes
       room.gameState.cardVotes = {};
 
-      // Send vote request to all players except the requester
-      room.gameState.players.forEach(player => {
-        if (player.id !== playerId) {
-          const playerSocket = io.sockets.sockets.get(player.id);
-          if (playerSocket) {
-            playerSocket.emit('card_vote_request', {
-              roomId,
-              playerId,
-              playerName
-            });
-          }
-        }
+      // Notify all players about the vote request
+      io.to(roomId).emit('card_vote_request', {
+        roomId,
+        playerId,
+        playerName
       });
+
+      // Set a 5-second timeout for the vote
+      setTimeout(() => {
+        const room = rooms.get(roomId);
+        if (!room) return;
+
+        // Count votes received so far
+        const yesVotes = Object.values(room.gameState.cardVotes).filter(vote => vote).length;
+        const noVotes = Object.values(room.gameState.cardVotes).filter(vote => !vote).length;
+
+        // Determine if request is approved
+        const approved = noVotes === 0; // All players must vote yes
+
+        // Notify all players of the result
+        io.to(roomId).emit('card_vote_result', {
+          roomId,
+          playerId,
+          approved,
+          yesVotes,
+          noVotes,
+          reason: 'timeout'
+        });
+
+        // Clear votes
+        room.gameState.cardVotes = {};
+      }, 5000);
     });
 
     // Handle vote submission
@@ -2083,7 +2097,8 @@ export const socketHandler = (io: Server): void => {
           playerId,
           approved,
           yesVotes,
-          noVotes
+          noVotes,
+          reason: 'all_voted'
         });
 
         // Clear votes
@@ -2127,6 +2142,11 @@ export const socketHandler = (io: Server): void => {
             }
           );
 
+          console.log("new_card_deck_request", {
+            playerId,
+            newBalance,
+            roomId
+          });
           // Increment card request count
           room.gameState.cardRequestedCount += 1;
 

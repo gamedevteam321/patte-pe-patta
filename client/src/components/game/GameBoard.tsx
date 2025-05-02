@@ -1631,6 +1631,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
 
     socket.on('card_vote_result', (data) => {
+      console.log("card_vote_result", data);
       if (data.approved) {
         // If approved, send the new card deck request
         socket.emit('new_card_deck_request', {

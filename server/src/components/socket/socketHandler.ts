@@ -58,6 +58,11 @@ interface GameState {
   config: any;
   cardRequestedCount: number;
   cardVotes: Record<string, boolean>;
+  lastVoteResult?: {
+    playerId: string;
+    reason: string;
+    timestamp: number;
+  };
 }
 
 interface Room {
@@ -2152,23 +2157,31 @@ export const socketHandler = (io: Server): void => {
 
           // If balance deduction was successful, create and distribute new deck
           const deck = shuffleDeck(createDeck());
+          const activePlayers = room.gameState.players.filter(p => p.isActive || p.id === playerId);
           const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
-         
+         console.log("cardsPerPlayer", cardsPerPlayer);
           // Distribute cards to players
-          room.gameState.players.filter(player => player.isActive || player.id === playerId).forEach((player, index) => {
-            player.cards = [...player.cards, ...deck.slice(index * cardsPerPlayer, (index + 1) * cardsPerPlayer)];
+          activePlayers.forEach((player, index) => {
+            const startIndex = index * cardsPerPlayer;
+            const endIndex = startIndex + cardsPerPlayer;
+            const newCards =  deck.slice(startIndex, endIndex);
+            console.log("newCards length", newCards.length);
+            console.log("player.cards", player.cards.length);
+            player.cards = [...player.cards, ...newCards];
+            
             if(player.id === playerId){
               player.isActive = true;
               // Notify all players about the player being enabled
               io.to(roomId).emit('player_enabled', {
                 playerId: player.id,
                 username: player.username,
-                reason: 'no_cards'
+                reason: 'new_cards'
               });
             }
-            console.log(`Distributed ${player.cards.length} cards to player:`, {
+            console.log(`Distributed ${newCards.length} cards to player:`, {
               username: player.username,
               userId: player.userId,
+              totalCards: player.cards.length,
               isFirstPlayer: index === 0,
               shuffleCount: player.shuffleCount
             });
@@ -2235,6 +2248,33 @@ export const socketHandler = (io: Server): void => {
         });
       }
     }); 
+
+    socket.on('card_vote_result', ({ roomId, playerId, approved, yesVotes, noVotes, reason }) => {
+      const room = rooms.get(roomId);
+      if (!room) return;
+
+      // Only process if the vote was approved and this is the requesting player's socket
+      if (approved && socket.id === playerId) {
+        // Check if this is the first time processing this vote result
+        if (!room.gameState.lastVoteResult || 
+            room.gameState.lastVoteResult.playerId !== playerId || 
+            room.gameState.lastVoteResult.reason !== reason) {
+          
+          // Store the vote result to prevent duplicate processing
+          room.gameState.lastVoteResult = {
+            playerId,
+            reason,
+            timestamp: Date.now()
+          };
+
+          // Process the new card deck request
+          socket.emit('new_card_deck_request', {
+            roomId,
+            playerId
+          });
+        }
+      }
+    });
   });
 
   }; 

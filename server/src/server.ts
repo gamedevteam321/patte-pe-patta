@@ -48,16 +48,63 @@ app.use(compressionMiddleware);
 
 // Configure CORS
 const corsOptions = {
-    origin: ['http://localhost:8080', 'http://192.168.1.15:8080'], // Specific origins instead of wildcard
+    origin: ['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-request-id'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 600 // Cache preflight requests for 10 minutes
+    maxAge: 600,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 };
 
 // Enable CORS for all routes
 app.use(cors(corsOptions));
+
+// Add request body parsing with size limits
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Add request timeout handling
+app.use((req: Request, res: Response, next: NextFunction) => {
+    req.setTimeout(30000, () => {
+        logError('Request timeout', undefined, {
+            request: {
+                url: req.url,
+                method: req.method,
+                ip: req.ip,
+                headers: req.headers
+            }
+        });
+        res.status(504).json({ error: 'Request timeout' });
+    });
+    next();
+});
+
+// Add request logging
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestId = req.headers['x-request-id'] || Math.random().toString(36).substring(7);
+    logInfo('Incoming request', {
+        requestId,
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        ip: req.ip
+    });
+
+    // Log response
+    const originalSend = res.send;
+    res.send = function (body) {
+        logInfo('Outgoing response', {
+            requestId,
+            statusCode: res.statusCode,
+            body: body
+        });
+        return originalSend.call(this, body);
+    };
+
+    next();
+});
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
@@ -85,27 +132,11 @@ app.use((req, res, next) => {
 // Request validation
 app.use(validateRequestMiddleware);
 
-// Request timeout
-app.use((req: Request, res: Response, next: NextFunction) => {
-    res.setTimeout(30000, () => {
-        logError('Request timeout', undefined, {
-            request: {
-                url: req.url,
-                method: req.method,
-                ip: req.ip
-            }
-        });
-        res.status(504).json({ error: 'Request timeout' });
-    });
-    next();
-});
-
 // Health check endpoint
 app.use('/health', healthCheck);
 
 // API Routes
 app.use('/api/v1', apiV1Router);
-
 
 // Error handling
 app.use(errorHandler);
@@ -127,8 +158,19 @@ socketHandler(io);
 const shutdownHandler = ServerShutdownHandler.getInstance();
 shutdownHandler.initialize(server);
 
+// Add error handling for server
+server.on('error', (error) => {
+    logError('Server error', error);
+});
+
+server.on('clientError', (error, socket) => {
+    logError('Client error', error);
+    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
 (async () => {
     try {
@@ -137,8 +179,14 @@ const PORT = process.env.PORT || 3000;
         if (error) throw error;
         logInfo('Database connection established');
         
-        server.listen(PORT, () => {
-            logInfo(`Server running on port ${PORT}`);
+        server.listen(Number(PORT), HOST, () => {
+            logInfo(`Server running on http://${HOST}:${PORT}`);
+            logInfo(`Server accessible at http://localhost:${PORT}`);
+            logInfo('Server configuration:', {
+                cors: corsOptions,
+                timeout: 30000,
+                bodyLimit: '50mb'
+            });
         });
     } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

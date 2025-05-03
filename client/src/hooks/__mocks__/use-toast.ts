@@ -1,0 +1,1 @@
+export const toast = jest.fn(); 

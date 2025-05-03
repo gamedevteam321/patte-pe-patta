@@ -1632,22 +1632,30 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     socket.on('card_vote_result', (data) => {
       console.log("card_vote_result", data);
-      if (data.approved) {
-        // If approved, send the new card deck request
-        socket.emit('new_card_deck_request', {
-          roomId: data.roomId,
-          playerId: data.playerId
-        });
-      } else {
-        toast({
-          title: "Request Rejected",
-          description: "Card request was rejected by other players",
-          variant: "destructive"
-        });
+      // Only process if we haven't already handled this vote result
+      if (!voteRequest || voteRequest.playerId !== data.playerId) {
+        if (data.approved) {
+          // If approved, send the new card deck request
+          socket.emit('new_card_deck_request', {
+            roomId: data.roomId,
+            playerId: data.playerId
+          });
+          toast({
+            title: "Request Approved",
+            description: "Card request was approved by other players",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Request Rejected",
+            description: "Card request was rejected by other players",
+            variant: "destructive"
+          });
+        }
+        setShowVotePanel(false);
+        setVoteRequest(null);
+        setPlayerVotes({});
       }
-      setShowVotePanel(false);
-      setVoteRequest(null);
-      setPlayerVotes({});
     });
 
     return () => {

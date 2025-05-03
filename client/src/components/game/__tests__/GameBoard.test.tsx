@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import GameBoard from '../GameBoard';
 import '@testing-library/jest-dom';
+import { BrowserRouter } from 'react-router-dom';
 
 // Mock the socket context
 jest.mock('@/context/SocketContext', () => ({
@@ -64,8 +65,16 @@ describe('GameBoard Card Voting', () => {
     }));
   });
 
+  const renderWithRouter = (component: React.ReactNode) => {
+    return render(
+      <BrowserRouter>
+        {component}
+      </BrowserRouter>
+    );
+  };
+
   it('should handle card vote request and approval correctly', async () => {
-    render(<GameBoard userId="user1" />);
+    renderWithRouter(<GameBoard userId="user1" />);
 
     // Simulate receiving a vote request
     const voteRequestHandler = mockSocket.on.mock.calls.find(
@@ -115,7 +124,7 @@ describe('GameBoard Card Voting', () => {
   });
 
   it('should handle card vote rejection correctly', async () => {
-    render(<GameBoard userId="user1" />);
+    renderWithRouter(<GameBoard userId="user1" />);
 
     // Simulate receiving a vote request
     const voteRequestHandler = mockSocket.on.mock.calls.find(
@@ -160,7 +169,7 @@ describe('GameBoard Card Voting', () => {
   });
 
   it('should prevent duplicate processing of vote results', async () => {
-    render(<GameBoard userId="user1" />);
+    renderWithRouter(<GameBoard userId="user1" />);
 
     // Simulate receiving a vote request
     const voteRequestHandler = mockSocket.on.mock.calls.find(
@@ -206,7 +215,7 @@ describe('GameBoard Card Voting', () => {
   });
 
   it('should auto-reject if vote timer expires', async () => {
-    render(<GameBoard userId="user1" />);
+    renderWithRouter(<GameBoard userId="user1" />);
 
     // Simulate receiving a vote request
     const voteRequestHandler = mockSocket.on.mock.calls.find(

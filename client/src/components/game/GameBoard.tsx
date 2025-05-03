@@ -1632,8 +1632,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     socket.on('card_vote_result', (data) => {
       console.log("card_vote_result", data);
-      // Only process if we haven't already handled this vote result
-      if (!voteRequest || voteRequest.playerId !== data.playerId) {
+      // Only process if this is the requesting player
+      if (voteRequest && voteRequest.playerId === data.playerId) {
         if (data.approved) {
           // If approved, send the new card deck request
           socket.emit('new_card_deck_request', {
@@ -1652,6 +1652,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             variant: "destructive"
           });
         }
+        // Reset vote state after processing
         setShowVotePanel(false);
         setVoteRequest(null);
         setPlayerVotes({});

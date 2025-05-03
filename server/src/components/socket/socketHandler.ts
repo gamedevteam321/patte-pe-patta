@@ -2145,6 +2145,10 @@ export const socketHandler = (io: Server): void => {
     // Handle new card deck request
     socket.on('new_card_deck_request', async ({ roomId, playerId}) => {
       const room = rooms.get(roomId);
+      console.log("new_card_deck_request", {
+        roomId,
+        playerId
+      });
       if (room) {
         // Find the player to get their user ID
         const player = room.gameState.players.find(p => p.id === playerId);

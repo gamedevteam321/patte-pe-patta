@@ -555,6 +555,11 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
       roomId: currentRoom.id, 
       vote 
     });
+    socket.emit("submit_card_vote", {
+      roomId: currentRoom.id,
+      playerId: user?.id,
+      vote
+    });
     setHasVoted(true);
   };
 

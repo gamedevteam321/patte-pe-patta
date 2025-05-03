@@ -1,3 +1,5 @@
+import { RoomType } from './game';
+
 export type BalanceType = 'demo' | 'real';
 
 export interface UserBalance {
@@ -170,8 +172,8 @@ export interface Room {
     name: string;
     entry_fee: number;
     max_players: number;
-    game_type: GameType;
-    status: RoomStatus;
+    game_type: RoomType;
+    status: string;
     created_at: string;
     updated_at: string;
 } 

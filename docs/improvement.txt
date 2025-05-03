@@ -8,6 +8,11 @@
 
 
 
+check port 
+netstat -ano | findstr :3000
+taskkill /F /PID [ID]]
+
+
 Server Improvements Plan
 ======================
 

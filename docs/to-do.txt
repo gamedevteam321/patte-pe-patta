@@ -11,7 +11,8 @@
 [] when player created a room and left and then joined back and won game then money is not credited into his balance
 [] Gameover panel going to casual from comptitive games
 [] when new card request added then show new card count immidietly
-
+[] click approval is not working properly
+[] in competitive game, after lobby click it is going to casual game.
 
 
 

@@ -1678,7 +1678,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const handleVote = (vote: boolean) => {
     if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id)) return;
-
+    // Close the voting panel immediately
+    setShowVotePanel(false);
     // Send vote to server
     socket.emit('submit_card_vote', {
       roomId: voteRequest.roomId,
@@ -1692,8 +1693,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       [userPlayer.id]: vote
     }));
 
-    // Close the voting panel immediately
-    setShowVotePanel(false);
+    
     setVoteRequest(null);
   };
 

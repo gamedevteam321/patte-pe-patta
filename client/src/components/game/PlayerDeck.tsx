@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, Player } from "../../types/game";
 import PlayingCard from "./PlayingCard";
 import { Badge } from "@/components/ui/badge";
 import { UserCircle, Clock, Coins, Timer, Award, ChevronDown, ChevronUp, Send, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSocket } from "../../context/SocketContext";
 
 interface PlayerDeckProps {
   player: Player;
@@ -37,10 +38,53 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
   MAX_TURN_TIME
 }) => {
   const [showCardStats, setShowCardStats] = useState(false);
-  
-  // Calculate score based on card count (in a real game, this might be more complex)
-  const cardScore = player.cards?.length || 0;
-  const hasCardsInDeck = player.cards && player.cards.length > 0;
+  const [localCards, setLocalCards] = useState(player.cards);
+  const { gameState: socketGameState } = useSocket();
+
+  // Update local cards when player.cards changes
+  useEffect(() => {
+    if (player.cards) {
+      setLocalCards(player.cards);
+      console.log("Cards updated from player prop:", player.cards);
+    }
+  }, [player.cards]);
+
+  // Update local cards when socket game state changes
+  useEffect(() => {
+    if (socketGameState) {
+      const updatedPlayer = socketGameState.players.find(p => p.id === player.id);
+      if (updatedPlayer && updatedPlayer.cards) {
+        setLocalCards(updatedPlayer.cards);
+        console.log("Cards updated from socket state:", updatedPlayer.cards);
+      }
+    }
+  }, [socketGameState, player.id]);
+
+  // Handle immediate card updates from game state
+  useEffect(() => {
+    if (gameState) {
+      const updatedPlayer = gameState.players.find(p => p.id === player.id);
+      if (updatedPlayer && updatedPlayer.cards) {
+        setLocalCards(updatedPlayer.cards);
+        console.log("Cards updated from game state:", updatedPlayer.cards);
+      }
+    }
+  }, [gameState, player.id]);
+
+  // Add effect to handle card distribution events
+  useEffect(() => {
+    if (socketGameState?.gameStarted && socketGameState.players) {
+      const updatedPlayer = socketGameState.players.find(p => p.id === player.id);
+      if (updatedPlayer && updatedPlayer.cards) {
+        setLocalCards(updatedPlayer.cards);
+        console.log("Cards updated from game start:", updatedPlayer.cards);
+      }
+    }
+  }, [socketGameState?.gameStarted, socketGameState?.players, player.id]);
+
+  // Calculate score based on card count
+  const cardScore = localCards?.length || 0;
+  const hasCardsInDeck = localCards && localCards.length > 0;
   
   // Calculate fan effect for cards
   const getFanAngle = (index: number, total: number) => {
@@ -110,7 +154,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
             {/* Show only one card */}
             <div className="relative inline-block card-in-deck">
               <PlayingCard 
-                card={player.cards[0]} 
+                card={localCards[0]} 
                 isBack={!isUser}
                 className={`${isCurrentPlayer && isUser ? "first-card-highlight" : ""}`}
               />
@@ -123,7 +167,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
         {/* Card count badge */}
         {hasCardsInDeck && (
           <div className="absolute -top-4 -right-4 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-gray-800 group">
-            {player.cards.length}
+            {localCards.length}
             <span className="absolute -bottom-8 right-0 hidden group-hover:block bg-black/80 text-white text-xs p-1 rounded whitespace-nowrap">
               {player.username}'s deck
             </span>
@@ -165,7 +209,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       {showCardStats && (
         <div className="mb-2 text-xs text-gray-300 bg-gray-800/50 p-1.5 rounded-md">
           <div className="flex justify-between gap-4">
-            <span>Cards in deck: <strong className="text-blue-300">{player.cards?.length || 0}</strong></span>
+            <span>Cards in deck: <strong className="text-blue-300">{localCards?.length || 0}</strong></span>
             <span>Score: <strong className="text-green-300">{cardScore}</strong></span>
           </div>
           <div className="mt-1 pt-1 border-t border-gray-700 text-center">
@@ -227,7 +271,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       {(position === "left" || position === "right") && isUser && gameState?.gameStarted && (
         <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex flex-col space-y-2">
           <Button
-            onClick={() => onCardClick?.(player.cards[0])}
+            onClick={() => onCardClick?.(localCards[0])}
             disabled={!isUserTurn || actionsDisabled}
             className={`hit-button ${isUserTurn && !actionsDisabled
               ? 'bg-green-600 hover:bg-green-700'

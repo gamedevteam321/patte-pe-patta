@@ -63,6 +63,7 @@ interface GameState {
     reason: string;
     timestamp: number;
   };
+  userNewCardRequest:boolean;
 }
 
 interface Room {
@@ -2137,6 +2138,10 @@ export const socketHandler = (io: Server): void => {
           reason: 'all_voted'
         });
 
+        //if approved, then set user new card request to true
+        if(approved){
+          room.gameState.userNewCardRequest = true;
+        }
         // Clear votes
         room.gameState.cardVotes = {};
       }
@@ -2299,7 +2304,7 @@ export const socketHandler = (io: Server): void => {
       });
 
       // Only process if the vote was approved and this is the first time processing this vote
-      if (approved) {
+      if (approved && room.gameState.userNewCardRequest) {
         // Check if this is a duplicate vote result
         const isDuplicate = room.gameState.lastVoteResult && 
           room.gameState.lastVoteResult.playerId === playerId && 
@@ -2388,6 +2393,7 @@ export const socketHandler = (io: Server): void => {
               }
             });
 
+            room.gameState.userNewCardRequest = false;
             // Update room state
             io.to(roomId).emit('room:updated', {
               updatedRoom: room,

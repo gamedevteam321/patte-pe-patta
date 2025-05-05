@@ -1609,6 +1609,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       return;
     }
 
+    // Set the vote request state for the requester
+    setVoteRequest({
+      playerId: userPlayer.id,
+      playerName: userPlayer.username,
+      roomId: currentRoom.id
+    });
+
     // Step 2: Send vote request to other players
     socket.emit('request_card_vote', {
       roomId: currentRoom.id,
@@ -1632,6 +1639,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     socket.on('card_vote_result', (data) => {
       console.log("card_vote_result", data);
+      console.log("voteRequest", voteRequest);
       // Only process if this is the requesting player
       if (voteRequest && voteRequest.playerId === data.playerId) {
         if (data.approved) {
@@ -1640,6 +1648,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             roomId: data.roomId,
             playerId: data.playerId
           });
+          
+          // The game state will be updated automatically through the game_state_updated event
+          // which is handled by the SocketContext
+          
           toast({
             title: "Request Approved",
             description: "Card request was approved by other players",
@@ -1652,7 +1664,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             variant: "destructive"
           });
         }
-        // Reset vote state after processing
         setShowVotePanel(false);
         setVoteRequest(null);
         setPlayerVotes({});

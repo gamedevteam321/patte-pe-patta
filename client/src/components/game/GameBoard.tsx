@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSocket, GameState, Card, Player } from "@/context/SocketContext";
-import { RoomType } from "@/types/game";
+import { RoomType, RoomData } from "@/types/game";
 import PlayingCard from "./PlayingCard";
 import PlayerDeck from "./PlayerDeck";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { createRoot } from 'react-dom/client';
 import GameOverPanel from './GameOverPanel';
 import { useBalance } from "@/context/BalanceContext";
-import { RoomData } from '@/context/SocketContext'; // Update the import
+import CardDistributionAnimation from './CardDistributionAnimation';
 
 // Add these animation styles
 const styles = `
@@ -476,6 +476,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [playerVotes, setPlayerVotes] = useState<Record<string, boolean>>({});
   const [voteTimer, setVoteTimer] = useState<number>(5);
   const [isVoting, setIsVoting] = useState(false); // Add vote lock state
+  const [isDistributingCards, setIsDistributingCards] = useState(false);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : (currentRoom?.config?.turnTime || 15000);; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -597,22 +598,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState?.gameStarted && !distributionComplete) {
-      setShowDistribution(true);
-
-      // Show distribution animation for 3 seconds
-      const timer = setTimeout(() => {
-        setShowDistribution(false);
-        setDistributionComplete(true);
-      }, 3000);
-
-      return () => clearTimeout(timer);
+      setIsDistributingCards(true);
+      setDistributionComplete(true);
     }
   }, [gameState?.gameStarted, distributionComplete]);
 
   useEffect(() => {
     if (gameState && !gameState.gameStarted) {
       setDistributionComplete(false);
-      setShowDistribution(false);
+      setIsDistributingCards(false);
     }
   }, [gameState]);
 
@@ -1137,13 +1131,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
 
     setActionsDisabled(true);
-    startGame();
-    toast({
-      title: "Starting game",
-      description: "Initializing game state...",
-      duration: 1000,
-      className: "top-0"
-    });
+    setIsDistributingCards(true);
+    
+    // Wait for distribution animation to complete before starting the game
+    setTimeout(() => {
+      startGame();
+    }, 3000);
   };
 
   const handleShuffleDeck = () => {
@@ -1624,7 +1617,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (!socket || !userPlayer) return;
 
     socket.on('card_vote_request', (data) => {
-      // Only show voting panel to active players
       const isPlayerDisabled = disabledPlayers.has(userPlayer.id);
       if (!isPlayerDisabled) {
         setVoteRequest(data);
@@ -1633,19 +1625,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
 
     socket.on('card_vote_result', (data) => {
-      console.log("card_vote_result", data);
-      console.log("userPlayer", userPlayer);
-      // Only process if this is the requesting player
       if (userPlayer && userPlayer.id === data.playerId) {
         if (data.approved) {
-          // If approved, send the new card deck request
+          setIsDistributingCards(true);
+          
           socket.emit('new_card_deck_request', {
             roomId: data.roomId,
             playerId: data.playerId
           });
-          
-          // The game state will be updated automatically through the game_state_updated event
-          // which is handled by the SocketContext
           
           toast({
             title: "Request Approved",
@@ -1671,7 +1658,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       socket.off('card_vote_request');
       socket.off('card_vote_result');
     };
-  }, [socket, disabledPlayers, userPlayer]);
+  }, [socket, disabledPlayers, userPlayer, voteRequest]);
 
   const handleVote = (vote: boolean) => {
     if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id) || isVoting) return;
@@ -1788,53 +1775,54 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     );
   };
 
+  const handleDistributionComplete = useCallback(() => {
+    setIsDistributingCards(false);
+  }, []);
+
+  // Update GameOverPanel to use the correct RoomData type
+  const gameOverRoomData: RoomData = {
+    id: currentRoom?.id || '',
+    name: currentRoom?.name || '',
+    roomName: currentRoom?.name || '',
+    hostName: currentRoom?.hostName || '',
+    host_name: currentRoom?.hostName || '',
+    host_id: currentRoom?.hostName || '', // Using hostName as host_id since it's not available
+    max_players: currentRoom?.maxPlayers || 4,
+    player_count: currentRoom?.playerCount || 0,
+    isPrivate: currentRoom?.isPrivate || false,
+    is_private: currentRoom?.isPrivate || false,
+    betAmount: currentRoom?.betAmount || 0,
+    amount_stack: currentRoom?.betAmount || 0,
+    cardRequestedCount: gameState.cardRequestedCount || 0,
+    status: currentRoom?.status || 'waiting',
+    created_at: currentRoom?.createdAt || '',
+    updated_at: currentRoom?.updatedAt || '',
+    code: currentRoom?.code || '',
+    room_type: currentRoom?.roomType || 'casual',
+    game_mode: 'standard',
+    is_demo_mode: false,
+    min_balance: 0,
+    waiting_time: 0,
+    passkey: currentRoom?.password || null,
+    password: currentRoom?.password || null,
+    current_turn: null,
+    created_by: currentRoom?.hostName || '',
+    config: {
+      maxBet: currentRoom?.config?.maxBet || 10000,
+      minBet: currentRoom?.config?.minBet || 50,
+      turnTime: currentRoom?.config?.turnTime || 15000,
+      maxPlayers: currentRoom?.config?.maxPlayers || 4,
+      description: currentRoom?.config?.description || 'Casual game room'
+    },
+    gameState: currentRoom?.gameState,
+    players: currentRoom?.players || []
+  };
+
   if (gameState.isGameOver) {
-    const winner = gameState.winner;
-    const isUserWinner = winner?.id === userId;
-    const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length) + (currentRoom?.betAmount || 0) * (gameState.cardRequestedCount || 0);
-    
-    console.log("Game Board-current room : ",currentRoom);
-    // Create a properly typed RoomData object
-    const typedRoomData: RoomData = {
-      id: currentRoom?.id || '',
-      name: currentRoom?.name || '',
-      roomName: currentRoom?.name || '',
-      hostName: currentRoom?.hostName || '',
-      host_name: currentRoom?.hostName || '',
-      host_id: currentRoom?.hostName || '',
-      max_players: currentRoom?.maxPlayers || 0,
-      player_count: currentRoom?.playerCount || 0,
-      isPrivate: currentRoom?.isPrivate || false,
-      is_private: currentRoom?.isPrivate || false,
-      betAmount: currentRoom?.betAmount || 0,
-      amount_stack: currentRoom?.betAmount || 0,
-      cardRequestedCount: gameState.cardRequestedCount || 0,
-      status: currentRoom?.status || 'waiting',
-      created_at: currentRoom?.createdAt || '',
-      updated_at: currentRoom?.updatedAt || '',
-      code: currentRoom?.code || '',
-      room_type: currentRoom?.room_type || 'casual',
-      game_mode: currentRoom?.gameMode || 'casual',
-      is_demo_mode: false,
-      min_balance: 0,
-      waiting_time: 0,
-      created_by: currentRoom?.hostName || '',
-      config: {
-        maxBet: currentRoom?.config?.maxBet || 10000,
-        minBet: currentRoom?.config?.minBet || 50,
-        turnTime: currentRoom?.config?.turnTime || 15000,
-        maxPlayers: currentRoom?.config?.maxPlayers || 4,
-        description: currentRoom?.config?.description || 'Casual game room',
-        gameDuration: currentRoom?.config?.gameDuration || 300,
-        shufflesAllowed: currentRoom?.config?.shufflesAllowed || 2,
-        cardDistribution: currentRoom?.config?.cardDistribution || {}
-      }
-    };
-    
     return (
       <GameOverPanel
         gameState={gameState}
-        currentRoom={typedRoomData}
+        currentRoom={gameOverRoomData}
         userId={userId}
         socket={socket}
         initialPlayerCount={initialPlayerCount}
@@ -2178,7 +2166,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       {gameState.gameStarted && userPlayer && (
                         <div className="absolute left-48 top-10 flex flex-col space-y-2">
                           {/*Show card request button only if card is zero */}
-                          {userPlayer.cards.length == 0 && currentRoom?.room_type === 'competitive' && (
+                          {userPlayer.cards.length == 0 && currentRoom?.roomType === 'competitive' && (
                             <Button
                               onClick={() => handleNewCardDeckRequest()}
                             >
@@ -2267,6 +2255,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       )}
       <VotePanel />
       <style>{styles}</style>
+      {isDistributingCards && (
+        <CardDistributionAnimation
+          players={gameState.players}
+          onComplete={handleDistributionComplete}
+        />
+      )}
     </>
   );
 };

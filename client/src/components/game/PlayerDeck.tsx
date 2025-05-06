@@ -45,7 +45,6 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
   useEffect(() => {
     if (player.cards) {
       setLocalCards(player.cards);
-      console.log("Cards updated from player prop:", player.cards);
     }
   }, [player.cards]);
 
@@ -55,7 +54,6 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       const updatedPlayer = socketGameState.players.find(p => p.id === player.id);
       if (updatedPlayer && updatedPlayer.cards) {
         setLocalCards(updatedPlayer.cards);
-        console.log("Cards updated from socket state:", updatedPlayer.cards);
       }
     }
   }, [socketGameState, player.id]);
@@ -66,7 +64,6 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       const updatedPlayer = gameState.players.find(p => p.id === player.id);
       if (updatedPlayer && updatedPlayer.cards) {
         setLocalCards(updatedPlayer.cards);
-        console.log("Cards updated from game state:", updatedPlayer.cards);
       }
     }
   }, [gameState, player.id]);
@@ -77,7 +74,6 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       const updatedPlayer = socketGameState.players.find(p => p.id === player.id);
       if (updatedPlayer && updatedPlayer.cards) {
         setLocalCards(updatedPlayer.cards);
-        console.log("Cards updated from game start:", updatedPlayer.cards);
       }
     }
   }, [socketGameState?.gameStarted, socketGameState?.players, player.id]);

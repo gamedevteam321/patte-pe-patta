@@ -50,6 +50,7 @@ export interface GameState {
   waitingStartTime: number;
   waitingTimer: number;
   autoStartEnabled: boolean;
+  cardRequestedCount: number;
 }
 
 // Database schema types
@@ -69,6 +70,7 @@ export interface RoomData {
   gameState?: GameState;
   playerCount: number;
   roomType: 'casual' | 'quick' | 'competitive';
+  gameMode: 'normal' ;
   config: {
     turnTime: number;
     gameDuration: number;
@@ -140,7 +142,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = React.useState(false);
   const [availableRooms, setAvailableRooms] = React.useState<RoomData[]>([]);
   const [currentRoom, setCurrentRoom] = React.useState<RoomData | null>(null);
-  const [gameState, setGameState] = React.useState<GameState | null>(null);
+  const [gameState, setGameState] = React.useState<GameState | null>({
+    players: [],
+    currentPlayerIndex: 0,
+    centralPile: [],
+    isGameOver: false,
+    gameStarted: false,
+    status: 'waiting',
+    requiredPlayers: 2,
+    waitingStartTime: 0,
+    waitingTimer: 0,
+    autoStartEnabled: false,
+    cardRequestedCount: 0
+  });
   const [canStartGame, setCanStartGame] = React.useState(false);
   const [lastFetchTime, setLastFetchTime] = React.useState<number>(0);
   const [isConnecting, setIsConnecting] = React.useState(false);
@@ -250,7 +264,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // If this is the current user's room (they created it)
       if (user && roomData.players.some(player => player.userId === user.id)) {
-        console.log('Setting current room for creator');
+        console.log('room data changed [room:created] : ', roomData);
         setCurrentRoom(roomData);
         if (roomData.gameState) {
           setGameState(roomData.gameState);
@@ -336,12 +350,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     newSocket.on('room:joined', (roomData) => {
       console.log('SocketContext: Room joined:', roomData);
-      // Ensure betAmount is properly set from amount_stack
+      // Ensure betAmount is properly set from amount_stack and room_type is preserved
       const roomWithBetAmount = {
         ...roomData,
-        betAmount: roomData.amount_stack || 0
+        betAmount: roomData.amount_stack || 0,
+        roomType: roomData.room_type || 'casual' // Ensure room_type is preserved
       };
-      console.log('Setting room with bet amount:', roomWithBetAmount);
+      console.log('room data changed [room:joined] : ', roomWithBetAmount);
       setCurrentRoom(roomWithBetAmount);
       if (roomData.gameState) {
         console.log('SocketContext: Setting game state from room join');
@@ -449,6 +464,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         hostName: user?.username || user?.email || "Player"
       }, (response: { success: boolean; room?: RoomData; roomId?: string; roomCode?: string; error?: string }) => {
         if (response.success) {
+          console.log("room data changed [createroom] : ",response.room);
           setCurrentRoom(response.room || null);
           resolve({ success: true, roomId: response.roomId, roomCode: response.roomCode });
         } else {
@@ -473,7 +489,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ...response.room,
             betAmount: response.room.betAmount || 0 // Use betAmount instead of amount_stack
           };
-          console.log('Joining room with bet amount:', roomWithBetAmount);
+          console.log('room data changed [joinRoom] : ', roomWithBetAmount);
           setCurrentRoom(roomWithBetAmount);
           resolve(true);
         } else {

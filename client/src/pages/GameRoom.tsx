@@ -812,7 +812,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
                  <div>
                    <div className="text-sm text-gray-400">Pool Amount</div>
                    <div className="text-white text-lg">
-                     ₹{(currentRoom?.betAmount || 0) * (gameState?.players.length || 1)}
+                     ₹{(currentRoom?.betAmount || 0) * (gameState?.players.length || 1) + (currentRoom?.betAmount || 0) * (gameState?.cardRequestedCount || 0)}
                    </div>
                  </div>
                </div>

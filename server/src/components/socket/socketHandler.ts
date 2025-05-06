@@ -81,6 +81,7 @@ interface Room {
   created_at: string;
   roomType: RoomType;
   config: any;
+  cardRequestedCount: number;
 }
 
 // Debug mode configuration
@@ -612,6 +613,7 @@ export const socketHandler = (io: Server): void => {
           hostName: roomData.hostName,
           isPrivate: roomData.isPrivate || false,
           password: roomData.passkey || null,
+          room_type: roomType,
           players: [{
             id: socket.id,
             userId: roomData.userId,
@@ -672,7 +674,9 @@ export const socketHandler = (io: Server): void => {
           password: roomData.passkey || null,
           status: 'waiting',
           betAmount: roomData.betAmount || 0,
-          createdAt: supabaseRoom.created_at
+          createdAt: supabaseRoom.created_at,
+          room_type: roomType,
+          gameMode: 'normal'
         };
 
         // Broadcast to all clients except the creator
@@ -791,7 +795,8 @@ export const socketHandler = (io: Server): void => {
             const responseRoom = {
               ...room,
               amount_stack: room.amount_stack,
-              betAmount: room.amount_stack
+              betAmount: room.amount_stack,
+              roomType: room.roomType // Add room type to response
             };
             callback({
               success: true,
@@ -996,7 +1001,8 @@ export const socketHandler = (io: Server): void => {
           const responseRoom = {
             ...room,
             amount_stack: room.amount_stack,
-            betAmount: room.amount_stack
+            betAmount: room.amount_stack,
+            roomType: room.roomType // Add room type to response
           };
           callback({
             success: true,
@@ -1862,7 +1868,7 @@ export const socketHandler = (io: Server): void => {
         }
 
         // Calculate total pool amount (bet amount * number of players)
-        const totalPoolAmount = room.amount_stack * room.players.length;
+        const totalPoolAmount = (room.amount_stack * room.players.length) + (room.amount_stack * room.gameState.cardRequestedCount);
         console.log('Calculating pool amount:', {
           amountPerPlayer: room.amount_stack,
           totalPlayers: room.players.length,
@@ -2066,7 +2072,15 @@ export const socketHandler = (io: Server): void => {
         const noVotes = Object.values(room.gameState.cardVotes).filter(vote => !vote).length;
 
         // Determine if request is approved
-        const approved = noVotes === 0; // All players must vote yes
+        const approved = yesVotes > noVotes; // All players must vote yes
+
+        if(approved){
+          room.gameState.userNewCardRequest = true;
+          // socket.emit('new_card_deck_request', {
+          //     roomId: roomId,
+          //     playerId: playerId
+          //   });
+        }
 
         // Notify all players of the result
         io.to(roomId).emit('card_vote_result', {
@@ -2114,10 +2128,14 @@ export const socketHandler = (io: Server): void => {
         const noVotes = Object.values(room.gameState.cardVotes).filter(vote => !vote).length;
 
         // Determine if request is approved
-        const approved = noVotes === 0; // All players must vote yes
+        const approved = yesVotes > noVotes; // All players must vote yes
         //if approved, then set user new card request to true
         if(approved){
           room.gameState.userNewCardRequest = true;
+          // socket.emit('new_card_deck_request', {
+          //   roomId: roomId,
+          //   playerId: playerId
+          // });
         }
         console.log("Vote result:", {
           yesVotes,
@@ -2126,14 +2144,7 @@ export const socketHandler = (io: Server): void => {
           totalVoters: voters.length,
           votes: room.gameState.cardVotes
         });
-        // socket.emit('card_vote_result', {
-        //   roomId,
-        //   playerId,
-        //   approved,
-        //   yesVotes,
-        //   noVotes,
-        //   reason: 'all_voted'
-        // });
+        
         // Notify all players of the result
         io.to(roomId).emit('card_vote_result', {
           roomId,

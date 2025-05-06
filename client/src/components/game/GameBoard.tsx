@@ -475,6 +475,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   } | null>(null);
   const [playerVotes, setPlayerVotes] = useState<Record<string, boolean>>({});
   const [voteTimer, setVoteTimer] = useState<number>(5);
+  const [isVoting, setIsVoting] = useState(false); // Add vote lock state
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : (currentRoom?.config?.turnTime || 15000);; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -488,6 +489,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const isUserTurn = gameState.gameStarted && currentPlayer?.id === userPlayer?.id;
   const isHost = gameState.players.length > 0 && gameState.players[0].userId === userId && !gameState.gameStarted;
   const hasMultiplePlayers = players.length > 1;
+
+  //console.log('current room :', currentRoom);
+
   //const positionedPlayers = getPlayerPositions();
   const getPlayerPositions = () => {
     // Find the player that matches the current user's ID
@@ -808,13 +812,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     // Listen for card play events from other players
     const handlePlayCardEvent = (data: { playerId: string, card: Card }) => {
-      console.log('handlePlayCardEvent called with data:', data);
-      console.log('Current players:', players);
-      console.log('Current player:', currentPlayer);
+     
 
       // Find the player who played the card
       const player = players.find(p => p.id === data.playerId);
-      console.log('Found player:', player);
+   
 
       if (!player) {
         console.log('Player not found for ID:', data.playerId);
@@ -823,15 +825,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
       // Get the player's position and deck element
       const playerPosition = positionedPlayers.find(p => p.player.id === player.id)?.position;
-      console.log('Player position:', playerPosition);
+     
 
       const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
       const poolArea = document.querySelector('.center-area');
 
-      console.log('Found elements:', {
-        playerDeck: !!playerDeck,
-        poolArea: !!poolArea
-      });
+     
 
       if (playerDeck && poolArea) {
         const deckRect = playerDeck.getBoundingClientRect();
@@ -847,8 +846,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           y: poolRect.top + (poolRect.height / 2) - 60
         };
 
-        console.log('Animation positions:', { startPosition, endPosition });
-
+       
         // Animate the card
         animateCardToPool(data.card, startPosition, endPosition);
       } else {
@@ -1030,11 +1028,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // Set initial player count to the number of players when game starts
       setInitialPlayerCount(gameState.players.length);
 
-      // Debug log to verify the count
-      console.log('Setting initial player count:', {
-        playerCount: gameState.players.length,
-        players: gameState.players
-      });
+     
+      
     }
   }, [gameState?.gameStarted, gameState?.players, initialPlayerCount]);
 
@@ -1043,9 +1038,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (!socket) return;
 
     const handleRoomReadyEvent = ({ roomId }: { roomId: string }) => {
-      console.log("Received room:ready event for room:", roomId);
+      //console.log("Received room:ready event for room:", roomId);
       if (isHost && !gameState.gameStarted) {
-        console.log("Host detected, starting game");
+        //console.log("Host detected, starting game");
         setTimeout(() => {
           startGame();
         }, 1500);
@@ -1083,7 +1078,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   useEffect(() => {
     // Check if room is ready when component mounts or gameState changes
     if (gameState?.status === 'ready' && isHost && !gameState.gameStarted && hasMultiplePlayers) {
-      console.log("Room is ready on mount/update, starting game");
+      //console.log("Room is ready on mount/update, starting game");
       setTimeout(() => {
         startGame();
       }, 1500);
@@ -1638,8 +1633,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
 
     socket.on('card_vote_result', (data) => {
-      console.log("card_vote_result", data);
-      console.log("voteRequest", voteRequest);
+      //console.log("card_vote_result", data);
+      //console.log("voteRequest", voteRequest);
       // Only process if this is the requesting player
       if (voteRequest && voteRequest.playerId === data.playerId) {
         if (data.approved) {
@@ -1677,9 +1672,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   }, [socket, disabledPlayers, userPlayer]);
 
   const handleVote = (vote: boolean) => {
-    if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id)) return;
+    if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id) || isVoting) return;
+    
+    // Set voting lock
+    setIsVoting(true);
+    
     // Close the voting panel immediately
     setShowVotePanel(false);
+    
     // Send vote to server
     socket.emit('submit_card_vote', {
       roomId: voteRequest.roomId,
@@ -1692,10 +1692,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       ...prev,
       [userPlayer.id]: vote
     }));
-
     
     setVoteRequest(null);
   };
+
+  // Reset voting lock when vote panel closes
+  useEffect(() => {
+    if (!showVotePanel) {
+      setIsVoting(false);
+    }
+  }, [showVotePanel]);
 
   // Add effect for vote timer
   useEffect(() => {
@@ -1783,34 +1789,43 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   if (gameState.isGameOver) {
     const winner = gameState.winner;
     const isUserWinner = winner?.id === userId;
-    const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length);
+    const poolAmount = (currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length) + (currentRoom?.betAmount || 0) * (gameState.cardRequestedCount || 0);
     
+    console.log("Game Board-current room : ",currentRoom);
     // Create a properly typed RoomData object
     const typedRoomData: RoomData = {
       id: currentRoom?.id || '',
       name: currentRoom?.name || '',
-      code: currentRoom?.code || '',
+      roomName: currentRoom?.name || '',
       hostName: currentRoom?.hostName || '',
-      maxPlayers: currentRoom?.maxPlayers || 0,
-      players: currentRoom?.players || [],
+      host_name: currentRoom?.hostName || '',
+      host_id: currentRoom?.hostName || '',
+      max_players: currentRoom?.maxPlayers || 0,
+      player_count: currentRoom?.playerCount || 0,
       isPrivate: currentRoom?.isPrivate || false,
-      password: currentRoom?.password,
-      status: currentRoom?.status || 'waiting',
+      is_private: currentRoom?.isPrivate || false,
       betAmount: currentRoom?.betAmount || 0,
-      createdAt: currentRoom?.createdAt || '',
-      updatedAt: currentRoom?.updatedAt || '',
-      gameState: currentRoom?.gameState || null,
-      playerCount: currentRoom?.playerCount || 0,
-      roomType: currentRoom?.roomType || 'casual',
+      amount_stack: currentRoom?.betAmount || 0,
+      cardRequestedCount: gameState.cardRequestedCount || 0,
+      status: currentRoom?.status || 'waiting',
+      created_at: currentRoom?.createdAt || '',
+      updated_at: currentRoom?.updatedAt || '',
+      code: currentRoom?.code || '',
+      room_type: currentRoom?.room_type || 'casual',
+      game_mode: currentRoom?.gameMode || 'casual',
+      is_demo_mode: false,
+      min_balance: 0,
+      waiting_time: 0,
+      created_by: currentRoom?.hostName || '',
       config: {
-        turnTime: 15000,
-        gameDuration: 300000,
-        maxPlayers: 4,
-        minBet: 50,
-        maxBet: 10000,
-        shufflesAllowed: 2,
-        description: 'Casual game room',
-        cardDistribution: {}
+        maxBet: currentRoom?.config?.maxBet || 10000,
+        minBet: currentRoom?.config?.minBet || 50,
+        turnTime: currentRoom?.config?.turnTime || 15000,
+        maxPlayers: currentRoom?.config?.maxPlayers || 4,
+        description: currentRoom?.config?.description || 'Casual game room',
+        gameDuration: currentRoom?.config?.gameDuration || 300,
+        shufflesAllowed: currentRoom?.config?.shufflesAllowed || 2,
+        cardDistribution: currentRoom?.config?.cardDistribution || {}
       }
     };
     
@@ -1854,7 +1869,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
             {/* Pool amount using initialPlayerCount */}
             <div className="text-sm text-gray-300 bg-green-900/70 p-2 rounded-lg">
-              Pool: ₹{(currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length)}
+              Pool: ₹{(currentRoom?.betAmount || 0) * (initialPlayerCount || gameState.players.length) + (currentRoom?.betAmount || 0) * (gameState.cardRequestedCount || 0)}
             </div>
           </div>
 

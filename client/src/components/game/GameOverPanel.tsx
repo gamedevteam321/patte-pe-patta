@@ -24,13 +24,18 @@ const GameOverPanel: React.FC<GameOverPanelProps> = ({
   const navigate = useNavigate();
   const winner = gameState.winner;
   const isUserWinner = winner?.id === userId;
-  const poolAmount = (currentRoom?.betAmount || currentRoom?.amount_stack || 0) * initialPlayerCount;
+  const initialPool = (currentRoom?.betAmount || currentRoom?.amount_stack || 0) * initialPlayerCount;
+  const additionalPool = (currentRoom?.betAmount || currentRoom?.amount_stack || 0) * (currentRoom?.cardRequestedCount || 0);
+  const poolAmount = initialPool + additionalPool;
 
   const handleReturnToLobby = () => {
+    console.log("game over panel : ",currentRoom);
+    const roomType = currentRoom?.room_type || 'casual';
     if (socket) {
       socket.emit('leave_room', currentRoom?.id);
     }
-    navigate(`/lobby?game=${currentRoom?.room_type || 'casual'}`);
+    // Use room_type from currentRoom, fallback to 'casual' if not available
+    navigate(`/lobby?game=${roomType}`);
   };
 
   return (
@@ -60,9 +65,6 @@ const GameOverPanel: React.FC<GameOverPanelProps> = ({
             </div>
           </div>
         </div>
-
-        
-       
 
         {/* Return to Lobby Button */}
         <div className="flex justify-center">

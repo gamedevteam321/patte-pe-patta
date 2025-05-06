@@ -44,6 +44,7 @@ export interface GameState {
   waitingStartTime: number;
   waitingTimer: number;
   autoStartEnabled: boolean;
+  cardRequestedCount: number;
 }
 
 // Room related types
@@ -79,6 +80,7 @@ export interface RoomData {
   is_private: boolean;
   betAmount?: number;
   amount_stack?: number;
+  cardRequestedCount?: number;
   status: string;
   created_at: string;
   updated_at: string;

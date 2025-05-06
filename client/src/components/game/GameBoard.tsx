@@ -1634,9 +1634,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     socket.on('card_vote_result', (data) => {
       console.log("card_vote_result", data);
-      console.log("voteRequest", voteRequest);
+      console.log("userPlayer", userPlayer);
       // Only process if this is the requesting player
-      if (voteRequest && voteRequest.playerId === data.playerId) {
+      if (userPlayer && userPlayer.id === data.playerId) {
         if (data.approved) {
           // If approved, send the new card deck request
           socket.emit('new_card_deck_request', {
@@ -1653,11 +1653,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             variant: "default"
           });
         } else {
-          toast({
-            title: "Request Rejected",
-            description: "Card request was rejected by other players",
-            variant: "destructive"
-          });
+          if(voteRequest && voteRequest.playerId === data.playerId) {
+            toast({
+              title: "Request Rejected",
+              description: "Card request was rejected by other players",
+              variant: "destructive"
+            });
+          }
         }
         setShowVotePanel(false);
         setVoteRequest(null);
@@ -2200,7 +2202,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             Your Turn - Hit!
                           </Button>
                           )}
-
+                          {userPlayer.cards.length > 0 && (
                           <div className="flex items-center gap-2">
                             <Button
                               onClick={handleShuffleDeck}
@@ -2224,6 +2226,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                               </Button>
                             )}
                           </div>
+                          )}
                         </div>
                       )}
                     </div>

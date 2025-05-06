@@ -280,7 +280,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
 
           <Button
             onClick={handleShuffleDeck}
-            disabled={!isUserTurn || actionsDisabled || (player?.shuffleCount ?? 0) >= 2}
+            disabled={actionsDisabled || (!isUserTurn || (player?.shuffleCount ?? 0) >= 2)}
             className={`${isUserTurn && !actionsDisabled && (player?.shuffleCount ?? 0) < 2
               ? 'bg-[#4169E1] hover:bg-[#3158c4]'
               : 'bg-gray-600'

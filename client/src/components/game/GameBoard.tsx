@@ -1633,8 +1633,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     });
 
     socket.on('card_vote_result', (data) => {
-      //console.log("card_vote_result", data);
-      //console.log("voteRequest", voteRequest);
+      console.log("card_vote_result", data);
+      console.log("voteRequest", voteRequest);
       // Only process if this is the requesting player
       if (voteRequest && voteRequest.playerId === data.playerId) {
         if (data.approved) {
@@ -2176,7 +2176,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       {gameState.gameStarted && userPlayer && (
                         <div className="absolute left-48 top-10 flex flex-col space-y-2">
                           {/*Show card request button only if card is zero */}
-                          {userPlayer.cards.length == 0 && (
+                          {userPlayer.cards.length == 0 && currentRoom?.room_type === 'competitive' && (
                             <Button
                               onClick={() => handleNewCardDeckRequest()}
                             >

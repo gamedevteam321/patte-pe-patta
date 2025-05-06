@@ -2051,7 +2051,7 @@ export const socketHandler = (io: Server): void => {
         playerName
       });
 
-      // Set a 5-second timeout for the vote
+      // Set a 10-second timeout for the vote
       setTimeout(() => {
         const room = rooms.get(roomId);
         if (!room) return;
@@ -2059,8 +2059,8 @@ export const socketHandler = (io: Server): void => {
         // Get all active players who should vote
         const activePlayers = room.gameState.players.filter(p => p.isActive);
         const voters = activePlayers.filter(p => p.id !== playerId);
-        console.log("voters", voters);
-        console.log("room.gameState.cardVotes", room.gameState.cardVotes);
+        //console.log("voters", voters);
+        //console.log("room.gameState.cardVotes", room.gameState.cardVotes);
         // Count votes received so far and mark non-voting players as "no"
         voters.forEach(voter => {
           if (room.gameState.cardVotes[voter.id] === undefined) {

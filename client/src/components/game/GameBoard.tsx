@@ -12,6 +12,7 @@ import { createRoot } from 'react-dom/client';
 import GameOverPanel from './GameOverPanel';
 import { useBalance } from "@/context/BalanceContext";
 import CardDistributionAnimation from './CardDistributionAnimation';
+import VotePanelComponent from './VotePanelComponent';
 
 // Add these animation styles
 const styles = `
@@ -1661,28 +1662,42 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   }, [socket, disabledPlayers, userPlayer, voteRequest]);
 
   const handleVote = (vote: boolean) => {
-    if (!socket || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id) || isVoting) return;
+    console.log('handleVote called with vote:', vote);
     
-    // Set voting lock
-    setIsVoting(true);
+    if (!socket || !userPlayer || !voteRequest) {
+      console.error('Cannot vote: missing required data');
+      return;
+    }
     
-    // Close the voting panel immediately
+    // Close the panel IMMEDIATELY after the vote
     setShowVotePanel(false);
     
     // Send vote to server
-    socket.emit('submit_card_vote', {
-      roomId: voteRequest.roomId,
-      playerId: voteRequest.playerId,
-      vote
-    });
-
-    // Update local state
-    setPlayerVotes(prev => ({
-      ...prev,
-      [userPlayer.id]: vote
-    }));
-    
-    setVoteRequest(null);
+    try {
+      console.log('Submitting vote:', {
+        roomId: voteRequest.roomId,
+        playerId: voteRequest.playerId,
+        vote: vote
+      });
+      
+      socket.emit('submit_card_vote', {
+        roomId: voteRequest.roomId,
+        playerId: voteRequest.playerId,
+        vote: vote
+      });
+      
+      // Give user feedback
+      toast({
+        title: vote ? "Vote: Approved" : "Vote: Rejected",
+        description: "Your vote has been submitted",
+        duration: 2000
+      });
+      
+      // Clear vote request
+      setVoteRequest(null);
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+    }
   };
 
   // Reset voting lock when vote panel closes
@@ -1713,68 +1728,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [showVotePanel]);
 
-  // Add this component to your JSX
-  const VotePanel = () => {
-    // Only show panel to active players
-    if (!showVotePanel || !voteRequest || !userPlayer || disabledPlayers.has(userPlayer.id)) {
-      // Ensure panel is hidden if any condition is not met
-      setShowVotePanel(false);
-      return null;
-    }
-
-    return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-        <div className="bg-[#1F2937] p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-blue-500/30">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-white">Card Request Vote</h3>
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-500/20 px-3 py-1 rounded-full text-sm text-blue-300">
-                Vote Required
-              </div>
-              <div className="bg-red-500/20 px-3 py-1 rounded-full text-sm text-red-300">
-                {voteTimer}s
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <p className="text-gray-300">
-              <span className="text-blue-400 font-medium">{voteRequest.playerName}</span> is requesting new cards.
-              Do you approve this request?
-            </p>
-            
-            <div className="flex gap-4 justify-center mt-6">
-              <button
-                onClick={() => handleVote(true)}
-                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Approve
-              </button>
-              <button
-                onClick={() => handleVote(false)}
-                className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Reject
-              </button>
-            </div>
-
-            <div className="mt-4 text-center text-sm text-gray-400">
-              {voteTimer > 0 
-                ? `You have ${voteTimer} seconds to vote`
-                : "Time's up! Auto-rejecting..."}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  // This is the handler for when a vote is submitted
+  const handleVoteSubmitted = () => {
+    setShowVotePanel(false);
+    setVoteRequest(null);
+    setIsVoting(false);
   };
-
+  
   const handleDistributionComplete = useCallback(() => {
     setIsDistributingCards(false);
   }, []);
@@ -2166,7 +2126,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                       {gameState.gameStarted && userPlayer && (
                         <div className="absolute left-48 top-10 flex flex-col space-y-2">
                           {/*Show card request button only if card is zero */}
-                          {userPlayer.cards.length == 0 && currentRoom?.roomType === 'competitive' && (
+                          {userPlayer.cards.length == 0 && currentRoom?.room_type === 'competitive' && (
                             <Button
                               onClick={() => handleNewCardDeckRequest()}
                             >
@@ -2253,7 +2213,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           </div>
         </div>
       )}
-      <VotePanel />
+      {showVotePanel && (
+        <VotePanelComponent
+          socket={socket}
+          voteRequest={voteRequest}
+          userPlayerId={userPlayer?.id}
+          voteTimer={voteTimer}
+          onVoteSubmitted={handleVoteSubmitted}
+        />
+      )}
       <style>{styles}</style>
       {isDistributingCards && (
         <CardDistributionAnimation

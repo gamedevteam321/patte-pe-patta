@@ -36,30 +36,8 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
       // Get center pool and player container elements
       const centerPool = document.querySelector('.center-area');
       
-      // Get player position based on index
-      let playerPosition;
-      switch (currentPlayerIndex) {
-        case 0:
-          playerPosition = 'bottom';
-          break;
-        case 1:
-          playerPosition = 'right';
-          break;
-        case 2:
-          playerPosition = 'top';
-          break;
-        case 3:
-          playerPosition = 'left';
-          break;
-        case 4:
-          playerPosition = 'top-left';
-          break;
-        case 5:
-          playerPosition = 'top-right';
-          break;
-        default:
-          playerPosition = 'bottom';
-      }
+      // Get player position based on index and total players
+      const playerPosition = getPlayerPosition(currentPlayerIndex, players.length);
 
       const playerContainer = document.querySelector(`.player-deck-${playerPosition}`);
       
@@ -178,6 +156,61 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
   }, []);
 
   return null;
+};
+
+// Get player position based on index and total players
+const getPlayerPosition = (index: number, totalPlayers: number) => {
+  switch (totalPlayers) {
+    case 2:
+      // For 2 players: bottom and top
+      return index === 0 ? 'bottom' : 'top';
+    
+    case 3:
+      // For 3 players: bottom, right, and top
+      switch (index) {
+        case 0: return 'bottom';
+        case 1: return 'left';
+        case 2: return 'top';
+        default: return 'bottom';
+      }
+    
+    case 4:
+      // For 4 players: bottom, right, top, and left
+      switch (index) {
+        case 0: return 'bottom';
+        case 1: return 'left';
+        case 2: return 'top';
+        case 3: return 'right';
+        default: return 'bottom';
+      }
+    
+    case 5:
+      // For 5 players: bottom, right, top, left, and top-left
+      switch (index) {
+        case 0: return 'bottom';
+        case 1: return 'left';
+        case 2: return 'top';
+        case 3: return 'right';
+        case 4: return 'top-left';
+        default: return 'bottom';
+      }
+    
+    case 6:
+      // For 6 players: bottom, right, top, left, top-left, and top-right
+      switch (index) {
+        case 0: return 'bottom';
+        case 1: return 'left';
+        case 2: return 'top';
+        case 3: return 'right';
+        case 4: return 'top-left';
+        case 5: return 'top-right';
+        default: return 'bottom';
+      }
+    
+    default:
+      // Default to bottom for any other case
+      return 'bottom';
+  }
 };
 
 export default CardDistributionAnimation; 

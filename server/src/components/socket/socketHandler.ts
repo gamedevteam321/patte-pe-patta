@@ -2020,6 +2020,18 @@ export const socketHandler = (io: Server): void => {
       }
     });
 
+    // Add broadcast_game_pause event handler
+    socket.on('broadcast_game_pause', ({ roomId }) => {
+      console.log(`Broadcasting game pause in room ${roomId}`);
+      io.to(roomId).emit('game_paused');
+    });
+
+    // Add broadcast_game_resume event handler
+    socket.on('broadcast_game_resume', ({ roomId }) => {
+      console.log(`Broadcasting game resume in room ${roomId}`);
+      io.to(roomId).emit('game_resumed');
+    });
+
     // Add debug mode handler
     socket.on('set_debug_mode', ({ enabled }: { enabled: boolean }) => {
       // Update debug mode for this socket's room

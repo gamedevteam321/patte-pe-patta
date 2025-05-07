@@ -478,6 +478,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const [voteTimer, setVoteTimer] = useState<number>(5);
   const [isVoting, setIsVoting] = useState(false); // Add vote lock state
   const [isDistributingCards, setIsDistributingCards] = useState(false);
+  // Add a new state for tracking game pause
+  const [isGamePaused, setIsGamePaused] = useState(false);
+  // Add a state for storing saved timer value
+  const [savedTurnTime, setSavedTurnTime] = useState<number | null>(null);
 
   const MAX_TURN_TIME = isDebugMode ? 2000 : (currentRoom?.config?.turnTime || 15000);; // 1 second in debug mode, 15 seconds in normal mode
   const MAX_SHUFFLE_COUNT = 2;
@@ -599,20 +603,42 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   useEffect(() => {
     if (gameState?.gameStarted && !distributionComplete) {
+      console.log("Game started and distribution not complete - initializing animation");
+      
+      // Pause the game and broadcast to all players
+      if (socket && currentRoom && userPlayer && gameState.players[0]?.id === userPlayer.id) {
+        console.log("Host is broadcasting initial game pause for card distribution");
+        socket.emit('broadcast_game_pause', {
+          roomId: currentRoom.id
+        });
+      }
+      
+      // Also pause locally (this will be overridden by the broadcast if we're the host)
+      if (turnTimer !== null) {
+        setSavedTurnTime(turnTimer);
+      }
+      setIsGamePaused(true);
       setIsDistributingCards(true);
       setDistributionComplete(true);
     }
-  }, [gameState?.gameStarted, distributionComplete]);
+  }, [gameState?.gameStarted, distributionComplete, turnTimer, socket, currentRoom, userPlayer]);
 
   useEffect(() => {
     if (gameState && !gameState.gameStarted) {
+      console.log("Game state reset - cleaning up animation state");
       setDistributionComplete(false);
       setIsDistributingCards(false);
+      setIsGamePaused(false);
     }
   }, [gameState]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.gameStartTime && gameState.roomDuration) {
+      // If game is paused, don't update the timer
+      if (isGamePaused) {
+        return;
+      }
+
       const interval = setInterval(() => {
         const now = Date.now();
         const elapsed = now - gameState.gameStartTime;
@@ -664,10 +690,15 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
       return () => clearInterval(interval);
     }
-  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame, socket, currentRoom]);
+  }, [gameState?.gameStarted, gameState?.gameStartTime, gameState?.roomDuration, endGame, socket, currentRoom, isGamePaused]);
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.turnEndTime) {
+      // If game is paused, don't update the timer
+      if (isGamePaused) {
+        return;
+      }
+
       const interval = setInterval(() => {
         const now = Date.now();
         const remaining = Math.max(0, gameState.turnEndTime - now);
@@ -681,7 +712,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             // Get the first card from the player's hand
             const cardToPlay = userPlayer.cards[0];
             if (cardToPlay) {
-              playCard(userPlayer.id, cardToPlay);
+              handlePlayCard(cardToPlay);
             }
           }
         }
@@ -692,7 +723,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       // Reset turn timer when not in a turn
       setTurnTimer(null);
     }
-  }, [gameState?.gameStarted, gameState?.turnEndTime, currentPlayer, userPlayer, playCard, isDebugMode]);
+  }, [gameState?.gameStarted, gameState?.turnEndTime, currentPlayer, userPlayer, playCard, isDebugMode, isGamePaused]);
 
   // Add effect to handle game over state
   useEffect(() => {
@@ -787,6 +818,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     // Listen for turn changes
     const handleTurnChange = (data: any) => {
+      // Don't process turn changes if game is paused
+      if (isGamePaused) return;
+      
       // Flash animation for the new current player
       const playerElement = document.querySelector(`.player-deck-${data.currentPlayerIndex}`);
       if (playerElement) {
@@ -807,11 +841,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
     // Listen for card play events from other players
     const handlePlayCardEvent = (data: { playerId: string, card: Card }) => {
-     
-
+      // Don't process card plays if game is paused
+      if (isGamePaused) return;
+      
       // Find the player who played the card
       const player = players.find(p => p.id === data.playerId);
-   
 
       if (!player) {
         console.log('Player not found for ID:', data.playerId);
@@ -820,12 +854,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
       // Get the player's position and deck element
       const playerPosition = positionedPlayers.find(p => p.player.id === player.id)?.position;
-     
-
       const playerDeck = document.querySelector(`.player-deck-${playerPosition}`);
       const poolArea = document.querySelector('.center-area');
-
-     
 
       if (playerDeck && poolArea) {
         const deckRect = playerDeck.getBoundingClientRect();
@@ -841,7 +871,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           y: poolRect.top + (poolRect.height / 2) - 60
         };
 
-       
         // Animate the card
         animateCardToPool(data.card, startPosition, endPosition);
       } else {
@@ -878,7 +907,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       socket.off('player_disabled', handlePlayerDisabled);
       socket.off('player_enabled', handlePlayerEnabled);
     };
-  }, [socket, userPlayer, players, positionedPlayers]);
+  }, [socket, userPlayer, players, positionedPlayers, isGamePaused]);
 
   // Reset actionsDisabled when game starts
   useEffect(() => {
@@ -907,6 +936,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     if (!socket) return;
 
     const handleCardMatch = (data: { playerId: string, cards: Card[] }) => {
+      // Don't process card matches if game is paused
+      if (isGamePaused) return;
+      
       // Find the matching cards (the last card played and its match)
       const matchedCard = data.cards[data.cards.length - 1];
       const matchingCard = data.cards[data.cards.length - 2];
@@ -974,7 +1006,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return () => {
       socket.off('card_match', handleCardMatch);
     };
-  }, [socket, players, userPlayer]);
+  }, [socket, players, userPlayer, isGamePaused]);
 
   // Also add an effect to reset match animation state when the game state changes
   useEffect(() => {
@@ -1126,22 +1158,56 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return null;
   };
 
+  // Fix the handleStartGame function to wait for card distribution
   const handleStartGame = () => {
     if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
       return;
     }
 
+    console.log("Starting game, initializing card distribution animation");
+    
+    // Set animation state first and pause the game
     setActionsDisabled(true);
     setIsDistributingCards(true);
+    setIsGamePaused(true);
     
-    // Wait for distribution animation to complete before starting the game
+    // Broadcast game pause to all players
+    if (socket && currentRoom) {
+      socket.emit('broadcast_game_pause', {
+        roomId: currentRoom.id
+      });
+    }
+    
+    // Animation will trigger startGame via handleDistributionComplete
+    // The game will be started after distribution completes
     setTimeout(() => {
+      console.log("Starting game after animation preparation");
       startGame();
-    }, 10000);
+    }, 1000);
   };
 
+  // Update to ensure host broadcasts game resume after initial card distribution
+  useEffect(() => {
+    // If animation has completed and we're still paused, we need to resume
+    if (distributionComplete && isGamePaused && gameState?.gameStarted) {
+      console.log("Distribution complete but game still paused - checking if should resume");
+      
+      // If we're the host/first player, broadcast resume
+      if (socket && currentRoom && userPlayer && 
+          gameState.players[0]?.id === userPlayer.id && 
+          !voteRequest) { // Only for initial distribution, not card requests
+        console.log("Host is broadcasting game resume after initial card distribution");
+        setTimeout(() => {
+          socket.emit('broadcast_game_resume', {
+            roomId: currentRoom.id
+          });
+        }, 1000); // Small delay to ensure animation has time to finish
+      }
+    }
+  }, [distributionComplete, isGamePaused, gameState?.gameStarted, socket, currentRoom, userPlayer, voteRequest]);
+
   const handleShuffleDeck = () => {
-    if (!isUserTurn || actionsDisabled || !userPlayer) {
+    if (!isUserTurn || actionsDisabled || !userPlayer || isGamePaused) {
       return;
     }
 
@@ -1180,7 +1246,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   const handlePlayCard = (card: Card) => {
-    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard) return;
+    if (!socket || !currentRoom || !userPlayer || actionsDisabled || isPlayingCard || isGamePaused) return;
 
     // Check if player is disabled
     if (disabledPlayers.has(userPlayer.id)) {
@@ -1585,7 +1651,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
 
   const handleNewCardDeckRequest = () => {
-    if (!socket || !currentRoom || !userPlayer) return;
+    if (!socket || !currentRoom || !userPlayer || isGamePaused) return;
 
     // Step 1: Check if user has enough balance
     const deckCost = currentRoom.betAmount || 0;
@@ -1628,6 +1694,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     socket.on('card_vote_result', (data) => {
       if (userPlayer && userPlayer.id === data.playerId) {
         if (data.approved) {
+          // Broadcast game pause to all players in the room
+          socket.emit('broadcast_game_pause', {
+            roomId: data.roomId
+          });
+          
+          // Pause locally too
+          if (turnTimer !== null) {
+            setSavedTurnTime(turnTimer);
+          }
+          setIsGamePaused(true);
           setIsDistributingCards(true);
           
           socket.emit('new_card_deck_request', {
@@ -1659,7 +1735,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       socket.off('card_vote_request');
       socket.off('card_vote_result');
     };
-  }, [socket, disabledPlayers, userPlayer, voteRequest]);
+  }, [socket, disabledPlayers, userPlayer, voteRequest, turnTimer]);
 
   const handleVote = (vote: boolean) => {
     console.log('handleVote called with vote:', vote);
@@ -1728,6 +1804,87 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [showVotePanel]);
 
+  // Add a cleanup mechanism to prevent the game from staying paused unexpectedly
+  useEffect(() => {
+    // Ensure game is resumed if we're not in a distributing cards state
+    const cleanupInterval = setInterval(() => {
+      if (isGamePaused && !isDistributingCards && distributionComplete && !voteRequest) {
+        console.log("Pause state cleanup: Game was paused but no active animations - resuming");
+        setIsGamePaused(false);
+        
+        // Restore saved turn time if needed
+        if (savedTurnTime !== null && gameState?.turnEndTime) {
+          gameState.turnEndTime = Date.now() + savedTurnTime;
+          setSavedTurnTime(null);
+        }
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, [isGamePaused, isDistributingCards, distributionComplete, voteRequest, savedTurnTime, gameState]);
+
+  // Add a listener for broadcast pause/resume events
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for game pause event (when cards are being distributed)
+    const handleGamePaused = () => {
+      console.log("Received game_paused event - pausing game for all players");
+      // Save current timer value if available
+      if (turnTimer !== null) {
+        setSavedTurnTime(turnTimer);
+      }
+      setIsGamePaused(true);
+      
+      // Make sure distribution animation plays for all clients
+      setIsDistributingCards(true);
+      
+      // Reset distribution completion flag so animation shows properly
+      setDistributionComplete(false);
+      
+      // Log that we're showing animation
+      console.log("Starting card distribution animation for all players");
+    };
+
+    // Listen for game resume event (when card distribution is complete)
+    const handleGameResumed = () => {
+      console.log("Received game_resumed event - resuming game for all players");
+      
+      // Complete animation and resume game
+      setDistributionComplete(true);
+      setIsDistributingCards(false);
+      setIsGamePaused(false);
+      
+      // Restore the timer if needed
+      if (savedTurnTime !== null && gameState?.turnEndTime && gameState.gameStarted && !gameState.isGameOver) {
+        // Update the turn end time to now + saved remaining time
+        gameState.turnEndTime = Date.now() + savedTurnTime;
+        setSavedTurnTime(null);
+      }
+
+      // Force check and update turn timer to prevent game freezes
+      if (gameState?.currentPlayerIndex !== undefined && gameState.turnEndTime) {
+        const now = Date.now();
+        if (now > gameState.turnEndTime) {
+          // Turn time has expired, force update
+          console.log("Turn time expired after game resumed - forcing update");
+          setTurnTimer(0);
+        } else {
+          // Update turn timer with correct remaining time
+          setTurnTimer(gameState.turnEndTime - now);
+        }
+      }
+    };
+
+    socket.on('game_paused', handleGamePaused);
+    socket.on('game_resumed', handleGameResumed);
+
+    return () => {
+      socket.off('game_paused', handleGamePaused);
+      socket.off('game_resumed', handleGameResumed);
+    };
+  }, [socket, turnTimer, savedTurnTime, gameState]);
+
   // This is the handler for when a vote is submitted
   const handleVoteSubmitted = () => {
     setShowVotePanel(false);
@@ -1736,8 +1893,36 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   };
   
   const handleDistributionComplete = useCallback(() => {
+    // Log animation completion
+    console.log("Distribution animation completed locally");
+    
+    // Update local animation state
     setIsDistributingCards(false);
-  }, []);
+    setDistributionComplete(true);
+    
+    // Only the player who requested cards should broadcast the resume event
+    if (socket && currentRoom && voteRequest && userPlayer && voteRequest.playerId === userPlayer.id) {
+      // Add a small delay before resuming to make sure animation has time to complete on all clients
+      setTimeout(() => {
+        console.log("Broadcasting game_resumed event to all players in room");
+        socket.emit('broadcast_game_resume', {
+          roomId: currentRoom.id
+        });
+      }, 500); // Small delay to ensure all animations have time to finish
+    } 
+    // For the initial distribution at game start, host should broadcast resume
+    else if (socket && currentRoom && userPlayer && gameState && 
+             gameState.players && gameState.players.length > 0 && 
+             gameState.players[0]?.id === userPlayer.id && 
+             !voteRequest && isGamePaused) {
+      setTimeout(() => {
+        console.log("Host is broadcasting game resume after initial card distribution");
+        socket.emit('broadcast_game_resume', {
+          roomId: currentRoom.id
+        });
+      }, 500);
+    }
+  }, [socket, currentRoom, voteRequest, userPlayer, gameState, isGamePaused]);
 
   // Update GameOverPanel to use the correct RoomData type
   const gameOverRoomData: RoomData = {
@@ -2129,6 +2314,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           {userPlayer.cards.length == 0 && currentRoom?.room_type === 'competitive' && (
                             <Button
                               onClick={() => handleNewCardDeckRequest()}
+                              disabled={isGamePaused}
                             >
                               Request Card  
                             </Button>
@@ -2140,22 +2326,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                           {userPlayer.cards.length > 0 && (
                             <Button
                               onClick={() => handlePlayCard(userPlayer.cards[0])}
-                              disabled={!isUserTurn || actionsDisabled}
-                            className={`hit-button ${isUserTurn && !actionsDisabled
-                              ? 'bg-green-600 hover:bg-green-700'
-                              : 'bg-gray-600'
-                              } text-white transition-colors duration-200`}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Your Turn - Hit!
-                          </Button>
+                              disabled={!isUserTurn || actionsDisabled || isGamePaused}
+                              className={`hit-button ${isUserTurn && !actionsDisabled && !isGamePaused
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-gray-600'
+                                } text-white transition-colors duration-200`}
+                            >
+                              <Send className="h-4 w-4 mr-2" />
+                              Your Turn - Hit!
+                            </Button>
                           )}
                           {userPlayer.cards.length > 0 && (
                           <div className="flex items-center gap-2">
                             <Button
                               onClick={handleShuffleDeck}
-                              disabled={!isUserTurn || actionsDisabled || (userPlayer?.shuffleCount ?? 0) >= 2}
-                              className={`${isUserTurn && !actionsDisabled && (userPlayer?.shuffleCount ?? 0) < 2
+                              disabled={!isUserTurn || actionsDisabled || (userPlayer?.shuffleCount ?? 0) >= 2 || isGamePaused}
+                              className={`${isUserTurn && !actionsDisabled && (userPlayer?.shuffleCount ?? 0) < 2 && !isGamePaused
                                 ? 'bg-[#4169E1] hover:bg-[#3158c4]'
                                 : 'bg-gray-600'
                                 } text-white flex-1`}
@@ -2167,6 +2353,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
                             {(userPlayer?.shuffleCount ?? 0) >= 2 && !hasPurchasedShuffleThisTurn && (
                               <Button
                                 onClick={() => setShowShufflePurchasePopup(true)}
+                                disabled={isGamePaused}
                                 className="bg-green-600 hover:bg-green-700 text-white p-2"
                                 title="Purchase additional shuffle"
                               >
@@ -2225,9 +2412,35 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       <style>{styles}</style>
       {isDistributingCards && (
         <CardDistributionAnimation
+          key={`distribution-${Date.now()}`} // Add a unique key so it re-renders properly
           players={gameState.players}
           onComplete={handleDistributionComplete}
         />
+      )}
+      {isGamePaused && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9998] pointer-events-none">
+          <div className="bg-blue-900/80 p-6 rounded-lg shadow-lg text-center">
+            <h3 className="text-2xl font-bold text-white mb-2">Game Paused</h3>
+            <p className="text-blue-200 mb-2">Distributing cards, please wait...</p>
+            <div className="flex items-center justify-center mt-3 bg-blue-800/50 p-2 rounded-lg">
+              <Clock className="h-5 w-5 text-blue-300 mr-2" />
+              <span className="text-blue-300 text-sm">Timers paused</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add a cleanup function to ensure the game doesn't stay paused unexpectedly */}
+      {isGamePaused && !isDistributingCards && distributionComplete && !voteRequest && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] pointer-events-none">
+          <div className="bg-blue-900/80 p-6 rounded-lg shadow-lg text-center">
+            <h3 className="text-2xl font-bold text-white mb-2">Pause State Cleanup</h3>
+            <p className="text-blue-200 mb-2">Game was paused but no active animations - resuming</p>
+            <div className="flex items-center justify-center mt-3 bg-blue-800/50 p-2 rounded-lg">
+              <Clock className="h-5 w-5 text-blue-300 mr-2" />
+              <span className="text-blue-300 text-sm">Restoring saved turn time</span>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

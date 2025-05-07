@@ -34,7 +34,7 @@ export interface GameState {
   gameStartTime?: number;
   turnEndTime?: number;
   roomDuration?: number;
-  status: 'waiting' | 'ready' | 'in_progress';
+  status: 'waiting' | 'ready' | 'playing';
   requiredPlayers: number;
   matchAnimation?: {
     isActive: boolean;

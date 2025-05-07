@@ -59,6 +59,11 @@
             "date": 1746506123437,
             "name": "logs\\balance-2025-05-06.log",
             "hash": "21df8d7995d33408c84715710681809a8ff5185c1f558de4fc414748c3f2880b"
+        },
+        {
+            "date": 1746592424472,
+            "name": "logs\\balance-2025-05-07.log",
+            "hash": "af9d6c940e8f9d7e3666a11669a04a5eed7e0b9cde9a11893c7f7fd412446e56"
         }
     ],
     "hashType": "sha256"

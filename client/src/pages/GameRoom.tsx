@@ -856,7 +856,7 @@ const GameRoom: React.FC<GameRoomProps> = ({ initialRoom }) => {
             <GameBoard userId={user.id || ""} />
             
             {/* Add Card Request Button and Voting UI */}
-            {gameState?.status === 'in_progress' && (
+            {gameState?.status === 'playing' && (
               <div className="mt-4 p-4 bg-[#051b2c] rounded-lg">
                 {!isCardRequestActive ? (
                   <div className="text-center text-white">

@@ -14,7 +14,7 @@ jest.mock('@/context/SocketContext', () => ({
       ],
       currentPlayerIndex: 0,
       centralPile: [],
-      status: 'in_progress'
+      status: 'playing'
     },
     currentRoom: {
       id: 'room1',

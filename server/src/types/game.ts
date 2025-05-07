@@ -1,7 +1,7 @@
 export enum GamePhase {
   WAITING = 'waiting',
   READY = 'ready',
-  IN_PROGRESS = 'in_progress',
+  PLAYING = 'playing',
   COMPLETED = 'completed'
 }
 

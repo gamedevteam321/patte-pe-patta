@@ -684,7 +684,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             }
           }
         }
-      }, isDebugMode ? 50 : 1000); // Update every 50ms in debug mode for smoother updates
+      }, isDebugMode ? 50 : 50); // Update every 50ms in debug mode for smoother updates
 
       return () => clearInterval(interval);
     } else {
@@ -1136,7 +1136,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Wait for distribution animation to complete before starting the game
     setTimeout(() => {
       startGame();
-    }, 3000);
+    }, 10000);
   };
 
   const handleShuffleDeck = () => {
@@ -1798,7 +1798,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     created_at: currentRoom?.createdAt || '',
     updated_at: currentRoom?.updatedAt || '',
     code: currentRoom?.code || '',
-    room_type: currentRoom?.roomType || 'casual',
+    room_type: currentRoom?.room_type || 'casual',
     game_mode: 'standard',
     is_demo_mode: false,
     min_balance: 0,

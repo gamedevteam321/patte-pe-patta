@@ -40,7 +40,7 @@ export interface GameState {
   gameStartTime?: number;
   turnEndTime?: number;
   roomDuration?: number;
-  status: 'waiting' | 'ready' | 'in_progress';
+  status: 'waiting' | 'ready' | 'playing';
   requiredPlayers: number;
   matchAnimation?: {
     isActive: boolean;
@@ -70,6 +70,7 @@ export interface RoomData {
   gameState?: GameState;
   playerCount: number;
   roomType: 'casual' | 'quick' | 'competitive';
+  room_type: 'casual' | 'quick' | 'competitive';
   gameMode: 'normal' ;
   config: {
     turnTime: number;

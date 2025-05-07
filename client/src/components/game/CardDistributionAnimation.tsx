@@ -43,10 +43,10 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
           playerPosition = 'bottom';
           break;
         case 1:
-          playerPosition = 'top';
+          playerPosition = 'right';
           break;
         case 2:
-          playerPosition = 'right';
+          playerPosition = 'top';
           break;
         case 3:
           playerPosition = 'left';
@@ -74,7 +74,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
 
       // Create card element for animation
       const cardElement = document.createElement('div');
-      cardElement.className = 'card-distribution-animation';
+      cardElement.className = 'card-distribution-animation water-flow';
       cardElement.style.position = 'fixed';
       cardElement.style.zIndex = '9999';
       cardElement.style.width = '50px';
@@ -83,7 +83,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
       cardElement.style.top = `${centerRect.top + centerRect.height / 2 - 60}px`;
       cardElement.style.transform = 'scale(0.5)';
       cardElement.style.opacity = '1';
-      cardElement.style.transition = 'all 0.1s cubic-bezier(0.4, 0, 0.2, 1)';
+      cardElement.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
       cardElement.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
       cardElement.style.borderRadius = '8px';
       cardElement.style.overflow = 'hidden';
@@ -101,7 +101,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
 
       // Create root and render card
       const root = createRoot(cardContent);
-      root.render(<PlayingCard card={currentPlayer.cards[currentCardIndex]} />);
+      root.render(<PlayingCard card={currentPlayer.cards[currentCardIndex]} isBack={true}/>);
 
       // Animate card to player with a slight delay for smoother animation
       requestAnimationFrame(() => {
@@ -113,13 +113,13 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
         });
       });
 
-      // Clean up after animation
+      // Only cleanup after the animation completes
       setTimeout(() => {
-        root.unmount();
-        document.body.removeChild(cardElement);
+        // root.unmount();
+        // document.body.removeChild(cardElement);
         setIsAnimating(false);
         setCurrentCardIndex(prev => prev + 1);
-      }, 300); // Reduced from 500ms to 300ms
+      }, 100); // Wait for the full animation to complete
     };
 
     if (!isAnimating) {
@@ -142,6 +142,33 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
         will-change: transform, opacity, left, top !important;
         backface-visibility: hidden !important;
         transform: translateZ(0) !important;
+      }
+
+      @keyframes water-flow {
+        0% {
+          transform: translateY(0) rotate(0deg) scale(1);
+          filter: brightness(1);
+        }
+        25% {
+          transform: translateY(-20px) rotate(5deg) scale(1.1);
+          filter: brightness(1.2);
+        }
+        50% {
+          transform: translateY(-40px) rotate(-5deg) scale(1.2);
+          filter: brightness(1.3);
+        }
+        75% {
+          transform: translateY(-20px) rotate(5deg) scale(1.1);
+          filter: brightness(1.2);
+        }
+        100% {
+          transform: translateY(0) rotate(0deg) scale(1);
+          filter: brightness(1);
+        }
+      }
+
+      .water-flow {
+        animation: water-flow 1.5s ease-in-out infinite;
       }
     `;
     document.head.appendChild(style);

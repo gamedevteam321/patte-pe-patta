@@ -76,7 +76,7 @@ export class GameStateManager {
   private startGame(): void {
     this.state.phase = GamePhase.READY;
     this.dealCards();
-    this.state.phase = GamePhase.IN_PROGRESS;
+    this.state.phase = GamePhase.PLAYING;
     this.state.currentPlayerIndex = 0;
     logInfo(`Game started in room ${this.roomId}`);
   }
@@ -94,7 +94,7 @@ export class GameStateManager {
   }
 
   public playCard(playerId: string, card: Card): void {
-    if (this.state.phase !== GamePhase.IN_PROGRESS) {
+    if (this.state.phase !== GamePhase.PLAYING) {
       throw new GameError('INVALID_PHASE', 'Cannot play card in current phase');
     }
 

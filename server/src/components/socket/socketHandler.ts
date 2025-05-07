@@ -1189,7 +1189,7 @@ export const socketHandler = (io: Server): void => {
             room.players.splice(playerIndex, 1);
 
             // Update game state if game was in progress
-            if (room.gameState && room.gameState.status === 'in_progress') {
+            if (room.gameState && room.gameState.status === 'playing') {
               // Handle game state cleanup
               room.gameState.players = room.gameState.players.filter(p => p.id !== socket.id);
               if (room.gameState.currentTurn === socket.id) {
@@ -1269,7 +1269,7 @@ export const socketHandler = (io: Server): void => {
         const cardsPerPlayer = Math.floor(deck.length / room.gameState.players.length);
 
         // Update game state
-        room.gameState.status = 'in_progress';
+        room.gameState.status = 'playing';
         room.gameState.gameStarted = true;
         room.gameState.gameStartTime = Date.now();
         room.gameState.currentPlayerIndex = 0; // Start with first player

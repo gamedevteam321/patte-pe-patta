@@ -4,7 +4,7 @@ export const useSocket = jest.fn(() => ({
     players: [],
     currentPlayerIndex: 0,
     centralPile: [],
-    status: 'in_progress'
+    status: 'playing'
   },
   currentRoom: {
     id: 'room1',

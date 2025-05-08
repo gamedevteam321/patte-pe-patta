@@ -617,20 +617,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       if (turnTimer !== null) {
         setSavedTurnTime(turnTimer);
       }
-      setIsGamePaused(true);
-      setIsDistributingCards(true);
-      setDistributionComplete(true);
+     
+      
     }
   }, [gameState?.gameStarted, distributionComplete, turnTimer, socket, currentRoom, userPlayer]);
 
-  useEffect(() => {
-    if (gameState && !gameState.gameStarted) {
-      console.log("Game state reset - cleaning up animation state");
-      setDistributionComplete(false);
-      setIsDistributingCards(false);
-      setIsGamePaused(false);
-    }
-  }, [gameState]);
+ 
 
   useEffect(() => {
     if (gameState?.gameStarted && gameState.gameStartTime && gameState.roomDuration) {
@@ -1112,6 +1104,27 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   }, [gameState, isHost, hasMultiplePlayers]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStartCardDistribution = () => {
+      setIsDistributingCards(true);
+    };
+    const handleEndCardDistribution = () => {
+      setIsDistributingCards(false);
+      setDistributionComplete(true);
+      setIsGamePaused(false);  
+      };
+
+    socket.on('start_card_distribution', handleStartCardDistribution);
+    socket.on('end_card_distribution', handleEndCardDistribution);
+
+    return () => {
+      socket.off('start_card_distribution', handleStartCardDistribution);
+      socket.off('end_card_distribution', handleEndCardDistribution);
+    };
+  }, [socket]);
+
   const handleRefreshGameState = async () => {
     if (!gameState) return;
 
@@ -1158,38 +1171,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     return null;
   };
 
-  // Fix the handleStartGame function to wait for card distribution
-  const handleStartGame = () => {
-    if (!gameState || gameState.gameStarted || !hasMultiplePlayers || !isHost) {
-      return;
-    }
-
-    console.log("Starting game, initializing card distribution animation");
-    
-    // Set animation state first and pause the game
-    setActionsDisabled(true);
-    setIsDistributingCards(true);
-    setIsGamePaused(true);
-    
-    // Broadcast game pause to all players
-    if (socket && currentRoom) {
-      socket.emit('broadcast_game_pause', {
-        roomId: currentRoom.id
-      });
-    }
-    
-    // Show animation for 5 seconds before starting the game
-    setTimeout(() => {
-      console.log("Starting game after 5 second animation");
-      startGame();
-      
-      // Stop animation and resume game after another 5 seconds
-      setTimeout(() => {
-        stopDistributingCards(currentRoom.id);
-      }, 3000);
-    }, 3000);
-  };
-
+ 
  
   const handleShuffleDeck = () => {
     if (!isUserTurn || actionsDisabled || !userPlayer || isGamePaused) {
@@ -1688,8 +1670,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           if (turnTimer !== null) {
             setSavedTurnTime(turnTimer);
           }
-          setIsGamePaused(true);
-          setIsDistributingCards(true);
+        
           
           socket.emit('new_card_deck_request', {
             roomId: data.roomId,
@@ -1769,9 +1750,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
   const stopDistributingCards = (roomId: string) => {
     // Stop animation after 5 seconds
    
-      setIsGamePaused(false);
-      setIsDistributingCards(false);
-      setDistributionComplete(true);
+    
+    
       
       // Broadcast game resume to all players
       socket.emit('broadcast_game_resume', {
@@ -1813,7 +1793,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     const cleanupInterval = setInterval(() => {
       if (isGamePaused && !isDistributingCards && distributionComplete && !voteRequest) {
         console.log("Pause state cleanup: Game was paused but no active animations - resuming");
-        setIsGamePaused(false);
+        
         
         // Restore saved turn time if needed
         if (savedTurnTime !== null && gameState?.turnEndTime) {
@@ -1837,13 +1817,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       if (turnTimer !== null) {
         setSavedTurnTime(turnTimer);
       }
-      setIsGamePaused(true);
       
-      // Make sure distribution animation plays for all clients
-      setIsDistributingCards(true);
       
-      // Reset distribution completion flag so animation shows properly
-      setDistributionComplete(false);
       
       // Log that we're showing animation
       console.log("Starting card distribution animation for all players");
@@ -1853,10 +1828,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     const handleGameResumed = () => {
       console.log("Received game_resumed event - resuming game for all players");
       
-      // Complete animation and resume game
-      setDistributionComplete(true);
-      setIsDistributingCards(false);
-      setIsGamePaused(false);
+      
       
       // Restore the timer if needed
       if (savedTurnTime !== null && gameState?.turnEndTime && gameState.gameStarted && !gameState.isGameOver) {
@@ -1900,9 +1872,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     console.log("Distribution animation completed locally");
     
     // Update local animation state
-    // setIsDistributingCards(false);
-    // setDistributionComplete(true);
-    stopDistributingCards(currentRoom.id);
+    
+    //stopDistributingCards(currentRoom.id);
     
     
   }, [socket, currentRoom, voteRequest, userPlayer, gameState, isGamePaused]);

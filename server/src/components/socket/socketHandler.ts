@@ -1329,6 +1329,9 @@ export const socketHandler = (io: Server): void => {
           gameState: room.gameState
         });
 
+        // Emit synchronized card distribution event
+        processCardDistributionAnimation(roomId);
+
         // Emit rooms updated to all clients
         io.emit('rooms_updated');
 
@@ -1354,8 +1357,23 @@ export const socketHandler = (io: Server): void => {
           });
         }
       }
+
+     
     });
 
+    function processCardDistributionAnimation(roomId: string) {
+      io.to(roomId).emit('start_card_distribution', {
+        startTime: Date.now(),
+        duration: 3000 // 3 seconds
+      });
+
+      // After 3 seconds, emit end event
+      setTimeout(() => {
+        io.to(roomId).emit('end_card_distribution', {
+          endTime: Date.now()
+        });
+      }, 3000);
+    }
     // Handle shuffle deck
     socket.on('shuffle_deck', ({ roomId }) => {
       try {
@@ -2266,11 +2284,14 @@ export const socketHandler = (io: Server): void => {
             real: 0
           });
 
+           // Emit synchronized card distribution event
+          processCardDistributionAnimation(roomId); 
           // Calculate and emit updated pool amount
           const initialPool = room.amount_stack * room.players.length;
           const additionalPool = room.amount_stack * room.gameState.cardRequestedCount;
           const totalPool = initialPool + additionalPool;
           
+
            // Update game state for all players
            io.to(roomId).emit('game_state_updated', {
             ...room.gameState,

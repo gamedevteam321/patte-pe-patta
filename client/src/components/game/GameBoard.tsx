@@ -1178,12 +1178,25 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       });
     }
     
-    // Animation will trigger startGame via handleDistributionComplete
-    // The game will be started after distribution completes
+    // Show animation for 5 seconds before starting the game
     setTimeout(() => {
-      console.log("Starting game after animation preparation");
+      console.log("Starting game after 5 second animation");
       startGame();
-    }, 1000);
+      
+      // Stop animation and resume game after another 5 seconds
+      setTimeout(() => {
+        setIsGamePaused(false);
+        setIsDistributingCards(false);
+        setDistributionComplete(true);
+        
+        // Broadcast game resume to all players
+        if (socket && currentRoom) {
+          socket.emit('broadcast_game_resume', {
+            roomId: currentRoom.id
+          });
+        }
+      }, 5000);
+    }, 5000);
   };
 
   // Update to ensure host broadcasts game resume after initial card distribution
@@ -1716,6 +1729,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
             description: "Card request was approved by other players",
             variant: "default"
           });
+
+          // Stop animation after 5 seconds
+          setTimeout(() => {
+            setIsGamePaused(false);
+            setIsDistributingCards(false);
+            setDistributionComplete(true);
+            
+            // Broadcast game resume to all players
+            socket.emit('broadcast_game_resume', {
+              roomId: data.roomId
+            });
+          }, 5000);
         } else {
           if(voteRequest && voteRequest.playerId === data.playerId) {
             toast({
@@ -1776,6 +1801,19 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     }
   };
 
+  const stopDistributingCards = (roomId: string) => {
+    // Stop animation after 5 seconds
+    setTimeout(() => {
+     setIsGamePaused(false);
+     setIsDistributingCards(false);
+     setDistributionComplete(true);
+     
+     // Broadcast game resume to all players
+     socket.emit('broadcast_game_resume', {
+       roomId: roomId
+     });
+   }, 5000);
+ }
   // Reset voting lock when vote panel closes
   useEffect(() => {
     if (!showVotePanel) {
@@ -2418,19 +2456,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
         />
       )}
       
-      {/* Add a cleanup function to ensure the game doesn't stay paused unexpectedly */}
-      {isGamePaused && !isDistributingCards && distributionComplete && !voteRequest && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] pointer-events-none">
-          <div className="bg-blue-900/80 p-6 rounded-lg shadow-lg text-center">
-            <h3 className="text-2xl font-bold text-white mb-2">Pause State Cleanup</h3>
-            <p className="text-blue-200 mb-2">Game was paused but no active animations - resuming</p>
-            <div className="flex items-center justify-center mt-3 bg-blue-800/50 p-2 rounded-lg">
-              <Clock className="h-5 w-5 text-blue-300 mr-2" />
-              <span className="text-blue-300 text-sm">Restoring saved turn time</span>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </>
   );
 };

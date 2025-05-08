@@ -274,39 +274,15 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[9995] flex items-center justify-center pointer-events-none backdrop-blur-sm">
-      <div className="glassmorphism rounded-xl shadow-xl text-center p-6 max-w-sm w-full mx-auto">
-        <h3 className="text-2xl font-bold text-white mb-2">Dealing Cards</h3>
-        
+      <div className=" rounded-xl shadow-xl text-center p-6 max-w-sm w-full mx-auto">
+       
         {/* Card stack visualization */}
         <div className="relative h-16 my-3 flex justify-center items-center">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pulse-glow rounded-full w-8 h-8 bg-blue-900/30"></div>
-          {[...Array(3)].map((_, i) => (
-            <div 
-              key={i}
-              className="absolute w-12 h-16 bg-white rounded-md shadow-md" 
-              style={{ 
-                backgroundImage: "url('/cardback.png')",
-                backgroundSize: 'cover',
-                transform: `rotate(${(i - 1) * 15}deg) translateX(${(i - 1) * 3}px)`,
-                zIndex: 10 - Math.abs(i - 1)
-              }}
-            />
-          ))}
+          
         </div>
         
-        {/* Progress bar */}
-        <div className="w-full bg-gray-700 rounded-full h-2 mb-3 overflow-hidden">
-          <div 
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-200 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        
-        <div className="text-blue-300 text-xs flex justify-between items-center">
-          <div className="text-center w-full">
-            {Math.round(progress)}% Complete
-          </div>
-        </div>
+       
       </div>
     </div>
   );

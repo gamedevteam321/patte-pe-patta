@@ -2417,18 +2417,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           onComplete={handleDistributionComplete}
         />
       )}
-      {isGamePaused && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9998] pointer-events-none">
-          <div className="bg-blue-900/80 p-6 rounded-lg shadow-lg text-center">
-            <h3 className="text-2xl font-bold text-white mb-2">Game Paused</h3>
-            <p className="text-blue-200 mb-2">Distributing cards, please wait...</p>
-            <div className="flex items-center justify-center mt-3 bg-blue-800/50 p-2 rounded-lg">
-              <Clock className="h-5 w-5 text-blue-300 mr-2" />
-              <span className="text-blue-300 text-sm">Timers paused</span>
-            </div>
-          </div>
-        </div>
-      )}
+      
       {/* Add a cleanup function to ensure the game doesn't stay paused unexpectedly */}
       {isGamePaused && !isDistributingCards && distributionComplete && !voteRequest && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] pointer-events-none">

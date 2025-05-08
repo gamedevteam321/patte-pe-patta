@@ -60,12 +60,12 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
           // Add small random delay for each card to create a natural flow
           setTimeout(() => {
             animateCard(playerIndex, cardIndex);
-          }, Math.random() * 100); // Random delay between 0-100ms
+          }, Math.random() * 50); // Reduced random delay between 0-50ms
         }
       });
 
-      // Set completion timeout
-      const animationDuration = 2000; // 2 seconds total
+      // Set completion timeout to 3 seconds
+      const animationDuration = 3000; // 3 seconds total
       setTimeout(() => {
         if (isDistributing) {
           console.log("Animation complete");
@@ -96,13 +96,14 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
     cardElement.style.top = `${centerRect.top + centerRect.height / 2 - 45}px`;
     cardElement.style.transform = 'scale(0.7)';
     cardElement.style.opacity = '1';
-    cardElement.style.transition = 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    cardElement.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
     cardElement.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.2)';
     cardElement.style.borderRadius = '8px';
     cardElement.style.overflow = 'hidden';
     cardElement.style.backgroundColor = 'transparent';
     cardElement.style.pointerEvents = 'none';
     cardElement.style.willChange = 'transform, opacity, left, top';
+    cardElement.style.transformOrigin = 'center center';
 
     // Add to tracked elements list
     setAnimationElements(prev => [...prev, cardElement]);
@@ -134,26 +135,26 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
     );
 
     // Calculate path with slight randomization
-    const midX = (centerRect.left + playerRect.left) / 2 + (Math.random() * 40 - 20);
-    const arcHeight = 50 + Math.random() * 20;
+    const midX = (centerRect.left + playerRect.left) / 2 + (Math.random() * 20 - 10);
+    const arcHeight = 30 + Math.random() * 10;
     const midY = Math.min(centerRect.top, playerRect.top) - arcHeight;
     
     // Add slight offset for card stacking effect
-    const offsetX = (cardIndex % 3) * 3 - 3;
-    const offsetY = (cardIndex % 3) * 3 - 3;
+    const offsetX = (cardIndex % 3) * 2 - 2;
+    const offsetY = (cardIndex % 3) * 2 - 2;
     const finalX = playerRect.left + playerRect.width / 2 - 30 + offsetX;
     const finalY = playerRect.top + playerRect.height / 2 - 45 + offsetY;
 
     // Animate along path
     let startTime: number;
-    const travelTime = 300; // Faster animation (300ms)
+    const travelTime = 250; // Faster animation (250ms)
     
     const animateAlongPath = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       const progress = Math.min(elapsed / travelTime, 1);
       
-      // Enhanced easing for natural card movement
+      // Enhanced easing for smoother card movement
       const easeOutBack = (t: number): number => {
         const c1 = 1.70158;
         const c3 = c1 + 1;
@@ -162,15 +163,15 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
       
       const easedProgress = easeOutBack(progress);
       
-      // Bezier curve calculation
-      const t = progress;
+      // Bezier curve calculation with smoother path
+      const t = easedProgress;
       const u = 1 - t;
       const tt = t * t;
       const uu = u * u;
       const uuu = uu * u;
       const ttt = tt * t;
       
-      // Cubic bezier curve
+      // Enhanced cubic bezier curve for smoother movement
       const x = uuu * (centerRect.left + centerRect.width / 2 - 30) + 
                 3 * uu * t * midX + 
                 3 * u * tt * (midX + (finalX - midX) * 0.5) + 
@@ -181,22 +182,21 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
                 3 * u * tt * (midY + (finalY - midY) * 0.5) + 
                 ttt * finalY;
                 
-      // Apply position
+      // Apply position with smooth transform
       cardElement.style.left = `${x}px`;
       cardElement.style.top = `${y}px`;
       
-      // Dynamic rotation and scale
-      const rotation = 360 * progress;
-      const scale = 0.7 + (progress * 0.3);
-      cardElement.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+      // Only scale, no rotation
+      const scale = 0.7 + (easedProgress * 0.3);
+      cardElement.style.transform = `scale(${scale})`;
       
-      // Add glow near destination
+      // Enhanced glow effect
       if (progress > 0.7) {
         const glowIntensity = (progress - 0.7) * 3.3;
         cardElement.style.boxShadow = `0 8px 20px rgba(0, 0, 0, 0.15), 0 0 ${10 + glowIntensity * 10}px rgba(59, 130, 246, ${glowIntensity * 0.5})`;
       }
       
-      // Fade out near the end
+      // Smoother fade out
       if (progress > 0.85) {
         cardElement.style.opacity = `${(1 - progress) * 6.7}`;
       }
@@ -246,6 +246,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
         transform: translateZ(0) !important;
         border: 2px solid rgba(59, 130, 246, 0.7) !important;
         filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.7));
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
       }
 
       @keyframes pulse-glow {

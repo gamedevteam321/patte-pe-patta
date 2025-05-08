@@ -1185,40 +1185,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
       
       // Stop animation and resume game after another 5 seconds
       setTimeout(() => {
-        setIsGamePaused(false);
-        setIsDistributingCards(false);
-        setDistributionComplete(true);
-        
-        // Broadcast game resume to all players
-        if (socket && currentRoom) {
-          socket.emit('broadcast_game_resume', {
-            roomId: currentRoom.id
-          });
-        }
-      }, 5000);
-    }, 5000);
+        stopDistributingCards(currentRoom.id);
+      }, 3000);
+    }, 3000);
   };
 
-  // Update to ensure host broadcasts game resume after initial card distribution
-  useEffect(() => {
-    // If animation has completed and we're still paused, we need to resume
-    if (distributionComplete && isGamePaused && gameState?.gameStarted) {
-      console.log("Distribution complete but game still paused - checking if should resume");
-      
-      // If we're the host/first player, broadcast resume
-      if (socket && currentRoom && userPlayer && 
-          gameState.players[0]?.id === userPlayer.id && 
-          !voteRequest) { // Only for initial distribution, not card requests
-        console.log("Host is broadcasting game resume after initial card distribution");
-        setTimeout(() => {
-          socket.emit('broadcast_game_resume', {
-            roomId: currentRoom.id
-          });
-        }, 1000); // Small delay to ensure animation has time to finish
-      }
-    }
-  }, [distributionComplete, isGamePaused, gameState?.gameStarted, socket, currentRoom, userPlayer, voteRequest]);
-
+ 
   const handleShuffleDeck = () => {
     if (!isUserTurn || actionsDisabled || !userPlayer || isGamePaused) {
       return;
@@ -1731,16 +1703,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
           });
 
           // Stop animation after 5 seconds
-          setTimeout(() => {
-            setIsGamePaused(false);
-            setIsDistributingCards(false);
-            setDistributionComplete(true);
-            
-            // Broadcast game resume to all players
-            socket.emit('broadcast_game_resume', {
-              roomId: data.roomId
-            });
-          }, 5000);
+          // setTimeout(() => {
+          //   stopDistributingCards(data.roomId);
+          // }, 3000);
         } else {
           if(voteRequest && voteRequest.playerId === data.playerId) {
             toast({
@@ -1803,16 +1768,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
   const stopDistributingCards = (roomId: string) => {
     // Stop animation after 5 seconds
-    setTimeout(() => {
-     setIsGamePaused(false);
-     setIsDistributingCards(false);
-     setDistributionComplete(true);
-     
-     // Broadcast game resume to all players
-     socket.emit('broadcast_game_resume', {
-       roomId: roomId
-     });
-   }, 5000);
+   
+      setIsGamePaused(false);
+      setIsDistributingCards(false);
+      setDistributionComplete(true);
+      
+      // Broadcast game resume to all players
+      socket.emit('broadcast_game_resume', {
+        roomId: roomId
+      });
+  
  }
   // Reset voting lock when vote panel closes
   useEffect(() => {
@@ -1935,31 +1900,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     console.log("Distribution animation completed locally");
     
     // Update local animation state
-    setIsDistributingCards(false);
-    setDistributionComplete(true);
+    // setIsDistributingCards(false);
+    // setDistributionComplete(true);
+    stopDistributingCards(currentRoom.id);
     
-    // Only the player who requested cards should broadcast the resume event
-    if (socket && currentRoom && voteRequest && userPlayer && voteRequest.playerId === userPlayer.id) {
-      // Add a small delay before resuming to make sure animation has time to complete on all clients
-      setTimeout(() => {
-        console.log("Broadcasting game_resumed event to all players in room");
-        socket.emit('broadcast_game_resume', {
-          roomId: currentRoom.id
-        });
-      }, 500); // Small delay to ensure all animations have time to finish
-    } 
-    // For the initial distribution at game start, host should broadcast resume
-    else if (socket && currentRoom && userPlayer && gameState && 
-             gameState.players && gameState.players.length > 0 && 
-             gameState.players[0]?.id === userPlayer.id && 
-             !voteRequest && isGamePaused) {
-      setTimeout(() => {
-        console.log("Host is broadcasting game resume after initial card distribution");
-        socket.emit('broadcast_game_resume', {
-          roomId: currentRoom.id
-        });
-      }, 500);
-    }
+    
   }, [socket, currentRoom, voteRequest, userPlayer, gameState, isGamePaused]);
 
   // Update GameOverPanel to use the correct RoomData type

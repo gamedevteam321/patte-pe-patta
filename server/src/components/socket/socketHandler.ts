@@ -1582,6 +1582,14 @@ export const socketHandler = (io: Server): void => {
         player.lastPlayTime = Date.now();
 
         // Check for auto-play
+        console.log('Auto-play detected:', {
+          playerId: id,
+          username: player.username,
+          autoPlayCount: player.autoPlayCount,
+          timeSinceLastPlay: Date.now() - (player.lastPlayTime || 0),
+          isHitButton: card.isHitButton
+        });
+        
         if (isAutoPlay(player, card) && !card.isHitButton) {
           player.autoPlayCount++;
           console.log('Auto-play detected:', {

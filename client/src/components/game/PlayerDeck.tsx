@@ -188,6 +188,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
                 </span>
               </div>
             )}
+            
           </div>
         )}
       </div>
@@ -267,7 +268,11 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       {(position === "left" || position === "right") && isUser && gameState?.gameStarted && (
         <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex flex-col space-y-2">
           <Button
-            onClick={() => onCardClick?.(localCards[0])}
+            onClick={() => {
+                localCards[0].isHitButton =true;
+                return onCardClick?.(localCards[0]);
+              
+            }}
             disabled={!isUserTurn || actionsDisabled}
             className={`hit-button ${isUserTurn && !actionsDisabled
               ? 'bg-green-600 hover:bg-green-700'

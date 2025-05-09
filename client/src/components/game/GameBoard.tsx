@@ -1228,12 +1228,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     // Lock animations immediately
     setAnimationLocked(true);
 
-    // Explicitly capture current top card before animation
-    //if (gameState.centralPile && gameState.centralPile.length > 0) {
-    //const currentTopCard = gameState.centralPile[gameState.centralPile.length - 1];
-    //setDisplayedCenterCard(currentTopCard);
-    //}
-
     setActionsDisabled(true);
     setLastPlayedCard(card);
     setCardInMotion(card);
@@ -1243,13 +1237,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
     setTimeout(() => {
       if (socket && currentRoom && userPlayer) {
         // Send play event to server with isHitButton flag
-        playCard(userPlayer.id, { ...card, isHitButton: true });
+        playCard(userPlayer.id, { ...card});
 
         // Re-enable actions after a delay
         setTimeout(() => {
           // Now show the new card with appear animation
           setDisplayedCenterCard(card);
-          //setIsAnimating(true);
           setActionsDisabled(false);
 
           // Reset animation state after a short delay
@@ -2279,7 +2272,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ userId }) => {
 
                           {userPlayer.cards.length > 0 && (
                             <Button
-                              onClick={() => handlePlayCard(userPlayer.cards[0])}
+                              onClick={() => {
+                                userPlayer.cards[0].isHitButton = true;
+                                return handlePlayCard(userPlayer.cards[0]);}
+                              }
                               disabled={!isUserTurn || actionsDisabled || isGamePaused}
                               className={`hit-button ${isUserTurn && !actionsDisabled && !isGamePaused
                                 ? 'bg-green-600 hover:bg-green-700'

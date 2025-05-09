@@ -120,7 +120,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
           style={{ 
             backgroundImage: "url('/cardback.png')",
             borderRadius: '6px',
-            border: '2px solid rgba(59, 130, 246, 0.7)'
+            border: '2px solid rgba(94, 96, 99, 0.7)'
           }}
         />
       </div>
@@ -168,7 +168,7 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
         will-change: transform, opacity, left, top !important;
         backface-visibility: hidden !important;
         transform: translateZ(0) !important;
-        border: 2px solid rgba(59, 130, 246, 0.7) !important;
+        border: 2px solid rgba(94, 96, 99, 0.7) !important;
       }
 
       @keyframes card-travel {
@@ -178,11 +178,11 @@ const CardDistributionAnimation: React.FC<CardDistributionAnimationProps> = ({ p
         }
         40% {
           transform: scale(1.2) rotate(180deg) translateY(-80px);
-          box-shadow: 0 0 20px rgba(59, 130, 246, 0.7);
+          box-shadow: 0 0 20px rgba(88, 89, 90, 0.7);
         }
         100% {
           transform: scale(1) rotate(360deg);
-          box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+          box-shadow: 0 0 10px rgba(174, 181, 192, 0.3);
         }
       }
     `;

@@ -10,10 +10,10 @@
 [x] when new card request added then show new card count immidietly
 [x] click approval is not working properly
 [x] in competitive game, after lobby click it is going to casual game.
+[x] autoplay indicator is not showing
 [] in lobby, show user count live on player join event
 [] when user create room if no one join or game aborted than refund money
 [] when player created a room and left and then joined back and won game then money is not credited into his balance
 [] player is disabled when it won on last card(remove disable)
-[] autoplay indicator is not showing
 
 

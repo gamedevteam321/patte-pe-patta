@@ -48,7 +48,7 @@ app.use(compressionMiddleware);
 
 // Configure CORS
 const corsOptions = {
-    origin: ['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080'],
+    origin: ['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080','http://192.168.1.15:8080'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-request-id'],

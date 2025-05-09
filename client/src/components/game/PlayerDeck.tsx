@@ -130,17 +130,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
     }
   };
 
-  const getPositionLabel = (position: PlayerDeckProps['position']): string => {
-    switch (position) {
-      case 'bottom': return 'You';
-      case 'top': return 'Top';
-      case 'top-left': return 'Top-Left';
-      case 'top-right': return 'Top-Right';
-      case 'left': return 'Left';
-      case 'right': return 'Right';
-      default: return '';
-    }
-  };
+
 
   return (
     <div className={`flex flex-col items-center ${getPositionStyles(position)} ${isCurrentPlayer ? "player-active" : ""} ${!player.isActive ? "player-disabled" : ""} ${className}`}>
@@ -171,12 +161,12 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
         )}
 
         {/* Username display for non-left/right positions */}
-        {turnTimeRemaining !== undefined && isCurrentPlayer && !["left", "right"].includes(position) && (
+        { !["left", "right"].includes(position) && (
           <div className="absolute -left-44 top-1/2 -translate-y-1/2 mr-4">
-            <div className={`flex flex-col items-center space-y-1 p-2 rounded-full ${isCurrentPlayer ? "bg-blue-500/20 border border-blue-400" : ""}`}>
+            <div className={`flex flex-col items-center space-y-1 p-2 rounded-full bg-blue-500/20 border border-blue-400`}>
               <div className="flex items-center space-x-2">
-                <UserCircle className={`h-4 w-4 ${isCurrentPlayer ? "text-blue-400 animate-pulse" : "text-gray-400"}`} />
-                <span className={`text-xs font-medium ${isCurrentPlayer ? "text-blue-300" : "text-white"}`}>
+                <UserCircle className={`h-4 w-4 text-blue-400 animate-pulse`} />
+                <span className={`text-xs font-medium text-blue-300`}>
                   {player.username}
                 </span>
               </div>
@@ -224,15 +214,15 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
         .player-active::after {
           content: '';
           position: absolute;
-          top: -5px;
+          top: -10px;
           left: 50%;
           transform: translateX(-50%);
           width: 0;
           height: 0;
-          border-left: 8px solid transparent;
-          border-right: 8px solid transparent;
-          border-top: 8px solid #3b82f6;
-          animation: bounce 1s infinite;
+          border-left: 16px solid transparent;
+          border-right: 16px solid transparent;
+          border-top: 16px solid #3b82f6;
+          animation: bounce 1s infinite, blink 1s infinite;
         }
         .player-disabled {
           opacity: 0.5;
@@ -256,7 +246,11 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
         }
         @keyframes bounce {
           0%, 100% { transform: translateX(-50%) translateY(0); }
-          50% { transform: translateX(-50%) translateY(-5px); }
+          50% { transform: translateX(-50%) translateY(-10px); }
+        }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
         .card-in-deck:hover {
           transform: translateY(-8px) !important;
@@ -298,7 +292,7 @@ const PlayerDeck: React.FC<PlayerDeckProps> = ({
       )}
 
       {/* Name and autoplay count for left and right players */}
-      {(position === "left" || position === "right") && (
+      {(position === "left" || position === "right" ) && (
         <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 flex flex-col items-center">
           <div className="flex items-center space-x-2 bg-blue-500/20 border border-blue-400 rounded-full px-3 py-1">
             <UserCircle className="h-4 w-4 text-blue-400" />

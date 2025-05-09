@@ -15,8 +15,8 @@ import { RoomType } from "@/types/game";
 // Room configurations
 const roomConfigs = {
   [RoomType.CASUAL]: {
-    minBet: 0,
-    maxBet: 1000,
+    minBet: 50,
+    maxBet: 10000,
     turnTime: 15000,
     gameDuration: 300000,
     maxPlayers: 4,
@@ -25,8 +25,8 @@ const roomConfigs = {
     cardDistribution: {}
   },
   [RoomType.QUICK]: {
-    minBet: 100,
-    maxBet: 5000,
+    minBet: 50,
+    maxBet: 10000,
     turnTime: 5000,
     gameDuration: 180000,
     maxPlayers: 4,
@@ -35,7 +35,7 @@ const roomConfigs = {
     cardDistribution: {}
   },
   [RoomType.COMPETITIVE]: {
-    minBet: 500,
+    minBet: 50,
     maxBet: 10000,
     turnTime: 20000,
     gameDuration: 240000,

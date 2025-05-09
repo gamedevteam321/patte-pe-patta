@@ -29,7 +29,7 @@ export const roomConfigs: Record<RoomType, RoomConfig> = {
     initialCards: 5,        // 5 cards per player
     maxPlayers: 4,
     minBet: 50,
-    maxBet: 500,
+    maxBet: 10000,
     shufflesAllowed: 2,
     description: "Relaxed gameplay with longer turn times"
   },
@@ -38,8 +38,8 @@ export const roomConfigs: Record<RoomType, RoomConfig> = {
     gameDuration: 180000,   // 3 minutes
     initialCards: 7,        // 7 cards per player
     maxPlayers: 4,
-    minBet: 100,
-    maxBet: 1000,
+    minBet: 50,
+    maxBet: 10000,
     shufflesAllowed: 1,
     description: "Fast-paced games with quick turns"
   },
@@ -48,7 +48,7 @@ export const roomConfigs: Record<RoomType, RoomConfig> = {
     gameDuration: 480000,   // 8 minutes
     initialCards: 10,       // 10 cards per player
     maxPlayers: 4,
-    minBet: 500,
+    minBet: 50,
     maxBet: 10000,
     shufflesAllowed: 1,
     description: "High-stakes games with more initial cards"

@@ -19,24 +19,24 @@ export interface Balance {
 
 export const balanceService = {
     getUserBalance: async (): Promise<Balance> => {
-        const response = await apiClient.get('/balance/balance');
+        const response = await apiClient.get('/api/v1/balance/balance');
         return response.data;
     },
 
     getTransactionHistory: async (limit: number = 50, offset: number = 0): Promise<Transaction[]> => {
-        const response = await apiClient.get('/balance/transactions', {
+        const response = await apiClient.get('/api/v1/balance/transactions', {
             params: { limit, offset }
         });
         return response.data;
     },
 
     claimDailyReward: async (): Promise<Balance> => {
-        const response = await apiClient.post('/balance/daily-reward');
+        const response = await apiClient.post('/api/v1/balance/daily-reward');
         return response.data.balance;
     },
 
     processGameResult: async (isWinner: boolean, amount: number, balanceType: BalanceType): Promise<Balance> => {
-        const response = await apiClient.post('/balance/game-result', {
+        const response = await apiClient.post('/api/v1/balance/game-result', {
             isWinner,
             amount,
             balanceType
@@ -45,17 +45,17 @@ export const balanceService = {
     },
 
     joinTournament: async (tournamentId: string): Promise<Balance> => {
-        const response = await apiClient.post(`/balance/tournaments/${tournamentId}/join`);
+        const response = await apiClient.post(`/api/v1/balance/tournaments/${tournamentId}/join`);
         return response.data.balance;
     },
 
     processReferralBonus: async (referredId: string): Promise<Balance> => {
-        const response = await apiClient.post(`/balance/referral/${referredId}`);
+        const response = await apiClient.post(`/api/v1/balance/referral/${referredId}`);
         return response.data.balance;
     },
 
     canJoinRoom: async (roomId: string): Promise<boolean> => {
-        const response = await apiClient.get(`/balance/can-join-room/${roomId}`);
+        const response = await apiClient.get(`/api/v1/balance/can-join-room/${roomId}`);
         return response.data.canJoin;
     },
 
@@ -85,7 +85,7 @@ export const balanceService = {
                     transactionId
                 });
 
-                const response = await apiClient.post('/balance/room-entry', {
+                const response = await apiClient.post('/api/v1/balance/room-entry', {
                     userId,
                     roomId,
                     amount,

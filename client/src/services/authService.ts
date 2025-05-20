@@ -80,7 +80,7 @@ export const authService = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
     try {
       console.log('Attempting login with:', { email });
-      const response = await axiosInstance.post('/auth/login', {
+      const response = await axiosInstance.post('/api/v1/auth/login', {
         email,
         password
       });
@@ -114,7 +114,7 @@ export const authService = {
 
   register: async (username: string, email: string, password: string): Promise<AuthResponse> => {
     try {
-      const response = await axiosInstance.post('/auth/register', {
+      const response = await axiosInstance.post('/api/v1/auth/register', {
         username,
         email,
         password
@@ -130,7 +130,7 @@ export const authService = {
 
   logout: async (): Promise<{ success: boolean }> => {
     try {
-      const response = await axiosInstance.post('/auth/logout');
+      const response = await axiosInstance.post('/api/v1/auth/logout');
       return response.data;
     } catch (error) {
       return { success: false };
@@ -140,7 +140,7 @@ export const authService = {
   verifyToken: async (token: string): Promise<AuthResponse> => {
     console.log("Verifying token...");
     try {
-      const response = await axiosInstance.get('/auth/verify', {
+      const response = await axiosInstance.get('/api/v1/auth/verify', {
         headers: {
           Authorization: `Bearer ${token}`
         },
